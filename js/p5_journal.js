@@ -1,5 +1,7 @@
 /* ---------------- journal partage : depot prive GitHub JOURNAL-TERRAIN (12/10/2026)
-   Cle d'acces saisie une fois sur le telephone (collee, ou code scanne), gardee sur le telephone, jamais dans la page publique.
+   Connexion par identifiant et mot de passe, geres dans la console. Les cles GitHub ne sont jamais saisies par les militants :
+   chaque compte porte sa cle chiffree par son mot de passe (fichier public acces.json du depot de l'appli, PBKDF2 puis AES-GCM),
+   dechiffree sur le telephone a la connexion et gardee sur le telephone. Aucune cle en clair dans la page publique.
    Listes de reference = fichier listes.json. Action = une fiche (issue) : etat courant dans le bloc de donnees du corps
    (schema journal-terrain/1), etiquettes circo, type, statut, campagne ; saisies = commentaires ; suppression = fiche fermee
    avec l'etiquette supprimee. Envoi differe de 3 s, file gardee sur le telephone hors connexion, relecture toutes les 90 s. */
@@ -8,13 +10,12 @@ var CLE=LS.get('cle','')||'',refSha=LS.get('refSha','')||'',jRefAEnv=!!LS.get('r
 const JAPI='https://api.github.com/repos/jlucb67/JOURNAL-TERRAIN',JFL='listes.json';
 const b64e=s=>{const b=new TextEncoder().encode(s);let x='';for(let i=0;i<b.length;i+=32768)x+=String.fromCharCode.apply(null,b.subarray(i,i+32768));return btoa(x);};
 const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(String(s).replace(/\s/g,'')),c=>c.charCodeAt(0)));
-async function gh(meth,ch,corps,ent){const h=Object.assign({Accept:'application/vnd.github+json',Authorization:'Bearer '+CLE},corps!==undefined?{'Content-Type':'application/json'}:{},ent||{});
- try{const r=await fetch(JAPI+ch,{method:meth,headers:h,body:corps!==undefined?JSON.stringify(corps):undefined,cache:'no-store'});
+async function gh(meth,ch,corps,ent,base,cle){const k=cle===undefined?CLE:cle,h=Object.assign({Accept:'application/vnd.github+json'},k?{Authorization:'Bearer '+k}:{},corps!==undefined?{'Content-Type':'application/json'}:{},ent||{});
+ try{const r=await fetch((base||JAPI)+ch,{method:meth,headers:h,body:corps!==undefined?JSON.stringify(corps):undefined,cache:'no-store'});
   let j=null;if(r.status!==204&&r.status!==304){try{j=await r.json();}catch(e){}}
   return {ok:r.ok,st:r.status,j,h:r.headers,lim:r.status===429||(r.status===403&&r.headers.get('x-ratelimit-remaining')==='0')};}
  catch(e){return {ok:false,st:0,j:null,h:null};}}
-const jMsg=r=>r.st===0?'Pas de connexion au journal. Vérifiez le réseau, puis réessayez.':r.st===401?'Clé refusée : elle est fausse, ou elle a été changée. Demandez la nouvelle à un administrateur.':r.lim?'Le journal reçoit trop de demandes : réessayez dans quelques minutes.':r.st===403||r.st===404?'Cette clé ne donne pas accès au journal.':r.st===-1?'Le fichier des listes du journal est illisible.':'Le journal ne répond pas (erreur '+r.st+'). Réessayez plus tard.';
-const lireCle=v=>{v=String(v||'').trim();const m=/[#&?]cle=([^&\s]+)/.exec(v);return m?decodeURIComponent(m[1]):v;};
+const jMsg=r=>r.st===0?'Pas de connexion au journal. Vérifiez le réseau, puis réessayez.':r.st===401?'Accès refusé par le journal : reconnectez-vous, ou demandez un nouveau mot de passe à un administrateur.':r.lim?'Le journal reçoit trop de demandes : réessayez dans quelques minutes.':r.st===403||r.st===404?'Cet accès ne permet pas cette opération.':r.st===-1?'Le fichier des listes du journal est illisible.':'Le journal ne répond pas (erreur '+r.st+'). Réessayez plus tard.';
 
 /* listes de reference : lues a la connexion et a chaque ouverture, ecrites par la console (cle administrateurs) */
 function normREF(x){x=x&&typeof x==='object'?x:{};x.v=2;['campagnes','ga','users','materiel'].forEach(k=>{if(!Array.isArray(x[k]))x[k]=[];});
@@ -121,48 +122,95 @@ function jEtat(r){const avant=jHors;jHors=!!(r&&r.st===0);
  jDit=false;}
 function rafraichir(){const v=stack[stack.length-1];if(v&&['base','actions','console','users','controles'].includes(v.id))render(true);}
 function jOuvert(n){jChargerMeta(n);jTirer().then(()=>{if(jEnAttente())jPousser();});}
-function cleRefusee(){if(!CLE&&!$('login').hidden)return;CLE='';LS.set('cle','');LS.set('session',null);fermerMenu();
- ecranConnexion(()=>{if(D){jTirer().then(()=>jPousser());}else demarrer();},'La clé a été changée ou retirée. Saisissez la nouvelle clé.');}
+function cleRefusee(){if(!CLE&&!$('login').hidden)return;oublierAcces();fermerMenu();
+ ecranConnexion(()=>{if(D){jTirer().then(()=>jPousser());}else demarrer();},'Votre accès a changé : reconnectez-vous.');}
 
-/* connexion : la cle d'abord (elle ouvre les listes), puis le nom */
+/* ---------------- acces : identifiant et mot de passe. Fichier public acces.json du depot de l'appli :
+   {v, comptes:{<empreinte de l'identifiant>:{s,iv,c,n}}} ; chaque compte chiffre {id, p (profil), k (cle), ku (cle utilisateurs,
+   administrateurs seulement)} par son mot de passe. Lecture sans cle ; ecriture par la console, avec la cle administrateurs. */
+const JAPP='https://api.github.com/repos/jlucb67/terrain',JACC='acces.json',ITER=600000;
+const u8b64=u=>{let x='';for(let i=0;i<u.length;i+=32768)x+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(x);};
+const b64u8=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const normLogin=l=>String(l||'').trim().toLowerCase();
+async function idLogin(l){const h=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('terrain2027|'+normLogin(l))));return [...h.slice(0,16)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function cleMdp(mdp,sel,n){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(mdp),'PBKDF2',false,['deriveKey']);
+ return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:sel,iterations:n},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
+async function chiffrer(o,mdp){const sel=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await cleMdp(mdp,sel,ITER);
+ return {s:u8b64(sel),iv:u8b64(iv),n:ITER,c:u8b64(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(JSON.stringify(o)))))};}
+async function dechiffrer(b,mdp){const k=await cleMdp(mdp,b64u8(b.s),b.n||ITER);return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64u8(b.iv)},k,b64u8(b.c))));}
+const accesVide=()=>({v:1,comptes:{}});
+async function lireAcces(){const r=await gh('GET','/contents/'+JACC,undefined,undefined,JAPP,'');
+ if(r.ok){try{return {ok:true,a:JSON.parse(b64d(r.j.content))};}catch(e){return {ok:false,st:-1};}}
+ if(r.st===404)return {ok:true,a:accesVide()};
+ try{const q=await fetch(JACC+'?t='+Date.now(),{cache:'no-store'});if(q.ok)return {ok:true,a:await q.json()};if(q.status===404)return {ok:true,a:accesVide()};}catch(e){}
+ return r;}
+/* ecriture : relire, modifier, renvoyer ; une nouvelle tentative si un autre administrateur a ecrit entre-temps */
+async function ecrireAcces(modif,message,cle){for(let t=0;t<3;t++){
+  const g=await gh('GET','/contents/'+JACC,undefined,undefined,JAPP,cle);let a=accesVide(),sha;
+  if(g.ok){a=JSON.parse(b64d(g.j.content));sha=g.j.sha;}else if(g.st!==404)return g;
+  a.comptes=a.comptes||{};await modif(a);
+  const r=await gh('PUT','/contents/'+JACC,{message,content:b64e(JSON.stringify(a,null,1)+'\n'),sha},undefined,JAPP,cle);
+  if(r.ok||(r.st!==409&&r.st!==422))return r;}
+ return {ok:false,st:409};}
+const msgAcces=r=>r.st===0?'Pas de connexion. Vérifiez le réseau, puis réessayez.':r.st===401?'La clé administrateurs est refusée par GitHub.':r.st===403||r.st===404?'La clé administrateurs n\'a pas accès au dépôt de l\'appli (terrain) : ajoutez-le à cette clé dans GitHub.':'Enregistrement des accès impossible (erreur '+r.st+').';
+function oublierAcces(){CLE='';LS.set('cle','');LS.set('cleU','');LS.set('session',null);}
+const mdpPropose=()=>{const a='abcdefghjkmnpqrstuvwxyz23456789',v=crypto.getRandomValues(new Uint8Array(10));return [...v].map(x=>a[x%a.length]).join('');};
+/* compte d'une personne : sa cle selon son profil ; un administrateur porte aussi la cle utilisateurs pour creer des comptes */
+async function blocCompte(u,mdp){const adm=u.profil==='admin',cu=LS.get('cleU','')||'';
+ return chiffrer(adm?{id:u.id,p:'admin',k:CLE,ku:cu}:{id:u.id,p:'utilisateur',k:cu},mdp);}
+
+/* connexion : identifiant et mot de passe ; la premiere fois, un administrateur colle les deux cles (mise en place) */
 function connecte(){const x=LS.get('session',null);return CLE&&x&&REF.users.some(u=>u.id===x.id&&u.actif)?x:null;}
-function ecranConnexion(apres,msg){const o=$('login'),sel=$('lgN'),e=$('lgE'),ki=$('lgK'),go=$('lgGo');o.hidden=false;
- const err=t=>{e.textContent=t||'';e.hidden=!t;};let ok=false,tmr=0,enCours=null;err(msg);ki.value='';
- const noms=b=>{sel.disabled=!b;sel.innerHTML=b?'<option value="">Choisissez votre nom</option>'+REF.users.filter(u=>u.actif).map(u=>`<option value="${esc(u.id)}">${esc(u.nom)}</option>`).join(''):'<option value="">D\'abord la clé d\'accès</option>';};
- const marque=()=>{ki.placeholder=CLE?'Clé enregistrée sur ce téléphone':'Collez la clé ou scannez le code';};
- const verifier=c=>enCours=verif(c);const verif=async c=>{err('');go.disabled=true;const anc=CLE;CLE=c;const r=await lireListes();go.disabled=false;
-  if(r.ok){LS.set('cle',CLE);ok=true;ki.value='';noms(true);marque();return true;}
-  if(r.st===0&&c===anc&&LS.get('ref',null)){ok=true;noms(true);err('Pas de connexion : listes gardées sur ce téléphone.');return true;}
-  CLE=anc;ok=false;noms(false);marque();err(jMsg(r));return false;};
- noms(false);marque();if(CLE)verifier(CLE);
- ki.oninput=()=>{clearTimeout(tmr);const c=lireCle(ki.value);if(c.length>=30)tmr=setTimeout(()=>verifier(c),300);};
- $('lgS').onclick=()=>scanner(c=>verifier(c));
- go.onclick=async()=>{clearTimeout(tmr);if(enCours)await enCours;const c=lireCle(ki.value);if(c&&c!==CLE&&!(await verifier(c)))return;
-  if(!CLE||!ok){err(e.textContent||'Saisissez d\'abord la clé d\'accès.');return;}
-  const id=sel.value;if(!id){err('Choisissez votre nom.');return;}
-  MOI=id;LS.set('moi',MOI);LS.set('session',{id,le:isoD(new Date())});appliquerTheme();o.hidden=true;err('');apres();};}
-/* scan dans l'appli quand le navigateur sait lire les codes ; sinon l'appareil photo du telephone ouvre le lien du code */
-async function scanner(fn){if(!('BarcodeDetector' in window)||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Visez le code avec l\'appareil photo du téléphone : l\'appli s\'ouvre avec la clé.');return;}
- let st=null,fin=false;const ov=document.createElement('div');ov.className='scan';ov.innerHTML='<video playsinline muted></video><div class="scan-c"></div><button class="btn line" type="button">Annuler</button>';document.body.appendChild(ov);
- const v=ov.querySelector('video'),stop=()=>{fin=true;if(st)st.getTracks().forEach(t=>t.stop());ov.remove();};ov.querySelector('button').onclick=stop;
- try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});v.srcObject=st;await v.play();const bd=new BarcodeDetector({formats:['qr_code']});
-  const tour=async()=>{if(fin)return;try{const c=await bd.detect(v);if(c&&c[0]&&c[0].rawValue){const k=lireCle(c[0].rawValue);stop();fn(k);return;}}catch(e){}setTimeout(tour,250);};tour();}
- catch(e){stop();toast('Appareil photo indisponible : visez le code avec l\'appareil photo du téléphone, ou collez la clé.');}}
-/* console : code a montrer pour donner la cle ; l'ecran ne l'enregistre nulle part. Generateur de codes QR (Kazuhiko Arase,
-   licence MIT) charge depuis cdnjs, empreinte verifiee par le navigateur. */
-function chargerQR(fn){if(window.qrcode){fn();return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';s.integrity='sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1';s.crossOrigin='anonymous';s.onload=fn;s.onerror=()=>toast('Le générateur de code n\'a pas pu être chargé. Vérifiez la connexion.');document.head.appendChild(s);}
-function vueCode(){return {id:'code',html:()=>{let h=headHTML('Code d\'accès','La personne le vise avec l\'appareil photo de son téléphone : l\'appli s\'ouvre avec la clé.',true);
-  h+=`<label class="fld" for="ck">Clé à transmettre (utilisateurs ou administrateurs)<input id="ck" type="password" autocomplete="off" placeholder="Collez la clé"></label><div class="qr" id="qr"></div>`;
-  h+=`<div class="hint">Cet écran n'enregistre la clé nulle part.</div>`;return h;},
- after:()=>{const i=$('ck'),z=$('qr');i.oninput=()=>{const c=lireCle(i.value);if(c.length<20){z.innerHTML='';return;}
-  chargerQR(()=>{const q=qrcode(0,'M');q.addData(location.origin+location.pathname+'#cle='+encodeURIComponent(c));q.make();z.innerHTML=q.createSvgTag({cellSize:6,margin:4,scalable:true});});};}};}
+function ecranConnexion(apres,msg){const o=$('login'),f=$('lgF'),t=$('lgT');o.hidden=false;let acces=null;
+ const err=m=>{const e=$('lgE');if(e){e.textContent=m||'';e.hidden=!m;}};
+ const fini=()=>{appliquerTheme();o.hidden=true;apres();};
+ const vueConnexion=m=>{t.textContent='Connexion';
+  f.innerHTML=`<div class="sub">Une seule fois sur ce téléphone.</div><label class="fld" for="lgL">Identifiant<input id="lgL" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label><label class="fld" for="lgP">Mot de passe<input id="lgP" type="password" autocomplete="current-password"></label><div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="lgGo">Se connecter</button></div><button class="lnk2" id="lgM" hidden>Première mise en place</button>`;
+  err(m);const go=$('lgGo');
+  lireAcces().then(r=>{if(r.ok){acces=r.a;if(!Object.keys(acces.comptes||{}).length){const b=$('lgM');if(b){b.hidden=false;b.onclick=vueMiseEnPlace;}}}});
+  $('lgP').onkeydown=e=>{if(e.key==='Enter')go.click();};
+  go.onclick=async()=>{const l=$('lgL').value,p=$('lgP').value;if(!normLogin(l)||!p){err('Indiquez votre identifiant et votre mot de passe.');return;}
+   go.disabled=true;go.textContent='Connexion…';err('');
+   try{if(!acces){const r=await lireAcces();if(!r.ok){err(jMsg(r));return;}acces=r.a;}
+    const b=(acces.comptes||{})[await idLogin(l)];let x=null;if(b){try{x=await dechiffrer(b,p);}catch(e){}}
+    if(!x){err('Identifiant ou mot de passe incorrect.');return;}
+    const anc=CLE;CLE=x.k;const r=await lireListes();
+    if(!r.ok){CLE=anc;err(r.st===401?'Cet accès a été retiré : demandez un nouveau mot de passe à un administrateur.':jMsg(r));return;}
+    const u=REF.users.find(v=>v.id===x.id);if(!u||!u.actif){CLE=anc;err('Accès suspendu : voyez avec un administrateur.');return;}
+    LS.set('cle',CLE);LS.set('cleU',x.ku||'');MOI=x.id;LS.set('moi',MOI);LS.set('session',{id:x.id,login:normLogin(l),le:isoD(new Date())});fini();}
+   finally{go.disabled=false;go.textContent='Se connecter';}};};
+ /* mise en place : les deux cles une seule fois, puis le compte de l'administrateur ; tout est chiffre dans acces.json */
+ const vueMiseEnPlace=()=>{t.textContent='Première mise en place';
+  f.innerHTML=`<div class="sub">Une seule fois, par un administrateur. Les clés restent chiffrées par votre mot de passe.</div><label class="fld" for="mKA">Clé administrateurs<input id="mKA" type="password" autocomplete="off"></label><label class="fld" for="mKU">Clé utilisateurs<input id="mKU" type="password" autocomplete="off"></label><div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="mV">Vérifier les clés</button></div><div id="mS"></div><button class="lnk2" id="mR">Retour à la connexion</button>`;
+  $('mR').onclick=()=>vueConnexion();
+  $('mV').onclick=async()=>{const ka=$('mKA').value.trim(),ku=$('mKU').value.trim();if(!ka||!ku){err('Collez les deux clés.');return;}err('');
+   const ru=await gh('GET','/contents/'+JFL,undefined,undefined,JAPI,ku);if(!ru.ok){err(ru.st===0?jMsg(ru):'La clé utilisateurs est refusée.');return;}
+   const anc=CLE;CLE=ka;const ra=await lireListes();if(!ra.ok){CLE=anc;err(ra.st===0?jMsg(ra):'La clé administrateurs est refusée.');return;}
+   const adm=REF.users.filter(u=>u.actif&&u.profil==='admin');
+   $('mS').innerHTML=`<label class="fld" for="mN">Votre nom<select id="mN">${adm.map(u=>`<option value="${esc(u.id)}">${esc(u.nom)}</option>`).join('')}</select></label><label class="fld" for="mL">Votre identifiant<input id="mL" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label><label class="fld" for="mP">Votre mot de passe (7 caractères au moins)<input id="mP" type="password" autocomplete="new-password"></label><div class="btns"><button class="btn primary" id="mC">Créer mon accès</button></div>`;
+   $('mV').hidden=true;$('mKA').disabled=true;$('mKU').disabled=true;
+   $('mC').onclick=async()=>{const id=$('mN').value,l=normLogin($('mL').value),p=$('mP').value;
+    if(!l){err('Choisissez un identifiant.');return;}if(p.length<7){err('Le mot de passe doit faire 7 caractères au moins.');return;}
+    const b=$('mC');b.disabled=true;b.textContent='Enregistrement…';err('');
+    try{const u=REF.users.find(v=>v.id===id),bloc=await chiffrer({id,p:'admin',k:ka,ku},p),cle=await idLogin(l);
+     const r=await ecrireAcces(a=>{a.comptes[cle]=bloc;},'Accès : mise en place par '+u.nom,ka);
+     if(!r.ok){err(msgAcces(r));return;}
+     CLE=ka;LS.set('cle',ka);LS.set('cleU',ku);MOI=id;LS.set('moi',MOI);LS.set('session',{id,login:l,le:isoD(new Date())});
+     u.login=l;sauverREF();fini();toast('Accès créé : à l\'avenir, connectez-vous avec « '+l+' » et votre mot de passe.');}
+    finally{b.disabled=false;b.textContent='Créer mon accès';}};};};
+ vueConnexion(msg);}
+/* console : identifiant et mot de passe d'une personne ; suspendre retire son compte */
+async function majCompte(x,ancien,mdp){const cles=[];
+ if(ancien&&ancien.login&&(ancien.login!==x.login||!x.actif||mdp))cles.push(['-',await idLogin(ancien.login)]);
+ if(x.login&&x.actif&&mdp)cles.push(['+',await idLogin(x.login),await blocCompte(x,mdp)]);
+ if(!cles.length)return {ok:true};
+ return ecrireAcces(a=>{cles.forEach(([o,c,b])=>{if(o==='-')delete a.comptes[c];else a.comptes[c]=b;});},'Accès : '+x.nom+' (console, par '+moi().nom+')');}
 
-/* premier lancement relie au journal : les essais de la maquette restent sur le telephone, mis de cote, jamais envoyes */
+/* versions precedentes : essais de la maquette mis de cote, cle collee oubliee (la connexion passe par l'identifiant) */
 if(!LS.get('jv',0)){try{for(let k=1;k<=18;k++)['actions','cr','pap'].forEach(p=>{const v=localStorage.getItem(p+k);if(v!=null){localStorage.setItem(p+'_maquette'+k,v);localStorage.removeItem(p+k);}});
  const r=localStorage.getItem('ref');if(r!=null){localStorage.setItem('ref_maquette',r);localStorage.removeItem('ref');}}catch(e){}
  LS.set('session',null);LS.set('jv',1);}
-/* cle recue par le lien d'un code scanne : gardee sur le telephone, retiree de l'adresse */
-(()=>{const m=/[#&]cle=([^&]+)/.exec(location.hash||'');if(!m)return;const c=decodeURIComponent(m[1]);try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}if(c&&c!==CLE){CLE=c;LS.set('cle',c);}})();
+if(LS.get('jv',0)<2){const x=LS.get('session',null);if(!(x&&x.login))oublierAcces();LS.set('jv',2);}
 JPRET=true;
 setInterval(()=>{if(document.visibilityState!=='visible'||!connecte())return;if(jEnAttente())jPousser();else jTirer();},90000);
 addEventListener('online',()=>{if(!connecte())return;jPousser().then(()=>jTirer());if(jRefAEnv)jEcrireListes();});
