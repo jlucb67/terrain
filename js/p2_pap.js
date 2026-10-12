@@ -6,8 +6,10 @@ const actPar=id=>ACTIONS.find(a=>a.id===id);
 const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
  if(l&&l.par===u&&l.quoi===quoi&&ageJ(l.le)*1440<10){l.le=now;return;}a.saisies.push({par:u,le:now,quoi});}
-function nouvelleAction(type,x){const g=moi().ga.filter(id=>gaActifs().some(y=>y.id===id));
- return Object.assign({id:uid(),type,nom:'',campagne:campDefaut(),ga:g.length?g.slice(0,1):(gaActifs()[0]?[gaActifs()[0].id]:[]),statut:'a_faire',prevue:'',faite_le:'',nb:nbm,tracts:0,materiel:'',etapes:[],saisies:[],cree_par:moi().id,cree_le:isoD(new Date())},x||{});}
+/* GA d'une nouvelle action : le dernier choisi sur ce téléphone s'il mène des actions dans cette circo, sinon le seul GA de la circo s'il n'y en a qu'un */
+function gaDefaut(){const act=gaActifs(),d=(LS.get('dga',null)||[]).filter(g=>act.some(x=>x.id===g));return d.length?d.slice():act.length===1?[act[0].id]:[];}
+function nouvelleAction(type,x){
+ return Object.assign({id:uid(),type,nom:'',campagne:campDefaut(),ga:gaDefaut(),statut:'a_faire',prevue:'',faite_le:'',nb:nbm,tracts:0,materiel:'',etapes:[],saisies:[],cree_par:moi().id,cree_le:isoD(new Date())},x||{});}
 const etapeAdr=i=>({lieu:{t:'adresse',id:AID(i)},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
 const idxE=e=>e.lieu.t==='adresse'?BYID[e.lieu.id]:null;
 const lieuNom=e=>e?(e.lieu.t==='adresse'?e.lieu.id:e.lieu.id):'';
@@ -193,7 +195,7 @@ function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne,ga=a.ga.slice(),prev=a
   body.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{camp=b.dataset.cp;render(true);});
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const ap=$('ap');if(ap)ap.onchange=()=>{prev=ap.value;};
-  const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';
+  const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';LS.set('dga',a.ga);
    if(neuve){ACTIONS.push(a);saisie(a,'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
    sauverA();stack=[vueBase(),vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
   $('sv').onclick=()=>enr(false);const s2=$('sv2');if(s2)s2.onclick=()=>enr(true);}};}

@@ -99,24 +99,28 @@ function vueRefEdit(k,j){const x=j>=0?JSON.parse(JSON.stringify(REF[k][j])):{id:
 function vueUsers(){return {id:'users',html:()=>{let h=headHTML('Personnes et accès','Seuls les administrateurs entrent dans la console.',true);
   h+=`<div class="note">Chacun se connecte avec l'identifiant et le mot de passe que vous lui donnez ici. Pour retirer un accès : « Accès suspendu ».</div>`;
   h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter une personne</button></div>`;
-  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${u.login?'identifiant '+esc(u.login):'pas d\'identifiant'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
+  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${esc(circosTxt(u))} · ${u.login?'identifiant '+esc(u.login):'pas d\'identifiant'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
  after:()=>{$('add').onclick=()=>detail(vueUserEdit(-1));body.querySelectorAll('[data-uj]').forEach(b=>b.onclick=()=>detail(vueUserEdit(+b.dataset.uj)));}};}
-function vueUserEdit(j){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',contact:'',login:'',profil:'utilisateur',ga:[],actif:true};let mdp='';
+function vueUserEdit(j){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',contact:'',login:'',profil:'utilisateur',circos:D?[D.k]:[],actif:true};let mdp='';
+ if(!Array.isArray(x.circos))x.circos=TOUTES.slice();delete x.ga;
  return {id:'useredit',html:()=>{let h=headHTML(j>=0?esc(x.nom):'Ajouter une personne','',true);
   h+=`<label class="fld" for="un">Nom<input id="un" value="${esc(x.nom)}" autocomplete="off"></label><label class="fld" for="uc">Contact (e-mail ou téléphone)<input id="uc" value="${esc(x.contact)}" autocomplete="off"></label>`;
   h+=`<label class="fld" for="ul">Identifiant<input id="ul" value="${esc(x.login||'')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`;
   h+=`<label class="fld" for="up">${x.login&&ancien&&ancien.login?'Nouveau mot de passe (vide : inchangé)':'Mot de passe (7 caractères au moins)'}<span class="kw"><input id="up" type="text" value="${esc(mdp)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="ib" id="ug" aria-label="Proposer un mot de passe">${I.spark}</button></span></label>`;
   h+=`<div class="hint">Donnez-les à la personne, de vive voix ou par message. L'appli ne les garde nulle part en clair.</div>`;
   h+=`<div class="fl"><span>Profil</span><div class="seg" role="group"><button data-pf="utilisateur" aria-pressed="${x.profil==='utilisateur'}">Utilisateur</button><button data-pf="admin" aria-pressed="${x.profil==='admin'}">Administrateur</button></div></div>`;
-  h+=`<div class="fl"><span>Groupes d'action</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${x.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
+  h+=x.profil==='admin'?`<div class="fl"><span>Circonscriptions</span><div class="hint" style="margin:0">Un administrateur a accès aux 18 circonscriptions.</div></div>`
+   :`<div class="fl"><span>Circonscriptions (une ou plusieurs)</span><div class="ch2 num">${TOUTES.map(n=>`<button data-cz="${n}" aria-pressed="${x.circos.includes(n)}">${n}</button>`).join('')}</div><div class="ch2" style="margin-top:8px"><button data-czt="1">Toutes</button><button data-czt="0">Aucune</button></div></div>`;
   h+=`<label class="ckb"><input type="checkbox" id="ua" ${x.actif?'':'checked'}><span>Accès suspendu</span></label>`;
   h+=`<div class="btns stick"><button class="btn primary" id="sv">${I.check} Enregistrer</button></div>`;return h;},
  after:()=>{$('un').oninput=e=>{x.nom=e.target.value;};$('uc').oninput=e=>{x.contact=e.target.value;};
   body.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{x.profil=b.dataset.pf;render(true);});
-  body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=x.ga.indexOf(g);if(k>=0)x.ga.splice(k,1);else x.ga.push(g);render(true);});
+  body.querySelectorAll('[data-cz]').forEach(b=>b.onclick=()=>{const c=+b.dataset.cz,k=x.circos.indexOf(c);if(k>=0)x.circos.splice(k,1);else x.circos.push(c);x.circos.sort((a,b)=>a-b);render(true);});
+  body.querySelectorAll('[data-czt]').forEach(b=>b.onclick=()=>{x.circos=b.dataset.czt==='1'?TOUTES.slice():[];render(true);});
   $('ua').onchange=e=>{x.actif=!e.target.checked;};
   $('ul').oninput=e=>{x.login=normLogin(e.target.value);};$('up').oninput=e=>{mdp=e.target.value;};$('ug').onclick=()=>{mdp=mdpPropose();$('up').value=mdp;};
   $('sv').onclick=async()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}
+   if(x.profil!=='admin'&&!x.circos.length){toast('Cochez au moins une circonscription.');return;}
    const admins=REF.users.filter((u,i)=>i!==j&&u.profil==='admin'&&u.actif).length+(x.profil==='admin'&&x.actif?1:0);if(admins<2){toast('Il faut toujours au moins deux administrateurs.');return;}
    if(x.login&&REF.users.some((u,i)=>i!==j&&u.login===x.login)){toast('Cet identifiant est déjà pris.');return;}
    const change=!ancien||ancien.login!==x.login||ancien.profil!==x.profil||(!ancien.actif&&x.actif);
@@ -125,7 +129,8 @@ function vueUserEdit(j){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JS
    if(mdp&&!x.login){toast('Indiquez un identifiant.');return;}
    const sv=$('sv');sv.disabled=true;
    const r=await majCompte(x,ancien,mdp);sv.disabled=false;if(!r.ok){toast(msgAcces(r));return;}
-   if(j>=0)REF.users[j]=x;else REF.users.push(x);sauverREF();back();toast(mdp?`Accès enregistré : identifiant « ${x.login} »`:j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');};}};}
+   const y=JSON.parse(JSON.stringify(x));if(y.profil==='admin')delete y.circos;
+   if(j>=0)REF.users[j]=y;else REF.users.push(y);sauverREF();back();toast(mdp?`Accès enregistré : identifiant « ${x.login} »`:j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');};}};}
 function vueReglages(){const R=JSON.parse(JSON.stringify(REF.reglages));R.scrutins=R.scrutins||[];let nd='';
  return {id:'reglages',html:()=>{let h=headHTML('Réglages','',true);
   h+=`<div class="cpts one">${cptHTML('delaiFaite','Jours avant de reproposer une adresse faite',R.delaiFaite)}${cptHTML('delaiFerme','Jours avant de reproposer une adresse fermée',R.delaiFerme)}</div>`;
@@ -145,7 +150,7 @@ function vueDonnees(){return {id:'donnees',html:()=>{let h=headHTML('Données','
   h+=`<div class="src" style="margin-top:12px">Ville de Paris (bureaux de vote, voirie, espaces verts, voies d'eau, marchés), IGN (bâti), Île-de-France Mobilités (entrées par heure, 4e trimestre 2025), Apur (commerces 2023), Insee (quartiers), modèle Paris 2027 v5.7. ${esc(D.ni_src||'')}</div>`;return h;}};}
 /* menu : actions, circonscription, legende, affichage, administration (administrateurs), deconnexion */
 function ouvrirMenu(){const m=$('menu'),u=moi(),t=themeDe(),enCirco=!!(D&&!$('searchbox').hidden);$('res').hidden=true;
- const nA=jEnAttente();m.innerHTML=`<div class="mh"><b>${esc(u.nom)}</b><span>${u.profil==='admin'?'Administrateur':'Utilisateur'}${u.ga.length?' · '+u.ga.map(g=>esc(gaNom(g))).join(', '):''}</span>${nA?`<span class="att">${pl(nA,'action')} en attente d'envoi au journal</span>`:''}</div>`+
+ const nA=jEnAttente();m.innerHTML=`<div class="mh"><b>${esc(u.nom)}</b><span>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${esc(circosTxt(u))}</span>${nA?`<span class="att">${pl(nA,'action')} en attente d'envoi au journal</span>`:''}</div>`+
   (enCirco?`<button class="mi" role="menuitem" data-mi="actions">${I.list}<span>Toutes les actions</span></button><button class="mi" role="menuitem" data-mi="paris">${I.carte}<span>Changer de circonscription</span></button><button class="mi" role="menuitem" data-mi="legende">${I.couches}<span>Légende</span></button><div class="sep"></div>`:'')+
   `<div class="mi th"><span>Affichage</span><div class="seg sm" role="group" aria-label="Affichage">${[['auto','Téléphone'],['clair','Clair'],['sombre','Sombre']].map(([k,x])=>`<button data-th="${k}" aria-pressed="${t===k}">${x}</button>`).join('')}</div></div><div class="sep"></div>`+
   (estAdmin()?`<button class="mi adm" role="menuitem" data-mi="admin">${I.admin}<span>Administration</span></button>`:'')+
@@ -216,14 +221,15 @@ try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',reth);}
 new MutationObserver(reth).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
 /* connexion : voir js5/p5_journal.js (identifiant et mot de passe) ; se deconnecter oublie l'acces sur ce telephone */
-function deconnecter(){oublierAcces();$('q').value='';$('res').hidden=true;ecranConnexion(()=>{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);});}
+function deconnecter(){oublierAcces();$('q').value='';$('res').hidden=true;ecranConnexion(()=>{ecranParis();const c=circoDepart();if(c)choisir(c);});}
 
 /* demarrage : connexion, puis choix de la circonscription (la derniere est proposee), ou action recue par lien */
 setDet('fit');
 body.innerHTML='<div class="load">Chargement…</div>';
 const H0=(()=>{const m=/#(?:pap|act)=(\d+):(\d+):(?:(pap|boitage):)?([\d.]+)/.exec(location.hash||'');return m?{circo:+m[1],n:+m[2],type:m[3]||'pap',ids:m[4].split('.').map(Number)}:null;})();
 function demarrer(){fetch('d/quartiers.json').then(r=>r.json()).then(q=>{QS=q;}).catch(()=>{});fetch('d/paris.json').then(r=>r.json()).then(p=>{P=p;
- if(H0&&H0.circo>=1&&H0.circo<=18)ouvrir(H0.circo,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+ if(H0&&H0.circo>=1&&H0.circo<=18&&!peutCirco(H0.circo)){ecranParis();choisir(H0.circo);toast('Ce lien concerne une circonscription qui n\'est pas dans les vôtres.');}
+ else if(H0&&H0.circo>=1&&H0.circo<=18)ouvrir(H0.circo,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
   if(H0.n!==D.adresses.length){toast('Ce lien vient d\'une autre version des données : action non chargée.');return;}const ids=H0.ids.filter(i=>D.adresses[i]);if(ids.length)preparer(null,'',null,ids,H0.type==='boitage'?'Boîtage reçu':'Action reçue');});
- else{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);}}).catch(()=>{body.innerHTML='<div class="load">La carte de Paris n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';});}
+ else{ecranParis();const c=circoDepart();if(c)choisir(c);}}).catch(()=>{body.innerHTML='<div class="load">La carte de Paris n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';});}
 /* lancement : a la fin de js5/p5_journal.js */

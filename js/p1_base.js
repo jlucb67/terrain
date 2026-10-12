@@ -52,14 +52,18 @@ function vueParis(){return {id:'paris',html:()=>{
   let h;
   if(!choix){h=headHTML('Choisissez votre circonscription','Touchez-la sur la carte.');
    h+=`<div class="legend"><div class="t">Objectif 2027, en % des exprimés</div><div class="sw">${[0,1,2,3,4].map(i=>`<i style="background:var(--o${i})"></i>`).join('')}</div><div class="lb"><span>moins de 25</span><span>25 à 35</span><span>35 à 45</span><span>45 à 55</span><span>55 et plus</span></div></div>`;}
+  else if(!peutCirco(choix)){h=headHTML(circoNom(choix),'Pas dans vos circonscriptions.');h+=`<div class="hint">Vous avez accès à : ${esc(circosTxt(moi()))}. Pour une autre circonscription, voyez avec un administrateur.</div>`;}
   else{const p=P.circos.find(f=>f.properties.n===choix).properties;
    h=headHTML(circoNom(p.n),`${esc(p.arrs)} arrondissement${p.arrs.includes(',')?'s':''} · ${p.bureaux} bureaux de vote`);
    h+=kpis([[n0(p.objectif),'voix à obtenir en 2027'],[pc(p.objectif_p),'des exprimés'],['+'+n0(p.gain),'voix par rapport à 2022']]);
    h+=`<div class="btns"><button class="btn primary" id="go">Ouvrir la carte de la ${p.n===1?'1re':p.n+'e'}</button></div><div class="hint">Ou touchez une autre circonscription.</div>`;}
   return h;},
  after:()=>{const g=$('go');if(g)g.onclick=()=>ouvrir(choix);}};}
+/* libellé d'une circo sans accès : grisé (les marqueurs n'existent qu'une fois la carte posée, d'où l'appel aussi à l'ajout) */
+function stLab(m){const e=m.getElement&&m.getElement(),d=e&&e.querySelector('.cl');if(d)d.classList.toggle('off',!peutCirco(m.n));}
 function stParis(){const b=tok('--cborder'),ac=tok('--accent');
- parisL.eachLayer(l=>{const s=l.n===choix;l.setStyle({color:s?ac:b,weight:s?2.6:1.4,opacity:1,fillColor:tok('--o'+cls(l.p)),fillOpacity:choix&&!s?.7:1});if(s)l.bringToFront();});
+ parisL.eachLayer(l=>{const s=l.n===choix,ok=peutCirco(l.n);l.setStyle({color:s?ac:b,weight:s?2.6:1.4,opacity:1,fillColor:ok?tok('--o'+cls(l.p)):tok('--off'),fillOpacity:choix&&!s?.7:1});if(s)l.bringToFront();});
+ if(labL)labL.eachLayer(stLab);
  eauL.setStyle({fillColor:tok('--water')});arrL.setStyle({color:tok('--arr')});}
 function choisir(n){choix=n;stParis();show(vueParis());setDet('fit');map.flyToBounds(P.bounds,{...pad(56),duration:.35});}
 function ecranParis(){
@@ -67,7 +71,7 @@ function ecranParis(){
  if(!parisL){parisL=L.layerGroup();labL=L.layerGroup();
   P.circos.forEach(f=>{const l=L.geoJSON(f,{renderer:rA}).getLayers()[0];l.n=f.properties.n;l.p=f.properties.objectif_p;l.on('click',()=>choisir(l.n));parisL.addLayer(l);
    const m=L.marker([f.properties.lab[1],f.properties.lab[0]],{pane:'noms',interactive:false,icon:L.divIcon({className:'',html:`<div class="cl${cls(f.properties.objectif_p)>=2?' hi':''}"><b>${f.properties.n===1?'1ère':f.properties.n+'ème'}</b><span>${Math.round(f.properties.objectif_p)} %</span></div>`,iconSize:[0,0]})});
-   m.p=f.properties.objectif_p;labL.addLayer(m);});
+   m.p=f.properties.objectif_p;m.n=f.properties.n;m.on('add',()=>stLab(m));labL.addLayer(m);});
   eauL=L.geoJSON(P.eau,{renderer:rC,interactive:false,style:{stroke:false,fillOpacity:1}});
   arrL=L.geoJSON(P.arr,{renderer:rC,interactive:false,style:{weight:.8,opacity:1,dashArray:'1 3',lineCap:'round',fill:false}});}
  [parisL,eauL,arrL,labL].forEach(l=>l.addTo(map));
@@ -100,6 +104,12 @@ if(!REF.v||REF.v<2){REF.campagnes=JSON.parse(JSON.stringify(REF0.campagnes));REF
 let MOI=LS.get('moi','u1');
 const moi=()=>REF.users.find(u=>u.id===MOI)||REF.users[0];
 const estAdmin=()=>moi().profil==='admin';
+/* droits par circonscription : un administrateur a les 18 ; un utilisateur, celles cochées dans la console (sans liste : les 18) */
+const TOUTES=[...Array(18)].map((_,i)=>i+1);
+const circosDe=u=>!u||u.profil==='admin'||!Array.isArray(u.circos)?TOUTES:u.circos;
+const peutCirco=n=>circosDe(moi()).includes(n);
+const circosTxt=u=>{const c=circosDe(u);return c.length===18?'toutes les circos':c.map(n=>n===1?'1re':n+'e').join(', ');};
+function circoDepart(){const c=+LS.get('dernCirco',0)||0,m=circosDe(moi());return c&&m.includes(c)?c:m.length===1?m[0]:0;}
 /* affichage clair ou sombre : choix de chaque utilisateur, garde sur son telephone */
 const themeDe=()=>LS.get('theme_'+MOI,'auto');
 function appliquerTheme(){const t=themeDe(),r=document.documentElement;if(t==='clair')r.setAttribute('data-theme','light');else if(t==='sombre')r.setAttribute('data-theme','dark');else r.removeAttribute('data-theme');}
@@ -129,7 +139,7 @@ async function chargerJSON(url,onp){const r=await fetch(url);if(!r.ok)throw new 
  for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;const p=Math.min(99,Math.round(100*got/tot));if(p!==last){last=p;onp(p);}}
  const buf=new Uint8Array(got);let o=0;parts.forEach(x=>{buf.set(x,o);o+=x.length;});return JSON.parse(new TextDecoder().decode(buf));}
 async function ouvrir(n,ensuite){
- if(!(n>=1&&n<=18))return;
+ if(!(n>=1&&n<=18)||!peutCirco(n))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;construire();chargerBati(n);}}
  catch(e){body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}

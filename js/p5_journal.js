@@ -19,7 +19,7 @@ const jMsg=r=>r.st===0?'Pas de connexion au journal. Vérifiez le réseau, puis 
 
 /* listes de reference : lues a la connexion et a chaque ouverture, ecrites par la console (cle administrateurs) */
 function normREF(x){x=x&&typeof x==='object'?x:{};x.v=2;['campagnes','ga','users','materiel'].forEach(k=>{if(!Array.isArray(x[k]))x[k]=[];});
- x.users.forEach(u=>{if(!Array.isArray(u.ga))u.ga=[];if(u.actif===undefined)u.actif=true;});x.ga.forEach(g=>{if(!Array.isArray(g.circos))g.circos=[];});
+ x.users.forEach(u=>{delete u.ga;if(u.actif===undefined)u.actif=true;});x.ga.forEach(g=>{if(!Array.isArray(g.circos))g.circos=[];});
  x.reglages=Object.assign({delaiFaite:30,delaiFerme:14,taille:100,scrutins:[]},x.reglages||{});return x;}
 async function lireListes(){const r=await gh('GET','/contents/'+JFL);if(!r.ok)return r;
  let x;try{x=normREF(JSON.parse(b64d(r.j.content)));}catch(e){return {ok:false,st:-1};}
