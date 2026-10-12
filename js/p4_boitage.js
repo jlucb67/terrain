@@ -220,7 +220,7 @@ setDet('fit');
 body.innerHTML='<div class="load">Chargement…</div>';
 const H0=(()=>{const m=/#(?:pap|act)=(\d+):(\d+):(?:(pap|boitage):)?([\d.]+)/.exec(location.hash||'');return m?{circo:+m[1],n:+m[2],type:m[3]||'pap',ids:m[4].split('.').map(Number)}:null;})();
 function demarrer(){fetch('d/paris.json').then(r=>r.json()).then(p=>{P=p;
- if(H0&&H0.circo===6)ouvrir(6,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+ if(H0&&H0.circo>=1&&H0.circo<=18)ouvrir(H0.circo,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
   if(H0.n!==D.adresses.length){toast('Ce lien vient d\'une autre version des données : action non chargée.');return;}const ids=H0.ids.filter(i=>D.adresses[i]);if(ids.length)preparer(null,'',null,ids,H0.type==='boitage'?'Boîtage reçu':'Action reçue');});
  else{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);}}).catch(()=>{body.innerHTML='<div class="load">La carte de Paris n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';});}
 /* lancement : a la fin de js5/p5_journal.js */
