@@ -129,7 +129,7 @@ async function chargerJSON(url,onp){const r=await fetch(url);if(!r.ok)throw new 
  for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;const p=Math.min(99,Math.round(100*got/tot));if(p!==last){last=p;onp(p);}}
  const buf=new Uint8Array(got);let o=0;parts.forEach(x=>{buf.set(x,o);o+=x.length;});return JSON.parse(new TextDecoder().decode(buf));}
 async function ouvrir(n,ensuite){
- if(n!==6){toast('Pour l\'instant, seule la 6e circonscription est chargée.');return;}
+ if(!(n>=1&&n<=18))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;construire();chargerBati(n);}}
  catch(e){body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
