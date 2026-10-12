@@ -149,6 +149,25 @@ h2{font:600 10.5px/1.2 var(--f);letter-spacing:.1em;text-transform:uppercase;col
 .bar b{font-weight:600;font-variant-numeric:tabular-nums}
 .bar .tr{grid-column:1/-1;height:3px;border-radius:2px;background:var(--line)}
 .bar .tr i{display:block;height:100%;border-radius:2px;background:var(--accent)}
+.bar.j{grid-template-columns:minmax(0,1fr);row-gap:3px}
+.bar .jv{position:relative;height:17px;margin-top:-1px}
+.bar .jv b{position:absolute;bottom:1px;transform:translateX(-50%);font:600 13.5px/16px var(--f);white-space:nowrap}
+.bar .jv b.g{transform:none}
+.bar .jv b.d{transform:translateX(-100%)}
+.bar.lj{margin-top:10px}
+.bar.lj .jv b{font-weight:400;font-size:11px;color:var(--quiet)}
+.puces{margin:12px 0 0;padding:0 0 0 18px;font:400 13px/1.45 var(--f)}
+.puces li{margin:6px 0}
+.puces li::marker{color:var(--quiet)}
+.bar.j .tr{height:6px;border-radius:3px;position:relative;margin-top:2px}
+.bar.j .tr i{border-radius:3px}
+.bar.j .tr u{position:absolute;top:-4px;width:2px;height:14px;margin-left:-1px;border-radius:1px;background:var(--ink)}
+.bar .jl{grid-column:1/-1;position:relative;height:13px;margin-top:2px;font:400 11px/13px var(--f);color:var(--quiet);font-variant-numeric:tabular-nums}
+.bar .jl em{position:absolute;top:0;font-style:normal;white-space:nowrap}
+.bar .jl em.md{transform:translateX(-50%)}
+.bar .jl em.md.g{transform:translateX(-3px)}
+.bar .jl em.md.d{transform:translateX(calc(-100% + 3px))}
+.bar .jl em.mx{right:0}
 .lines{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
 .lines.s{margin-top:3px;gap:3px}
 .ln{min-width:22px;height:22px;padding:0 5px;border-radius:11px;display:grid;place-items:center;font:700 11px var(--f)}
@@ -398,6 +417,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
   </div>
  </div>
  <div class="fabs glass" id="fabs">
+  <button class="fab" id="fCtr" aria-label="Recentrer la carte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15"/><circle cx="12" cy="12" r="2.2"/></svg></button>
   <button class="fab" id="fLeg" aria-label="Légende" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4.5-8 4.5-8-4.5z"/><path d="M4 13l8 4.5 8-4.5"/></svg></button>
   <button class="fab" id="fMe" aria-label="Me localiser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4L4 11l7 2 2 7z"/></svg></button>
  </div>
