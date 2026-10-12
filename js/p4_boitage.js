@@ -169,6 +169,8 @@ function vueLegende(){return {id:'leg',html:()=>{let h=headHTML('Légende','',tr
   <div class="leg"><i style="background:var(--dot)"></i><div>Rond gris : les autres adresses.</div></div><div class="leg"><i class="creux"></i><div>Rond creux violet : adresse faite (porte-à-porte) ou numéro boîté (boîtage).</div></div><div class="leg"><i class="creux pt"></i><div>Rond creux en pointillé : pas pu entrer, ou boîtes fermées.</div></div><div class="leg"><span></span><div>La taille du point dit le nombre d'inscrits.</div></div>`;
  h+=`<h2>Lieux</h2>${[['mk-m','M','Station de métro',14],['mk-ma',I.basket,'Marché',18],['mk-c g',I.cart,'Supermarché',14],['mk-c','','Supérette',9]].map(([c,x,t,s])=>`<div class="leg"><div class="mk ${c}" style="width:${s}px;height:${s}px;margin:2px 0 0 ${(22-s)/2}px">${x}</div><div>${t}</div></div>`).join('')}
   <div class="leg"><span></span><div>Dans la mission Métro, la taille du cercle dit le nombre d'entrées.</div></div>`;
+ if(QS&&QS.paris_max)h+=`<h2>Ce quartier par rapport à la circonscription</h2><div class="bar j lj"><div class="jv"><b style="left:46%">le quartier</b></div><div class="tr"><i style="width:46%"></i><u style="left:30%"></u></div><div class="jl"><em class="md" style="left:30%">médiane de la circo</em><em class="mx">max de la circo</em></div></div>
+  <ul class="puces"><li>La barre et le chiffre au-dessus : le quartier de l'adresse.</li><li>Le trait : la médiane de la circonscription ; la moitié de ses inscrits vivent dans un quartier à ce niveau ou en dessous.</li><li>Le bout de la jauge : le quartier le plus touché de la circonscription.</li><li>Maximum à Paris : ${QN.map((t,j)=>`${t.toLowerCase()} ${QS.paris_max[j]} %`).join(', ')}.</li><li>Quartiers de moins de ${QS.seuil} inscrits écartés des maximums.</li></ul>`;
  h+=`<h2>Sources</h2><div class="src">Ville de Paris (bureaux de vote, voirie, espaces verts, voies d'eau, marchés), IGN (bâti), Île-de-France Mobilités (entrées par heure, 4e trimestre 2025), Apur (commerces 2023), Insee (quartiers), modèle Paris 2027 v5.7. ${esc(D.ni_src||'')}</div>`;
  return h;}};}
 
@@ -205,6 +207,7 @@ let meL=null;
 function localiser(fn,silent){if(!navigator.geolocation){toast('Position indisponible sur cet appareil. Touchez « Centre de la carte ».');return;}
  navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];posMoi=ll;if(meL)map.removeLayer(meL);meL=L.marker(ll,{pane:'pap',interactive:false,icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(map);if(fn)fn(ll);else map.flyTo(ll,17,{duration:.5});},
   e=>toast(e&&e.code===1?'Position refusée. Pour l\'activer : réglages du téléphone, puis du navigateur, puis Position. En attendant, touchez « Centre de la carte ».':'Position introuvable ici. Réessayez dehors, ou touchez « Centre de la carte ».'),{enableHighAccuracy:true,timeout:8000,maximumAge:60000});}
+$('fCtr').onclick=()=>{if(app.classList.contains('tabs')&&D)map.flyToBounds(D.bounds,{...pad(),duration:.4});else if(P)map.flyToBounds(P.bounds,{...pad(56),duration:.4});};
 $('fMe').onclick=()=>localiser(mode==='metro'?(ll=>{map.flyTo(ll,16,{duration:.5});if(vueMetroJour==='pres'){const v=stack[stack.length-1];if(v&&v.id==='base')render(true);}}):null);
 
 /* theme */
@@ -219,7 +222,7 @@ function deconnecter(){oublierAcces();$('q').value='';$('res').hidden=true;ecran
 setDet('fit');
 body.innerHTML='<div class="load">Chargement…</div>';
 const H0=(()=>{const m=/#(?:pap|act)=(\d+):(\d+):(?:(pap|boitage):)?([\d.]+)/.exec(location.hash||'');return m?{circo:+m[1],n:+m[2],type:m[3]||'pap',ids:m[4].split('.').map(Number)}:null;})();
-function demarrer(){fetch('d/paris.json').then(r=>r.json()).then(p=>{P=p;
+function demarrer(){fetch('d/quartiers.json').then(r=>r.json()).then(q=>{QS=q;}).catch(()=>{});fetch('d/paris.json').then(r=>r.json()).then(p=>{P=p;
  if(H0&&H0.circo>=1&&H0.circo<=18)ouvrir(H0.circo,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
   if(H0.n!==D.adresses.length){toast('Ce lien vient d\'une autre version des données : action non chargée.');return;}const ids=H0.ids.filter(i=>D.adresses[i]);if(ids.length)preparer(null,'',null,ids,H0.type==='boitage'?'Boîtage reçu':'Action reçue');});
  else{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);}}).catch(()=>{body.innerHTML='<div class="load">La carte de Paris n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';});}

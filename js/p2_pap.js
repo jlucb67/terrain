@@ -86,7 +86,15 @@ function voir(ll,z){const H=wide?0:hOf(det==='peek'?'half':det)+TB();z=z||map.ge
  map.flyTo(map.unproject(pt.add(off),z),z,{duration:.45});}
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),isAndroid=/Android/.test(navigator.userAgent);
 const yAller=(lat,lon)=>isIOS?`https://maps.apple.com/?daddr=${lat},${lon}&dirflg=w`:isAndroid?`geo:${lat},${lon}?q=${lat},${lon}`:`https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=%3B${lat}%2C${lon}`;
-function quartierHTML(a){return `<h2>Le quartier</h2><div class="bars">${[['Pauvreté',a[10]],['Chômage',a[11]],['Peu ou pas diplômés',a[12]],['Familles monoparentales',a[13]]].map(([t,v])=>`<div class="bar"><span>${t}</span><b>${v} %</b><div class="tr"><i style="width:${Math.min(100,v)}%"></i></div></div>`).join('')}</div>`;}
+/* jauges du quartier : barre et chiffre au-dessus = le quartier ; bout de la jauge = maximum de la circo ; trait = médiane de la circo (d/quartiers.json) */
+let QS=null;
+const QN=['Pauvreté','Chômage','Peu ou pas diplômés','Familles monoparentales'];
+function jauge(t,v,md,mx){
+ if(md==null||!mx)return `<div class="bar"><span>${t}</span><b>${v} %</b><div class="tr"><i style="width:${Math.min(100,v)}%"></i></div></div>`;
+ const p=x=>Math.max(0,Math.min(100,100*x/mx)),pv=p(v),pm=p(md),cv=pv<6?' g':pv>94?' d':'',cm=pm<12?' g':pm>58?' d':'';
+ return `<div class="bar j"><span>${t}</span><div class="jv"><b class="${cv}" style="left:${pv}%">${v} %</b></div><div class="tr"><i style="width:${pv}%"></i><u style="left:${pm}%"></u></div><div class="jl"><em class="md${cm}" style="left:${pm}%">médiane ${md} %</em><em class="mx">max ${mx} %</em></div></div>`;}
+function quartierHTML(a){const q=QS&&D&&QS.circos&&QS.circos[D.k];
+ return `<h2>Ce quartier par rapport à la circonscription</h2><div class="bars">${QN.map((t,j)=>jauge(t,a[10+j],q&&q.med[j],q&&q.max[j])).join('')}</div>`;}
 function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')setMode('pap');if(det==='peek')setDet('half');voir([a[1],a[0]],Math.max(map.getZoom(),16.5));sel(i);
  detail({id:'adr',html:()=>{const inS=SEL.includes(i),f=faites[a[2]],x=ACC[a[2]];
   let h=headHTML(esc(a[2]),`Bureau ${esc(a[8])}${a[8]!==a[9]?` (bureau ${esc(a[9])} en 2022)`:''} · ${pl(a[3],'inscrit')}`,true);
