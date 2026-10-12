@@ -107,8 +107,8 @@ function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')s
   if(f||x)h+=`<div class="done-l">${f?`${I.check}<span>PAP fait le ${fmtJ(f)}</span>`:`<span>Pas pu entrer le ${fmtJ(x.q)}${x.r&&ACCES_T[x.r]?' : '+ACCES_T[x.r].toLowerCase():''}</span>`}</div>`;
   const dans=ACTIONS.filter(t=>t.type==='pap'&&t.etapes.some(e=>e.lieu.id===a[2]));
   if(dans.length)h+=`<h2>Dans ${dans.length>1?'les actions':'l\'action'}</h2>`+dans.slice(0,4).map(rowAction).join('');
-  h+=`<div class="btns"><button class="btn ${inS?'line':'primary'}" id="tg">${inS?I.check+' Dans ma sélection, retirer':I.plus+' Ajouter à ma sélection'}</button></div>`;
-  h+=`<div class="btns two" style="margin-top:8px"><button class="btn line" id="ici">${I.spark} Action autour d'ici</button><a class="btn line" target="_blank" rel="noopener" href="${yAller(a[1],a[0])}">${I.walk} Y aller</a></div>`;
+  h+=`<div class="btns"><button class="btn primary" id="ici">${I.spark} Proposer un PAP autour de cette adresse</button></div>`;
+  h+=`<div class="btns two" style="margin-top:8px"><button class="btn line" id="tg">${inS?I.check+' Retirer de ma sélection':I.plus+' Ajouter à ma sélection'}</button><a class="btn line" target="_blank" rel="noopener" href="${yAller(a[1],a[0])}">${I.walk} Y aller</a></div>`;
   h+=quartierHTML(a);
   if(p.id)h+=`<div class="btns"><button class="btn line" id="bv">Voir le bureau ${esc(p.id)}</button></div>`;
   return h;},after:()=>{$('tg').onclick=()=>{basculer(i);render(true);};$('ici').onclick=()=>preparer([a[1],a[0]],'Autour de '+a[2],i);const b=$('bv');if(b)b.onclick=()=>ouvrirBureau(p.id);}});}
@@ -227,7 +227,12 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
     :`<span class="sc">${i!=null?D.adresses[i][3]:''}<small>inscrits</small></span>`;
    h+=`<div class="row ${a.type==='boitage'&&!ordre?'bo':'n'}">${a.type==='boitage'&&!ordre?'':`<span class="nb${(e.st||e.toquees>0)?' fa':''}">${k+1}</span>`}<button class="tx" data-e="${k}"><b>${lab}</b><small>${(e.st||e.toquees>0)?`<span class="acc">${esc(sub)}</span>`:sub}</small></button>${right}</div>`;});
   if(a.type==='boitage'&&!ordre){const vt=[...new Set(a.etapes.map(voieDe).filter(Boolean))];if(vt.length)h+=ajoutHTML(vt);}
-  h+=`<div class="btns stick"><button class="btn ${a.statut==='faite'?'line':'cta'}" id="fin">${I.check} ${a.statut==='faite'?'Modifier le compte rendu':'Action faite : compte rendu'}</button></div>`;
+  /* boutons selon l'avancement : rien de renseigné -> Commencer ; en cours -> Continuer + Terminer (discret) ; tout renseigné -> Terminer (rouge) */
+  const fait=e=>!!(e.st||e.toquees>0),nR=a.etapes.filter(fait).length,tout=nR===a.etapes.length,jS=a.type==='pap'?a.etapes.findIndex(e=>!fait(e)&&idxE(e)!=null):-1;
+  if(a.statut==='faite')h+=`<div class="btns stick"><button class="btn line" id="fin">${I.check} Modifier le compte rendu</button></div>`;
+  else if(tout)h+=`<div class="btns stick"><button class="btn cta" id="fin">${I.check} Terminer l'action : compte rendu</button></div>`;
+  else{if(jS>=0)h+=`<div class="btns stick"><button class="btn primary" id="goE">${nR?'Continuer : adresse suivante':'Commencer : 1re adresse'}</button></div>`;
+   if(nR||a.type!=='pap')h+=`<div class="btns"><button class="btn line" id="fin">${I.check} Terminer l'action : compte rendu</button></div>`;}
   h+=`<div class="btns two"><button class="btn line" id="mod">Campagne, GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
   if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer l'action</button></div>`;
   h+=histoSaisies(a);
@@ -239,7 +244,7 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   body.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const k=+b.dataset.e;if(a.type==='pap')ouvrirEtape(a.id,k);else{const i=idxE(a.etapes[k]);if(i!=null){voir(ptA(i),Math.max(map.getZoom(),17));sel(i);}}});
   body.querySelectorAll('[data-bs]').forEach(b=>b.onclick=()=>{const [k,st]=b.dataset.bs.split(':');const e=a.etapes[+k];e.st=e.st===st?'':st;e.le=isoD(new Date());saisie(a,'boîtage');sauverA();render(true);try{navigator.vibrate&&navigator.vibrate(10);}catch(x){}});
   lierAjout(a);
-  $('fin').onclick=()=>detail(vueCloture(a.id));$('mod').onclick=()=>detail(vueEditer(a,false));$('sh').onclick=()=>partager(txtAction(a));
+  const fn=$('fin');if(fn)fn.onclick=()=>detail(vueCloture(a.id));const ge=$('goE');if(ge)ge.onclick=()=>{const j=a.etapes.findIndex(e=>!(e.st||e.toquees>0)&&idxE(e)!=null);if(j>=0)ouvrirEtape(a.id,j);};$('mod').onclick=()=>detail(vueEditer(a,false));$('sh').onclick=()=>partager(txtAction(a));
   const d=$('del');if(d)d.onclick=()=>{const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();back();toast('Action supprimée',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});};
   if(a.etapes.length&&det!=='full'){const ll=a.etapes.map(idxE).filter(i=>i!=null).map(ptA);if(ll.length)map.flyToBounds(L.latLngBounds(ll).pad(.25),{...pad(),maxZoom:17.5,duration:.5});}}};}
 function histoSaisies(a){const l=a.saisies.slice(-5).reverse();if(!l.length)return '';
@@ -256,6 +261,8 @@ function setE(a,k,p){const e=a.etapes[k];Object.assign(e,p);
  if('ouvertes' in p){if(e.ouvertes>e.toquees)e.toquees=e.ouvertes;if(e.toquees>e.portes)e.portes=e.toquees;if(e.ouvertes>0&&!e.st)e.st='faite';}
  if(p.st&&p.st!=='ferme')e.acc='';e.le=isoD(new Date());
  const i=idxE(e);saisie(a,'adresse '+(i!=null?D.adresses[i][2]:e.lieu.id));sauverA();dessinerParcours();}
+/* adresse suivante à renseigner : après k, sinon la première restée avant k */
+function suivE(a,k){const v=j=>j!==k&&!a.etapes[j].st&&!a.etapes[j].toquees&&idxE(a.etapes[j])!=null,ks=[...a.etapes.keys()];return ks.slice(k+1).find(v)??ks.slice(0,k).find(v);}
 function ouvrirEtape(id,k){const a=actPar(id);if(!a)return;const e0=a.etapes[k],i=idxE(e0);if(i==null)return;const ad=D.adresses[i];
  if(mode!=='pap')setMode('pap');if(det==='peek')setDet('half');voir(ptA(i),Math.max(map.getZoom(),16.5));sel(i);
  detail({id:'etape',aid:id,html:()=>{const e=a.etapes[k];
@@ -263,8 +270,8 @@ function ouvrirEtape(id,k){const a=actPar(id);if(!a)return;const e0=a.etapes[k],
   h+=`<div class="crb"><div class="seg st" role="group" aria-label="Statut">${[['faite','Faite'],['ferme','Pas pu entrer'],['temps','Pas eu le temps']].map(([x,t])=>`<button data-st="${x}" aria-pressed="${e.st===x}">${t}</button>`).join('')}</div>`;
   if(e.st==='ferme')h+=`<div class="seg sm" role="group" aria-label="Pourquoi">${ACCES.map(([x,t])=>`<button data-ac="${x}" aria-pressed="${e.acc===x}">${t}</button>`).join('')}</div><div class="hint">On ne note jamais un code d'accès.</div>`;
   else if(e.st!=='temps')h+=`<div class="cpts one">${cptHTML('portes','Portes',e.portes)}${cptHTML('toquees','Portes toquées',e.toquees)}${cptHTML('ouvertes','Portes ouvertes',e.ouvertes)}</div>`;
-  const nx=[...a.etapes.keys()].slice(k+1).find(j=>!a.etapes[j].st&&!a.etapes[j].toquees);
-  h+=`<div class="btns">${nx!=null?`<button class="btn line" id="nx">Adresse suivante : ${esc(D.adresses[idxE(a.etapes[nx])][2])}</button>`:`<button class="btn cta" id="nx2">${I.check} Toutes les adresses sont renseignées : compte rendu</button>`}</div></div>`;
+  const nx=suivE(a,k);
+  h+=`<div class="btns">${nx!=null?`<button class="btn line" id="nx">Adresse suivante : ${esc(D.adresses[idxE(a.etapes[nx])][2])}</button>`:`<button class="btn cta" id="nx2">${I.check} Terminer l'action : compte rendu</button>`}</div></div>`;
   if(BZ[ad[9]]&&BZ[ad[9]].zone)h+=`<div class="meta">${zTag(BZ[ad[9]].zone)}<div class="zdef">${cap(ZD[BZ[ad[9]].zone])}</div></div>`;
   h+=`<div class="btns two" style="margin-top:12px"><button class="btn line" id="act">Voir l'action</button><a class="btn line" target="_blank" rel="noopener" href="${yAller(ad[1],ad[0])}">${I.walk} Y aller</a></div>`;
   h+=quartierHTML(ad);
@@ -272,7 +279,7 @@ function ouvrirEtape(id,k){const a=actPar(id);if(!a)return;const e0=a.etapes[k],
    body.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const st=b.dataset.st;setE(a,k,{st:a.etapes[k].st===st?'':st});render(true);});
    body.querySelectorAll('[data-ac]').forEach(b=>b.onclick=()=>{setE(a,k,{acc:b.dataset.ac});render(true);});
    lierCpt(x=>a.etapes[k][x],(x,v)=>setE(a,k,{[x]:v}));
-   const nx=$('nx');if(nx){const j=[...a.etapes.keys()].slice(k+1).find(j=>!a.etapes[j].st&&!a.etapes[j].toquees);nx.onclick=()=>ouvrirEtape(id,j);}
+   const nx=$('nx');if(nx){const j=suivE(a,k);nx.onclick=()=>ouvrirEtape(id,j);}
    const n2=$('nx2');if(n2)n2.onclick=()=>detail(vueCloture(id));$('act').onclick=()=>{if(stack.length>1&&stack[stack.length-2].id==='act')back();else detail(vueAction(id));};}});}
 
 /* ---------------- compte rendu d'une action preparee : date, militants, materiel */
