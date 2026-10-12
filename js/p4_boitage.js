@@ -74,7 +74,7 @@ function aVerifier(){const l=[];ACTIONS.forEach(a=>{if(a.type==='diff_marche'&&a
  if(a.type==='pap'&&a.etapes.some(e=>e.toquees>0&&!e.portes))l.push([a,'portes non comptées']);
  if(a.statut==='a_faire'&&a.prevue&&ageJ(a.prevue+'T23:59')>1)l.push([a,'date prévue passée']);});return l;}
 function vueConsole(){if(!estAdmin())return vueMoi();return {id:'console',html:()=>{let h=headHTML('Administration','Listes de référence, accès et réglages',true);
-  const rows=[['users','Personnes et clés',`${pl(REF.users.length,'personne')} · ${REF.users.filter(u=>u.profil==='admin').length} administrateurs`],['campagnes','Campagnes',pl(REF.campagnes.filter(c=>!c.archive).length,'active')],['ga','Groupes d\'action',pl(REF.ga.filter(g=>!g.archive).length,'actif')],['reglages','Réglages',`délais ${REF.reglages.delaiFaite} et ${REF.reglages.delaiFerme} jours · ${pl((REF.reglages.scrutins||[]).length,'date de scrutin','dates de scrutin')}`],['actions','Toutes les actions',pl(ACTIONS.length,'action')],['controles','Contrôles',`${pl(aVerifier().length,'saisie','saisies')} à vérifier`],['donnees','Données',`circo_${pad2(D.k)} · modèle Paris 2027 v5.7`]];
+  const rows=[['users','Personnes et accès',`${pl(REF.users.length,'personne')} · ${REF.users.filter(u=>u.profil==='admin').length} administrateurs`],['campagnes','Campagnes',pl(REF.campagnes.filter(c=>!c.archive).length,'active')],['ga','Groupes d\'action',pl(REF.ga.filter(g=>!g.archive).length,'actif')],['reglages','Réglages',`délais ${REF.reglages.delaiFaite} et ${REF.reglages.delaiFerme} jours · ${pl((REF.reglages.scrutins||[]).length,'date de scrutin','dates de scrutin')}`],['actions','Toutes les actions',pl(ACTIONS.length,'action')],['controles','Contrôles',`${pl(aVerifier().length,'saisie','saisies')} à vérifier`],['donnees','Données',`circo_${pad2(D.k)} · modèle Paris 2027 v5.7`]];
   h+=`<div style="margin-top:8px">${rows.map(([k,t,s])=>`<div class="row p"><button class="tx" data-cs="${k}"><b>${t}</b><small>${s}</small></button><span class="chev">${I.next}</span></div>`).join('')}</div>`;
   h+=`<div class="hint">Listes et actions sont enregistrées dans le journal partagé.</div>`;return h;},
  after:()=>{body.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{const k=b.dataset.cs;
@@ -96,14 +96,17 @@ function vueRefEdit(k,j){const x=j>=0?JSON.parse(JSON.stringify(REF[k][j])):{id:
   const ra=$('rarr');if(ra)ra.onchange=()=>{x.arr=parseInt(ra.value,10)||null;};body.querySelectorAll('[data-cz]').forEach(b=>b.onclick=()=>{const c=+b.dataset.cz,i=x.circos.indexOf(c);if(i>=0)x.circos.splice(i,1);else x.circos.push(c);x.circos.sort((a,b)=>a-b);render(true);});body.querySelectorAll('[data-mc]').forEach(b=>b.onclick=()=>{x.campagne=b.dataset.mc;render(true);});
   $('rar').onchange=e=>{x.archive=e.target.checked;};
   $('sv').onclick=()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}if(k==='ga'&&(!x.arr||!x.circos.length)){toast('Indiquez l\'arrondissement et au moins une circonscription.');return;}if(k==='campagnes'&&x.defaut)REF.campagnes.forEach(c=>c.defaut=false);if(j>=0)REF[k][j]=x;else REF[k].push(x);sauverREF();back();toast('Liste mise à jour');};}};}
-function vueUsers(){return {id:'users',html:()=>{let h=headHTML('Personnes et clés','Seuls les administrateurs entrent dans la console.',true);
-  h+=`<div class="note">Pour donner un accès, transmettez la clé utilisateurs ou la clé administrateurs (code à scanner, saisi une fois sur le téléphone). Pour le retirer, changez la clé et redonnez-la aux autres.</div>`;
-  h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter une personne</button><button class="btn line" id="code">Afficher un code d'accès</button></div>`;
-  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${u.ga.map(gaNom).map(esc).join(', ')||'aucun GA'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
- after:()=>{$('add').onclick=()=>detail(vueUserEdit(-1));$('code').onclick=()=>detail(vueCode());body.querySelectorAll('[data-uj]').forEach(b=>b.onclick=()=>detail(vueUserEdit(+b.dataset.uj)));}};}
-function vueUserEdit(j){const x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',contact:'',profil:'utilisateur',ga:[],actif:true};
+function vueUsers(){return {id:'users',html:()=>{let h=headHTML('Personnes et accès','Seuls les administrateurs entrent dans la console.',true);
+  h+=`<div class="note">Chacun se connecte avec l'identifiant et le mot de passe que vous lui donnez ici. Pour retirer un accès : « Accès suspendu ».</div>`;
+  h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter une personne</button></div>`;
+  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${u.login?'identifiant '+esc(u.login):'pas d\'identifiant'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
+ after:()=>{$('add').onclick=()=>detail(vueUserEdit(-1));body.querySelectorAll('[data-uj]').forEach(b=>b.onclick=()=>detail(vueUserEdit(+b.dataset.uj)));}};}
+function vueUserEdit(j){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',contact:'',login:'',profil:'utilisateur',ga:[],actif:true};let mdp='';
  return {id:'useredit',html:()=>{let h=headHTML(j>=0?esc(x.nom):'Ajouter une personne','',true);
   h+=`<label class="fld" for="un">Nom<input id="un" value="${esc(x.nom)}" autocomplete="off"></label><label class="fld" for="uc">Contact (e-mail ou téléphone)<input id="uc" value="${esc(x.contact)}" autocomplete="off"></label>`;
+  h+=`<label class="fld" for="ul">Identifiant<input id="ul" value="${esc(x.login||'')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`;
+  h+=`<label class="fld" for="up">${x.login&&ancien&&ancien.login?'Nouveau mot de passe (vide : inchangé)':'Mot de passe (7 caractères au moins)'}<span class="kw"><input id="up" type="text" value="${esc(mdp)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="ib" id="ug" aria-label="Proposer un mot de passe">${I.spark}</button></span></label>`;
+  h+=`<div class="hint">Donnez-les à la personne, de vive voix ou par message. L'appli ne les garde nulle part en clair.</div>`;
   h+=`<div class="fl"><span>Profil</span><div class="seg" role="group"><button data-pf="utilisateur" aria-pressed="${x.profil==='utilisateur'}">Utilisateur</button><button data-pf="admin" aria-pressed="${x.profil==='admin'}">Administrateur</button></div></div>`;
   h+=`<div class="fl"><span>Groupes d'action</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${x.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
   h+=`<label class="ckb"><input type="checkbox" id="ua" ${x.actif?'':'checked'}><span>Accès suspendu</span></label>`;
@@ -112,9 +115,17 @@ function vueUserEdit(j){const x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{i
   body.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{x.profil=b.dataset.pf;render(true);});
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=x.ga.indexOf(g);if(k>=0)x.ga.splice(k,1);else x.ga.push(g);render(true);});
   $('ua').onchange=e=>{x.actif=!e.target.checked;};
-  $('sv').onclick=()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}
+  $('ul').oninput=e=>{x.login=normLogin(e.target.value);};$('up').oninput=e=>{mdp=e.target.value;};$('ug').onclick=()=>{mdp=mdpPropose();$('up').value=mdp;};
+  $('sv').onclick=async()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}
    const admins=REF.users.filter((u,i)=>i!==j&&u.profil==='admin'&&u.actif).length+(x.profil==='admin'&&x.actif?1:0);if(admins<2){toast('Il faut toujours au moins deux administrateurs.');return;}
-   if(j>=0)REF.users[j]=x;else REF.users.push(x);sauverREF();back();toast(j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');};}};}
+   if(x.login&&REF.users.some((u,i)=>i!==j&&u.login===x.login)){toast('Cet identifiant est déjà pris.');return;}
+   const change=!ancien||ancien.login!==x.login||ancien.profil!==x.profil||(!ancien.actif&&x.actif);
+   if(x.login&&x.actif&&change&&!mdp){toast('Indiquez un mot de passe pour cet identifiant.');return;}
+   if(mdp&&mdp.length<7){toast('Le mot de passe doit faire 7 caractères au moins.');return;}
+   if(mdp&&!x.login){toast('Indiquez un identifiant.');return;}
+   const sv=$('sv');sv.disabled=true;
+   const r=await majCompte(x,ancien,mdp);sv.disabled=false;if(!r.ok){toast(msgAcces(r));return;}
+   if(j>=0)REF.users[j]=x;else REF.users.push(x);sauverREF();back();toast(mdp?`Accès enregistré : identifiant « ${x.login} »`:j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');};}};}
 function vueReglages(){const R=JSON.parse(JSON.stringify(REF.reglages));R.scrutins=R.scrutins||[];let nd='';
  return {id:'reglages',html:()=>{let h=headHTML('Réglages','',true);
   h+=`<div class="cpts one">${cptHTML('delaiFaite','Jours avant de reproposer une adresse faite',R.delaiFaite)}${cptHTML('delaiFerme','Jours avant de reproposer une adresse fermée',R.delaiFerme)}</div>`;
@@ -201,8 +212,8 @@ const reth=()=>{if(D&&fondL&&map.hasLayer(fondL)){styler();dessinerParcours();de
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',reth);}catch(e){}
 new MutationObserver(reth).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
-/* connexion : voir js5/p5_journal.js (la cle d'abord, puis le nom) */
-function deconnecter(){LS.set('session',null);$('q').value='';$('res').hidden=true;ecranConnexion(()=>{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);});}
+/* connexion : voir js5/p5_journal.js (identifiant et mot de passe) ; se deconnecter oublie l'acces sur ce telephone */
+function deconnecter(){oublierAcces();$('q').value='';$('res').hidden=true;ecranConnexion(()=>{ecranParis();const c=+LS.get('dernCirco',0)||0;if(c)choisir(c);});}
 
 /* demarrage : connexion, puis choix de la circonscription (la derniere est proposee), ou action recue par lien */
 setDet('fit');
