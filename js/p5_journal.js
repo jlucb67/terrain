@@ -148,8 +148,9 @@ async function scanner(fn){if(!('BarcodeDetector' in window)||!navigator.mediaDe
  try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});v.srcObject=st;await v.play();const bd=new BarcodeDetector({formats:['qr_code']});
   const tour=async()=>{if(fin)return;try{const c=await bd.detect(v);if(c&&c[0]&&c[0].rawValue){const k=lireCle(c[0].rawValue);stop();fn(k);return;}}catch(e){}setTimeout(tour,250);};tour();}
  catch(e){stop();toast('Appareil photo indisponible : visez le code avec l\'appareil photo du téléphone, ou collez la clé.');}}
-/* console : code a montrer pour donner la cle ; l'ecran ne l'enregistre nulle part */
-function chargerQR(fn){if(window.qrcode){fn();return;}const s=document.createElement('script');s.src='js/qr.js';s.onload=fn;s.onerror=()=>toast('Le générateur de code n\'a pas pu être chargé. Vérifiez la connexion.');document.head.appendChild(s);}
+/* console : code a montrer pour donner la cle ; l'ecran ne l'enregistre nulle part. Generateur de codes QR (Kazuhiko Arase,
+   licence MIT) charge depuis cdnjs, empreinte verifiee par le navigateur. */
+function chargerQR(fn){if(window.qrcode){fn();return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';s.integrity='sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1';s.crossOrigin='anonymous';s.onload=fn;s.onerror=()=>toast('Le générateur de code n\'a pas pu être chargé. Vérifiez la connexion.');document.head.appendChild(s);}
 function vueCode(){return {id:'code',html:()=>{let h=headHTML('Code d\'accès','La personne le vise avec l\'appareil photo de son téléphone : l\'appli s\'ouvre avec la clé.',true);
   h+=`<label class="fld" for="ck">Clé à transmettre (utilisateurs ou administrateurs)<input id="ck" type="password" autocomplete="off" placeholder="Collez la clé"></label><div class="qr" id="qr"></div>`;
   h+=`<div class="hint">Cet écran n'enregistre la clé nulle part.</div>`;return h;},
