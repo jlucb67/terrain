@@ -328,10 +328,11 @@ details.more[open] summary::after{content:"−"}
 .kw{display:grid;grid-template-columns:minmax(0,1fr) 46px;gap:6px;align-items:end}
 .kw .ib{width:46px;height:46px;border:1px solid var(--line2);border-radius:12px;background:var(--solid);color:var(--accent)}
 .lg-err{margin-top:12px;font:500 13px/1.4 var(--f);color:var(--cta)}
-.login select:disabled{opacity:.55}
+.login label.fld input,.login label.fld select{display:block;width:100%;margin-top:6px;height:46px;border-radius:12px;border:1px solid var(--line2);background:var(--solid);color:var(--ink);font:400 15px var(--f);padding:0 12px}
+.login input:disabled{opacity:.55}
 .menu .mh .att{color:var(--cta)}
-.qr{margin:14px auto 0;max-width:280px;background:#fff;border-radius:12px}.qr:empty{display:none}.qr svg{display:block;width:100%;height:auto}
-.scan{position:fixed;inset:0;z-index:3000;background:#000;display:grid;place-items:center}.scan video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.scan-c{position:relative;width:62vmin;height:62vmin;border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45)}.scan .btn{width:auto;padding:0 22px;position:absolute;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#000}
+label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(--solid)}.body .kw .ib{width:46px;height:46px;border:1px solid var(--line2);border-radius:12px;background:var(--solid);color:var(--accent)}.body .kw{margin-top:6px}
+.login .lnk2{text-align:center}
 .login .btns{margin-top:22px}
 /* barre des missions */
 .tabbar{position:absolute;left:0;right:0;bottom:0;z-index:1002;height:var(--tb);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--solid);border-top:.5px solid var(--line2);display:grid;grid-template-columns:repeat(4,1fr)}
@@ -416,12 +417,8 @@ details.more[open] summary::after{content:"−"}
  <div class="login" id="login" hidden>
   <div class="lg-in">
    <div class="lg-logo"><img class="lg-v" src="img/logo_v.svg" alt="La France insoumise"><img class="lg-b" src="img/logo_b.svg" alt="La France insoumise"><span>TERRAIN 2027</span></div>
-   <h1>Connexion</h1>
-   <div class="sub">Une seule fois sur ce téléphone.</div>
-   <label class="fld" for="lgK">Clé d'accès<span class="kw"><input id="lgK" type="password" autocomplete="off" placeholder="Collez la clé ou scannez le code"><button type="button" class="ib" id="lgS" aria-label="Scanner le code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M7 12h10"/></svg></button></span></label>
-   <label class="fld" for="lgN">Votre nom<select id="lgN" disabled></select></label>
-   <div class="lg-err" id="lgE" hidden></div>
-   <div class="btns"><button class="btn primary" id="lgGo">Se connecter</button></div>
+   <h1 id="lgT">Connexion</h1>
+   <div id="lgF"></div>
   </div>
  </div>
 </div>
