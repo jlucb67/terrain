@@ -14,7 +14,7 @@
  --fill:rgba(76,2,151,.045); --tint:rgba(76,2,151,.09); --chip-on:#F1EAFA;
  --shadow:0 1px 2px rgba(30,20,50,.06),0 6px 22px rgba(30,20,50,.09);
  --z1:#A4063E; --z2:#3F6E8E; --z3:#C2850F; --fo-zone:.075; --zo:.55;
- --dot:#B3AFBC; --done:#8C8A93; --arr:rgba(255,255,255,.85); --cborder:#FFFFFF;
+ --pied:#0F7B6C; --sup:#212320; --dot:#B3AFBC; --done:#8C8A93; --arr:rgba(255,255,255,.85); --cborder:#FFFFFF;
  --off:#E6E4EA; --o0:#F5E1E8; --o1:#EAB8C9; --o2:#D983A1; --o3:#B84A72; --o4:#8E0F3F; --oink-lo:#212320; --oink-hi:#FFFFFF; --chalo:rgba(96,4,38,.8);
  --f:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
@@ -26,7 +26,7 @@
  --fill:rgba(183,155,255,.06); --tint:rgba(183,155,255,.13); --chip-on:#2C2540;
  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
  --z1:#E0508A; --z2:#6FA6CB; --z3:#E2AE48; --fo-zone:.07; --zo:.6;
- --dot:#4E4C56; --done:#6D6B74; --arr:rgba(255,255,255,.2); --cborder:#161716;
+ --pied:#3CC4AE; --sup:#CFCBD8; --dot:#4E4C56; --done:#6D6B74; --arr:rgba(255,255,255,.2); --cborder:#161716;
  --off:#2B2A30; --o0:#3A2631; --o1:#5A2A43; --o2:#7F3050; --o3:#A83E68; --o4:#D25685; --oink-lo:#EDEBE6; --oink-hi:#FFFFFF; --chalo:rgba(0,0,0,.6);
  color-scheme:dark}}
 :root[data-theme="dark"]{
@@ -37,7 +37,7 @@
  --fill:rgba(183,155,255,.06); --tint:rgba(183,155,255,.13); --chip-on:#2C2540;
  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
  --z1:#E0508A; --z2:#6FA6CB; --z3:#E2AE48; --fo-zone:.07; --zo:.6;
- --dot:#4E4C56; --done:#6D6B74; --arr:rgba(255,255,255,.2); --cborder:#161716;
+ --pied:#3CC4AE; --sup:#CFCBD8; --dot:#4E4C56; --done:#6D6B74; --arr:rgba(255,255,255,.2); --cborder:#161716;
  --off:#2B2A30; --o0:#3A2631; --o1:#5A2A43; --o2:#7F3050; --o3:#A83E68; --o4:#D25685; --oink-lo:#EDEBE6; --oink-hi:#FFFFFF; --chalo:rgba(0,0,0,.6);
  color-scheme:dark}
 html,body{height:100%}
@@ -70,6 +70,7 @@ svg{display:block}
 .chips{display:flex;gap:6px;overflow-x:auto;padding:8px 10px 4px;margin:0 -10px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chips:empty{display:none}
+.chips.t4{gap:3px}.chips.t4 .chip{padding:0 7px;font-size:11.5px}.chips.t4 .chip i{display:none}
 .chip{flex:none;height:30px;padding:0 11px 0 9px;border-radius:15px;display:flex;align-items:center;gap:7px;font:500 12.5px var(--f);white-space:nowrap;color:var(--ink);position:relative}
 .chip::after{content:"";position:absolute;inset:-7px -2px}
 .chip i{width:8px;height:8px;border-radius:4px;flex:none}
@@ -176,6 +177,24 @@ h2{font:600 10.5px/1.2 var(--f);letter-spacing:.1em;text-transform:uppercase;col
 .seg button{flex:1;border:0;background:none;border-radius:8px;height:34px;padding:0 4px;font:500 12.5px var(--f);color:var(--quiet);white-space:nowrap;position:relative;min-width:0}
 .seg button::after{content:"";position:absolute;inset:-5px 0}
 .seg button[aria-pressed="true"]{background:var(--tint);color:var(--accent)}
+.mom{margin-top:12px}
+.mom .jr{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mom .jr button{border:1px solid var(--line2);background:var(--solid);border-radius:10px;height:36px;padding:0;font:500 12.5px var(--f);color:var(--ink);min-width:0}
+.mom .jr button.auj{border-color:var(--accent)}
+.mom .jr button[aria-pressed="true"],.mom .hr .now[aria-pressed="true"]{background:var(--tint);border-color:transparent;color:var(--accent);font-weight:650}
+.mom .hr .now{margin-left:auto;width:auto;padding:0 12px;font:500 13px var(--f)}
+.mom .hr{display:flex;align-items:center;gap:10px;margin-top:8px}
+.mom .hr span{font:400 13px var(--f);color:var(--quiet)}
+.mom .hr b{min-width:96px;text-align:center;font:650 15px var(--f);color:var(--ink)}
+.mom .hr button{width:44px;height:36px;border:1px solid var(--line2);background:var(--solid);border-radius:10px;font:500 18px var(--f);color:var(--ink)}
+.prs{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;font:600 11.5px/1.5 var(--f);background:var(--fill);color:var(--quiet)}
+.prs.p2{background:var(--tint);color:var(--accent)}
+.prs.p3{background:var(--accent);color:var(--solid)}
+.tsec{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.tsec .more{border:0;background:none;color:var(--accent);font:600 13px var(--f);padding:8px 0}
+.mk-p{background:var(--pied);color:#fff;border-radius:4px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.tags span{padding:3px 9px;border-radius:999px;background:var(--fill);font:500 12px/1.5 var(--f);color:var(--ink)}
+.dim{opacity:.38}
 .chart{margin-top:12px}
 .chart svg{width:100%;height:auto}
 .peak{margin-top:8px;font:400 13px/1.45 var(--f)}
@@ -354,7 +373,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .login .lnk2{text-align:center}
 .login .btns{margin-top:22px}
 /* barre des missions */
-.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:1002;height:var(--tb);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--solid);border-top:.5px solid var(--line2);display:grid;grid-template-columns:repeat(4,1fr)}
+.tabbar{position:absolute;left:0;right:0;bottom:0;z-index:1002;height:var(--tb);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--solid);border-top:.5px solid var(--line2);display:grid;grid-template-columns:repeat(2,1fr)}
 .tabbar[hidden]{display:none}
 .tabbar button{border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;font:500 10.5px/1 var(--f);letter-spacing:.01em;color:var(--ink);height:54px;opacity:.56;padding:0 2px;white-space:nowrap}
 .tabbar i{display:grid;place-items:center;height:22px}
@@ -368,7 +387,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .mk-m{background:var(--ink);color:var(--solid);font:700 8px/1 var(--f)}
 .mk-ma{background:#2E7D4F;color:#fff;border-radius:4px}
 .mk-c{background:var(--quiet);color:var(--solid);border-radius:3px}
-.mk-c.g{background:var(--charbon);color:#fff}
+.mk-c.g{background:var(--sup);color:var(--solid)}
 .mkl{display:flex;align-items:center;gap:6px;white-space:nowrap;width:max-content}
 .mkl span{font:600 11.5px var(--f);color:var(--ink);text-shadow:0 0 3px var(--halo),0 0 3px var(--halo),0 0 2px var(--halo)}
 .pin{width:26px;height:26px;border-radius:13px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font:700 11px var(--f);box-shadow:0 1px 4px rgba(0,0,0,.3);border:1.5px solid var(--solid)}
@@ -429,9 +448,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
  </section>
  <nav class="tabbar" id="tabbar" role="tablist" aria-label="Missions" hidden>
   <button role="tab" data-m="pap" aria-selected="true"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V5.5A1.5 1.5 0 017.5 4h9A1.5 1.5 0 0118 5.5V20"/><path d="M4 20h16"/><circle cx="14.5" cy="12.5" r=".9" fill="currentColor"/></svg></i><span>Porte-à-porte</span></button>
-  <button role="tab" data-m="boitage" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5V11a4 4 0 014-4h9a4 4 0 014 4v7.5z"/><path d="M7.5 7a4 4 0 014 4v7.5"/><path d="M14.5 11.5h3"/></svg></i><span>Boîtage</span></button>
-  <button role="tab" data-m="marches" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h16l-1.8 9.5H5.8z"/><path d="M8.5 9.5L12 4.5l3.5 5"/></svg></i><span>Marchés</span></button>
-  <button role="tab" data-m="metro" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 16V8.5l4 4.5 4-4.5V16"/></svg></i><span>Métro</span></button>
+  <button role="tab" data-m="tractage" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/></svg></i><span>Tractage</span></button>
  </nav>
  <div class="mback" id="mback" hidden></div>
  <div class="menu" id="menu" role="menu" hidden></div>
