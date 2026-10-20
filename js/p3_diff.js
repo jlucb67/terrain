@@ -1,5 +1,87 @@
+const LT={'marché':'marche','station':'station','supermarché':'commerce','pied':'secteur'};
+const diffsDe=nom=>ACTIONS.filter(a=>a.type.startsWith('diff')&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((a,b)=>toD(b.faite_le)-toD(a.faite_le));
+const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
+function histoHTML(nom){const l=diffsDe(nom);if(!l.length)return '';
+ return `<h2>Diffs faites ici</h2>`+l.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.faite_le)}</b><small>${n0(a.tracts)} tracts${a.nb?` · ${pl(a.nb,'militant')}`:''} · ${esc(a.ga.map(gaNom).join(', '))}</small></button><button class="addb" data-hk="${a.id}">Modifier</button></div>`).join('');}
+const lierHisto=(nom,type)=>body.querySelectorAll('[data-hk]').forEach(b=>b.onclick=()=>detail(vueDiff(nom,type,b.dataset.hk)));
 
-/* ---------------- diff en marche */
+/* ---------------- tractage (20/10/2026) : un moment (jour et heure, par défaut maintenant), quatre sortes de lieux,
+   et pour chaque lieu la priorité du secteur, tirée des adresses alentour */
+let MOM=null,TRI='monde',EXP={},PRC={};
+const momNow=()=>{const n=new Date();return {d:n.getDay(),h:n.getHours()};};
+const mom=()=>MOM||momNow();
+const JAF=d=>(d+6)%7;                                   /* indice des tableaux d'affluence : lundi = 0 */
+const JTYPE=d=>d===0?'dim':d===6?'sam':'sem';
+const JCOURT=['Dim.','Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.'];
+const hTxt=h=>`de ${h} h à ${(h+1)%24} h`;
+/* supermarchés et secteurs : affluence 0-100, relative au moment le plus chargé de la semaine ; null = fermé ou inconnu */
+const affAt=(s,m)=>s.af?s.af[JAF(m.d)][m.h]:null;
+/* stations : entrées moyennes dans l'heure, selon le type de jour (semaine, samedi, dimanche) */
+const totJ=(s,t)=>t==='sam'?(s.jsa||s.jour||0):t==='dim'?(s.jdi||s.jour||0):(s.jour||0);
+const entreesM=(s,m)=>{const t=JTYPE(m.d),v=(s[t]||[])[m.h]||0;return totJ(s,t)*v/100;};
+const ouvertM=(s,m)=>seances(s).find(x=>x.d===m.d&&x.h0<m.h+1&&x.h1>m.h);
+/* priorité du secteur : part des inscrits à moins de 300 m qui habitent une adresse prioritaire (score dans la circo au
+   niveau du curseur, 70 par défaut, ou plus) */
+function prioSect(ll){const k=ll[0].toFixed(5)+','+ll[1].toFixed(5)+','+crit.score;if(PRC[k])return PRC[k];
+ let t=0,p=0;const c=Math.cos(ll[0]*Math.PI/180);
+ for(const a of D.adresses){const dx=(a[0]-ll[1])*111320*c,dy=(a[1]-ll[0])*110540;if(dx*dx+dy*dy>9e4)continue;t+=a[3];if(a[5]>=crit.score)p+=a[3];}
+ return PRC[k]={t,p,v:t?Math.round(100*p/t):0};}
+const prNiv=v=>v>=50?3:v>=30?2:1;
+const NIV=['','Peu prioritaire','Prioritaire','Très prioritaire'];
+function prHTML(ll){const r=prioSect(ll);if(!r.t)return '';const n=prNiv(r.v);return `<span class="prs p${n}">${NIV[n]} · ${r.v} %</span>`;}
+function prPhrase(ll){const r=prioSect(ll);return r.t?`<div style="margin-top:10px">${prHTML(ll)}</div>`:'';}
+const nomSup=s=>(s.ens||s.nom)+', '+s.adr;
+const distTxt=d=>d<1000?Math.round(d/10)*10+' m':(d/1000).toFixed(1).replace('.',',')+' km';
+function refPos(){if(posMoi)return posMoi;const c=centreVisible();return [c.lat,c.lng];}
+
+/* lieux classés pour le moment choisi : v = monde attendu (sert au tri), info = ce qu'on en dit */
+function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]},ref=TRI==='pres'?refPos():null;
+ const fin=(o,ll)=>{o.pr=prioSect(ll).v;o.d=ref?dist(ref,ll):0;return o;};
+ if(chips.tMa)D.marches.forEach((s,i)=>{const x=ouvertM(s,m);out.ma.push(fin({k:'ma',i,s,nom:s.nom,v:x?100:0,
+   info:x?`<span class="acc">Ouvert jusqu'à ${x.fin}</span>`:`Fermé · ${joursMarche(s)}`},[s.lat,s.lon]));});
+ if(chips.tSu)(D.supers||[]).filter(s=>s.dedans).forEach((s,i)=>{const a=affAt(s,m);out.su.push(fin({k:'su',i:D.supers.indexOf(s),s,nom:s.ens||s.nom,v:a==null?-1:a,
+   info:!s.af?esc(s.adr):a==null||a===0?'Fermé':`Affluence <span class="acc">${a} %</span>`},[s.lat,s.lon]));});
+ if(chips.tMe)D.metro.forEach((s,i)=>{const e=entreesM(s,m),lim=!dansCirco([s.lat,s.lon]);out.me.push(fin({k:'me',i,s,nom:s.nom,v:e,lim,
+   info:`${n0(e)} entrées`},[s.lat,s.lon]));});
+ if(chips.tPi)(D.pieds||[]).forEach((s,i)=>{const a=affAt(s,m);out.pi.push(fin({k:'pi',i,s,nom:s.nom,v:a==null?-1:a,
+   info:`${n0(s.ls)} logements sociaux${a!=null?` · animation <span class="acc">${a} %</span>`:''}`},[s.lat,s.lon]));});
+ /* pieds d'immeuble : le monde attendu (indicateur indirect) pondéré par la priorité du secteur */
+ out.pi.forEach(o=>{if(o.v>=0)o.v=(o.pr+1)*o.v;});
+ const tri=TRI==='prio'?(x,y)=>y.pr-x.pr||y.v-x.v:TRI==='pres'?(x,y)=>x.d-y.d:(x,y)=>y.v-x.v||y.pr-x.pr;
+ Object.values(out).forEach(l=>l.sort(tri));return out;}
+const SECT=[['ma','Marchés',"marchés"],['su','Supermarchés',"supermarchés"],['me','Métro',"stations"],['pi',"Pieds d'immeuble","secteurs"]];
+function rowTract(o){const ll=[o.s.lat,o.s.lon];
+ return `<div class="row p"><button class="tx${o.k!=='pi'&&o.k!=='me'&&o.v<=0&&TRI==='monde'?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}${TRI==='pres'?` · ${distTxt(o.d)}`:''}${derniereDiff(o.k==='su'?nomSup(o.s):o.s.nom)}</small>${prHTML(ll)}</button><button class="addb" data-td="${o.k}:${o.i}">${I.tract}Diff faite</button></div>`;}
+function momHTML(m){const auj=new Date().getDay();
+ return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
+  <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
+function vueTractage(){return {id:'base',html:()=>{const m=mom(),L_=lieuxTract(m);
+  let h=headHTML('Tractage','');
+  h+=momHTML(m);
+  h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires'],['pres','Près de moi']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
+  let vide=true;
+  SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
+   h+=`<div class="tsec"><h2>${t}</h2>${l.length>4?`<button class="more" data-ex="${k}">${EXP[k]?'Moins':`Voir les ${l.length}`}</button>`:''}</div>`+l.slice(0,n).map(rowTract).join('');});
+  if(vide)h+=`<div class="empty">Choisissez au moins une sorte de lieu dans les filtres, en haut de la carte.</div>`;
+  h+=lienCR();
+  return h;},
+ after:()=>{body.querySelectorAll('[data-mj]').forEach(b=>b.onclick=()=>{const v=b.dataset.mj;MOM=v==='now'?null:{d:+v,h:mom().h};majMoment();render(true);});
+  body.querySelectorAll('[data-mh]').forEach(b=>b.onclick=()=>{const x=mom();MOM={d:x.d,h:(x.h+(+b.dataset.mh)+24)%24};majMoment();render(true);});
+  body.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>{TRI=b.dataset.tri;render(true);});
+  body.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{EXP[b.dataset.ex]=!EXP[b.dataset.ex];render(true);});
+  body.querySelectorAll('[data-tl]').forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.tl.split(':');ouvrirLieu(k,+i);});
+  body.querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.td.split(':');diffLieu(k,+i);});}};}
+function ouvrirLieu(k,i){if(k==='ma')ouvrirMarche(D.marches[i]);else if(k==='su')ouvrirMagasin(D.supers[i]);else if(k==='me')ouvrirStation(D.metro[i]);else ouvrirPied(D.pieds[i]);}
+function diffLieu(k,i){if(k==='ma')detail(vueDiff(D.marches[i].nom,'marché'));else if(k==='su')detail(vueDiff(nomSup(D.supers[i]),'supermarché'));else if(k==='me')detail(vueDiff(D.metro[i].nom,'station'));else detail(vueDiff(D.pieds[i].nom,'pied'));}
+/* sur la carte : les lieux sans monde au moment choisi s'estompent ; autour des stations, un cercle dit les entrées */
+function majMoment(){if(!D)return;const t=mode==='tractage',m=mom();
+ const op=(mk,on)=>{const e=mk&&mk.getElement&&mk.getElement();if(e)e.style.opacity=on?'':'.35';};
+ D.marches.forEach(s=>op(s._m,!t||!!ouvertM(s,m)));
+ (D.supers||[]).forEach(s=>{const a=affAt(s,m);op(s._m,!t||!s.af||(a!=null&&a>0));});
+ (D.pieds||[]).forEach(s=>{const a=affAt(s,m);if(s._g)s._g.setStyle({fillOpacity:t&&a!=null?.05+.25*a/100:.1});});
+ majBulles();}
+
+/* ---------------- marchés */
 function seances(s){const out=[];s.horaires.forEach(t=>{const m=/^(.*?)\s*:\s*de\s*(\d+)\s*h\s*(\d*)\s*à\s*(\d+)\s*h\s*(\d*)/.exec(t);if(!m)return;
  m[1].split(/\s*,\s*|\s+et\s+/).forEach(j=>{const d=JOURS.indexOf(j.trim().toLowerCase());if(d>=0)out.push({d,h0:+m[2]+(+m[3]||0)/60,h1:+m[4]+(+m[5]||0)/60,deb:`${m[2]} h${m[3]?' '+m[3]:''}`,fin:`${m[4]} h${m[5]?' '+m[5]:''}`});});});return out;}
 function prochaine(s){const now=new Date(),dn=now.getDay(),hn=now.getHours()+now.getMinutes()/60;let best=null;
@@ -10,74 +92,69 @@ function quand(b){if(!b)return 'Horaires inconnus';if(b.ouvert)return `Ouvert ma
 const JC=['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
 const joursMarche=s=>{const d=[...new Set(seances(s).map(x=>x.d))].sort((a,b)=>((a+6)%7)-((b+6)%7));return d.length?cap(d.map(x=>JC[x]).join(d.length>2?', ':' et ')).replace(/, ([^,]+)$/,' et $1'):'';};
 const seanceLe=(nom,q)=>{const s=D.marches.find(m=>m.nom===nom);if(!s)return true;const d=toD(q);return !d||seances(s).some(x=>x.d===d.getDay());};
-const LT={'marché':'marche','station':'station','supermarché':'commerce'};
-const diffsDe=nom=>ACTIONS.filter(a=>a.type.startsWith('diff')&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((a,b)=>toD(b.faite_le)-toD(a.faite_le));
-const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
-function histoHTML(nom){const l=diffsDe(nom);if(!l.length)return '';
- return `<h2>Diffs faites ici</h2>`+l.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.faite_le)}</b><small>${n0(a.tracts)} tracts${a.nb?` · ${pl(a.nb,'militant')}`:''} · ${esc(a.ga.map(gaNom).join(', '))}</small></button><button class="addb" data-hk="${a.id}">Modifier</button></div>`).join('');}
-const lierHisto=(nom,type)=>body.querySelectorAll('[data-hk]').forEach(b=>b.onclick=()=>detail(vueDiff(nom,type,b.dataset.hk)));
-function vueMarches(){return {id:'base',html:()=>{
-  const ms=D.marches.map(s=>({s,b:prochaine(s)})).sort((a,b)=>(a.b?a.b.t:1e9)-(b.b?b.b.t:1e9));
-  let h=headHTML('Diff en marché','Les marchés de la circonscription et alentour, par prochaine séance.');
-  h+=`<div style="margin-top:8px">${ms.map(o=>`<div class="row p"><button class="tx" data-ma="${D.marches.indexOf(o.s)}"><b>${esc(o.s.nom)}</b><small class="${o.b&&o.b.ouvert?'acc':''}">${quand(o.b)}</small><small>${joursMarche(o.s)}${derniereDiff(o.s.nom)}</small></button><button class="addb" data-dm="${D.marches.indexOf(o.s)}">${I.tract}Diff faite</button></div>`).join('')}</div>`;
-  const g=D.commerces.filter(c=>c.grand&&c.dedans).sort((a,b)=>(a.ens||a.type).localeCompare(b.ens||b.type,'fr'));
-  h+=`<h2>Supermarchés de la circonscription</h2><div>${g.map(c=>`<div class="row p"><button class="tx" data-mg="${D.commerces.indexOf(c)}"><b>${esc(c.ens||c.type)}</b><small>${esc(c.adr)} · ${esc(c.surf)}${derniereDiff((c.ens||c.type)+', '+c.adr)}</small></button><button class="addb" data-dg="${D.commerces.indexOf(c)}">${I.tract}Diff faite</button></div>`).join('')}</div>`;
-  h+=lienCR();
-  return h;},after:()=>{body.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>ouvrirMarche(D.marches[+b.dataset.ma]));
-  body.querySelectorAll('[data-mg]').forEach(b=>b.onclick=()=>ouvrirMagasin(D.commerces[+b.dataset.mg]));
-  body.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>detail(vueDiff(D.marches[+b.dataset.dm].nom,'marché')));
-  body.querySelectorAll('[data-dg]').forEach(b=>{const c=D.commerces[+b.dataset.dg];b.onclick=()=>detail(vueDiff((c.ens||c.type)+', '+c.adr,'supermarché'));});}};}
 function procheStation(ll){let b=null,bd=1e9;D.metro.forEach(s=>{const d=dist(ll,[s.lat,s.lon]);if(d<bd){bd=d;b=s;}});return b?{s:b,d:bd}:null;}
 function ouvrirMarche(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),15.5));const st=procheStation([s.lat,s.lon]);
- detail({id:'ma',html:()=>headHTML(esc(s.nom),quand(prochaine(s)),true)+`<div class="zdef" style="margin-top:10px">${esc(s.lieu)}</div><h2>Jours et horaires</h2><ul class="hours">${s.horaires.map(x=>`<li>${esc(cap(x))}</li>`).join('')}</ul>`+
-  (st?`<div class="sub" style="margin-top:12px">Métro le plus proche : <b>${esc(st.s.nom)}</b>, à ${Math.round(st.d/10)*10} m</div>`:'')+`<div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`+histoHTML(s.nom),
+ detail({id:'ma',html:()=>headHTML(esc(s.nom),quand(prochaine(s)),true)+prPhrase([s.lat,s.lon])+`<div class="zdef" style="margin-top:10px">${esc(s.lieu)}</div><h2>Jours et horaires</h2><ul class="hours">${s.horaires.map(x=>`<li>${esc(cap(x))}</li>`).join('')}</ul>`+
+  (st?`<div class="sub" style="margin-top:12px">Métro : <b>${esc(st.s.nom)}</b>, ${Math.round(st.d/10)*10} m</div>`:'')+`<div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`+histoHTML(s.nom),
   after:()=>{$('df').onclick=()=>detail(vueDiff(s.nom,'marché'));lierHisto(s.nom,'marché');}});}
-function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=(s.ens||s.type)+', '+s.adr;
- detail({id:'mg',html:()=>headHTML(esc(s.ens||s.type),`${esc(s.type)} · ${esc(s.surf)}`,true)+`<div class="zdef" style="margin-top:10px">${esc(s.adr)}</div><div class="sub" style="margin-top:8px">On tracte sur le trottoir, devant l'entrée.</div><div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`+histoHTML(nom),
-  after:()=>{$('df').onclick=()=>detail(vueDiff(nom,'supermarché'));lierHisto(nom,'supermarché');}});}
 
-/* ---------------- diff en metro */
-const HEURES=[...Array(19)].map((_,i)=>i+5);
-const typeJour=d=>{const w=d.getDay();return w===0?'dim':w===6?'sam':'sem';};
-const entreesH=(s,h,d)=>{d=d||new Date();const v=(s[typeJour(d)]||[])[h]||0;return s.jour?s.jour*v/100:0;};
-function valeurStation(s,j){if(!s.jour)return 0;if(j==='now'||j==='pres'){const n=new Date();return entreesH(s,n.getHours(),n);}return s.jour;}
-function majBulles(){if(!bulles)return;bulles.clearLayers();if(mode!=='metro'){if(map.hasLayer(bulles))map.removeLayer(bulles);return;}
- const vals=D.metro.map(s=>valeurStation(s,vueMetroJour)),mx=Math.max(...vals,1),ac=tok('--accent');
- D.metro.forEach((s,k)=>{const r=5+22*Math.sqrt(vals[k]/mx);L.circleMarker([s.lat,s.lon],{renderer:rA,radius:r,color:ac,weight:1.2,opacity:.9,fillColor:ac,fillOpacity:.18}).on('click',()=>ouvrirStation(s)).addTo(bulles);});
- if(!map.hasLayer(bulles))bulles.addTo(map);}
-const pointesTxt=v=>HEURES.slice().sort((x,y)=>v[y]-v[x]).slice(0,2).sort((x,y)=>x-y).map(h=>`${h} h`).join(' et ');
-const lignesHTML=s=>`<span class="lines s">${s.lignes.map(l=>{const c=LIGNE[l]||['#888','#fff'];return `<span class="ln" style="background:${c[0]};color:${c[1]}">${esc(l)}</span>`;}).join('')}</span>`;
-function vueMetro(){return {id:'base',html:()=>{const n=new Date(),j=vueMetroJour,hs=n.getHours(),h1=(hs+1)%24,h2=(hs+2)%24;
-  const ref=j==='pres'?(posMoi||(()=>{const c=centreVisible();return [c.lat,c.lng];})()):null;
-  let ss=D.metro.filter(s=>s.jour).map(s=>({s,v:valeurStation(s,j),d:ref?dist(ref,[s.lat,s.lon]):0}));
-  ss.sort(j==='pres'?(a,b)=>a.d-b.d:(a,b)=>b.v-a.v);if(j==='pres')ss=ss.slice(0,8);
-  const sub=j==='now'?`${cap(JOURS[n.getDay()])} : entrées moyennes de ${hs} h à ${h1} h, puis de ${h1} h à ${h2} h`:j==='pres'?(posMoi?'Les stations les plus proches de vous':'Les stations les plus proches du centre de la carte. Touchez « Me localiser » pour partir de vous.'):'Stations de la circonscription et alentour, par entrées par jour';
-  let h=headHTML('Diff en métro',sub);
-  h+=`<div class="seg five" role="group" aria-label="Moment">${[['now','Maintenant'],['pres','Près de moi'],['sem','Semaine'],['sam','Samedi'],['dim','Dimanche']].map(([k,t])=>`<button data-j="${k}" aria-pressed="${j===k}">${t}</button>`).join('')}</div>`;
-  h+=`<div style="margin-top:6px">${ss.map(o=>{const pk=(j==='sem'||j==='sam'||j==='dim')&&o.s[j]?pointesTxt(o.s[j]):'',lim=!dansCirco([o.s.lat,o.s.lon]);
-   const info=j==='now'?`${n0(entreesH(o.s,hs))} entrées de ${hs} h à ${h1} h · ${n0(entreesH(o.s,h1))} de ${h1} h à ${h2} h`:j==='pres'?`${o.d<1000?Math.round(o.d/10)*10+' m':(o.d/1000).toFixed(1).replace('.',',')+' km'} · ${n0(entreesH(o.s,h1))} entrées de ${h1} h à ${h2} h`:`${n0(o.s.jour)} entrées par jour · pointes à ${pk}`;
-   return `<div class="row p"><button class="tx" data-st="${D.metro.indexOf(o.s)}"><b>${esc(o.s.nom)}${lim?' <span class="lim">limite de circo</span>':''}</b><small>${info}${derniereDiff(o.s.nom)}</small>${lignesHTML(o.s)}</button><button class="addb" data-ds="${D.metro.indexOf(o.s)}">${I.tract}Diff faite</button></div>`;}).join('')}</div>`;
-  h+=`<div class="hint">Moyennes d'Île-de-France Mobilités, 4e trimestre 2025. Le matin, ce sont surtout des habitants qui partent.</div>`+lienCR();
-  return h;},after:()=>{body.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{vueMetroJour=b.dataset.j;majBulles();render(true);if(vueMetroJour==='pres'&&!posMoi)localiser(ll=>{posMoi=ll;render(true);},true);});
-  body.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>ouvrirStation(D.metro[+b.dataset.st]));
-  body.querySelectorAll('[data-ds]').forEach(b=>b.onclick=()=>detail(vueDiff(D.metro[+b.dataset.ds].nom,'station')));}};}
-function chartH(v){const w=320,hh=80,bw=w/HEURES.length,mx=Math.max(...HEURES.map(h=>v[h]),1),top=HEURES.slice().sort((x,y)=>v[y]-v[x]).slice(0,3),hn=new Date().getHours();
- let s=`<svg viewBox="0 0 ${w} ${hh+18}" role="img" aria-label="Entrées par heure">`;
- HEURES.forEach((h,i)=>{const y=hh*v[h]/mx;s+=`<rect x="${i*bw+3}" y="${hh-y}" width="${bw-6}" height="${Math.max(1,y)}" rx="1.5" style="fill:${top.includes(h)?'var(--accent)':'var(--line2)'}"></rect>`;});
+/* ---------------- graphiques heure par heure (6 h à 23 h) */
+const HEURES=[...Array(18)].map((_,i)=>i+6);
+function chartH(v,hSel,lab){v=v||[];const w=320,hh=80,bw=w/HEURES.length,vals=HEURES.map(h=>v[h]||0),mx=Math.max(...vals,1),top=HEURES.slice().sort((x,y)=>(v[y]||0)-(v[x]||0)).slice(0,3);
+ let s=`<svg viewBox="0 0 ${w} ${hh+18}" role="img" aria-label="${lab||'Heure par heure'}">`;
+ HEURES.forEach((h,i)=>{const y=hh*(v[h]||0)/mx;s+=`<rect x="${i*bw+2.5}" y="${hh-y}" width="${bw-5}" height="${Math.max(1,y)}" rx="1.5" style="fill:${h===hSel?'var(--cta)':top.includes(h)&&(v[h]||0)>0?'var(--accent)':'var(--line2)'}"></rect>`;});
  s+=`<line x1="0" x2="${w}" y1="${hh+.5}" y2="${hh+.5}" style="stroke:var(--line2);stroke-width:1"></line>`;
- if(hn>=5)s+=`<line x1="${(hn-5+.5)*bw}" x2="${(hn-5+.5)*bw}" y1="0" y2="${hh}" style="stroke:var(--cta);stroke-width:1;stroke-dasharray:2 3"></line>`;
- [6,9,12,15,18,21].forEach(h=>{s+=`<text x="${(h-5+.5)*bw}" y="${hh+14}" text-anchor="middle" style="fill:var(--quiet);font:400 10px var(--f)">${h} h</text>`;});
+ [6,9,12,15,18,21].forEach(h=>{s+=`<text x="${(h-6+.5)*bw}" y="${hh+14}" text-anchor="middle" style="fill:var(--quiet);font:400 10px var(--f)">${h} h</text>`;});
  return s+'</svg>';}
-const pointes=v=>HEURES.slice().sort((x,y)=>v[y]-v[x]).slice(0,3).sort((x,y)=>x-y).map(h=>`<b>${h} h</b> (${pc(v[h])})`).join(', ');
-function ouvrirStation(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),15.5));let jour=typeJour(new Date());
- detail({id:'st',html:()=>{let h=headHTML(esc(s.nom),s.jour?`${n0(s.jour)} entrées par jour en moyenne`:'Station de métro',true);
-  h+=`<div class="lines">${s.lignes.map(l=>{const c=LIGNE[l]||['#888','#fff'];return `<span class="ln" style="background:${c[0]};color:${c[1]}">${esc(l)}</span>`;}).join('')}</div>`;
-  if(!dansCirco([s.lat,s.lon]))h+=`<div class="sub" style="margin-top:8px">En limite de circonscription : une partie des voyageurs n'habite pas la ${D.k}e.</div>`;
+const pointes=(v,fmt)=>HEURES.filter(h=>(v[h]||0)>0).sort((x,y)=>v[y]-v[x]).slice(0,3).sort((x,y)=>x-y).map(h=>`<b>${h} h</b>${fmt?` (${fmt(v[h])})`:''}`).join(', ');
+const pointesTxt=v=>HEURES.slice().sort((x,y)=>v[y]-v[x]).slice(0,2).sort((x,y)=>x-y).map(h=>`${h} h`).join(' et ');
+/* sélecteur de jour d'une fiche (lundi à dimanche) */
+const jourSegHTML=d=>`<div class="seg" role="group" aria-label="Jour">${[1,2,3,4,5,6,0].map(x=>`<button data-fj="${x}" aria-pressed="${d===x}">${JCOURT[x].replace('.','')}</button>`).join('')}</div>`;
+function picSemaine(af){let b=null;af.forEach((r,j)=>r.forEach((v,h)=>{if(v!=null&&(!b||v>b.v))b={v,j,h};}));return b?`${JOURS[(b.j+1)%7]} vers ${b.h} h`:'';}
+
+/* ---------------- supermarchés : affluence heure par heure, jour par jour */
+function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=nomSup(s);let jd=mom().d;
+ detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon]);
   h+=`<div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`;
-  if(s.sem){h+=`<div class="seg" role="group"><button data-j="sem" aria-pressed="${jour==='sem'}">Semaine</button><button data-j="sam" aria-pressed="${jour==='sam'}">Samedi</button><button data-j="dim" aria-pressed="${jour==='dim'}">Dimanche</button></div>
-   <div class="chart">${chartH(s[jour])}</div><div class="peak">Heures les plus chargées : ${pointes(s[jour])}</div><div class="sub">Part des entrées de la journée, heure par heure. Le trait rouge marque l'heure qu'il est.</div>`;}
+  if(s.af){const v=s.af[JAF(jd)],ou=v.some(x=>x>0);
+   h+=`<h2>Affluence</h2>${jourSegHTML(jd)}`+(ou?`<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Affluence par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`:`<div class="empty">Fermé ce jour-là.</div>`);}
+  else h+=`<div class="hint">Affluence inconnue.</div>`;
+  return h+histoHTML(nom);},
+  after:()=>{$('df').onclick=()=>detail(vueDiff(nom,'supermarché'));lierHisto(nom,'supermarché');body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});}});}
+
+/* ---------------- stations */
+const typeJour=d=>JTYPE(d.getDay());
+const entreesH=(s,h,d)=>entreesM(s,{d:(d||new Date()).getDay(),h});
+function majBulles(){if(!bulles)return;bulles.clearLayers();if(mode!=='tractage'||!chips.tMe){if(map.hasLayer(bulles))map.removeLayer(bulles);return;}
+ const m=mom(),vals=D.metro.map(s=>entreesM(s,m)),mx=Math.max(...D.metro.map(s=>Math.max(...HEURES.map(h=>entreesM(s,{d:m.d,h})))),1),ac=tok('--accent');
+ D.metro.forEach((s,k)=>{const r=4+22*Math.sqrt(vals[k]/mx);L.circleMarker([s.lat,s.lon],{renderer:rA,radius:r,color:ac,weight:1.2,opacity:.9,fillColor:ac,fillOpacity:.16}).on('click',()=>ouvrirStation(s)).addTo(bulles);});
+ if(!map.hasLayer(bulles))bulles.addTo(map);}
+const lignesHTML=s=>`<span class="lines s">${s.lignes.map(l=>{const c=LIGNE[l]||['#888','#fff'];return `<span class="ln" style="background:${c[0]};color:${c[1]}">${esc(l)}</span>`;}).join('')}</span>`;
+function ouvrirStation(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),15.5));let jd=mom().d;
+ detail({id:'st',html:()=>{const t=JTYPE(jd),tot=totJ(s,t),v=(s[t]||[]).map(x=>tot*x/100);
+  let h=headHTML(esc(s.nom),tot?`${n0(tot)} entrées par jour${t==='sem'?' en semaine':t==='sam'?' le samedi':' le dimanche'}`:'Station',true);
+  h+=`<div class="lines">${s.lignes.map(l=>{const c=LIGNE[l]||['#888','#fff'];return `<span class="ln" style="background:${c[0]};color:${c[1]}">${esc(l)}</span>`;}).join('')}</div>`;
+  if(!dansCirco([s.lat,s.lon]))h+=`<div class="sub" style="margin-top:8px"><span class="lim">limite de circo</span></div>`;
+  h+=prPhrase([s.lat,s.lon]);
+  h+=`<div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`;
+  if(tot){h+=`<h2>Entrées par heure</h2>${jourSegHTML(jd)}<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Entrées par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`;}
   h+=histoHTML(s.nom);
-  return h;},after:()=>{body.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>{jour=b.dataset.j;render(true);});$('df').onclick=()=>detail(vueDiff(s.nom,'station'));lierHisto(s.nom,'station');}});}
+  return h;},after:()=>{body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});$('df').onclick=()=>detail(vueDiff(s.nom,'station'));lierHisto(s.nom,'station');}});}
+
+/* ---------------- pieds d'immeuble : secteurs de quartiers prioritaires, de logement social ou d'adresses prioritaires */
+function ouvrirPied(s){sel(null);if(det==='peek')setDet('half');try{map.flyToBounds(s._g.getBounds(),{...pad(),maxZoom:17,duration:.4});}catch(e){voir([s.lat,s.lon],16.5);}let jd=mom().d;
+ detail({id:'pi',html:()=>{let h=headHTML(esc(s.nom),s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
+  const tg=[];if(s.qpv.length)tg.push('Quartier prioritaire');if(s.crit.ls)tg.push('Logement social');if(s.crit.prio)tg.push('Adresses prioritaires');
+  h+=`<div class="tags">${tg.map(t=>`<span>${t}</span>`).join('')}</div>`;
+  h+=prPhrase([s.lat,s.lon]);
+  h+=kpis([[n0(s.hab),'habitants'],[n0(s.ls),'logements sociaux'],[n0(s.ins),'inscrits']]);
+  h+=`<div class="btns"><button class="btn primary" id="df">${I.tract} Diff faite ici</button></div>`;
+  h+=`<h2>Où se poster</h2>`+(s.places.length?s.places.slice(0,3).map((p,k)=>`<div class="row p"><button class="tx" data-pl="${k}"><b>Square, ${esc(p.rue[0].toLowerCase()+p.rue.slice(1))}</b><small>${n0(p.m2)} m²</small></button></div>`).join(''):`<div class="hint">Pas de square : au pied des immeubles.</div>`);
+  if(s.af){const v=s.af[JAF(jd)];h+=`<h2>Quand y aller</h2>${jourSegHTML(jd)}<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Animation du quartier par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div><div class="hint">D'après l'affluence des supermarchés proches.</div>`;}
+  if(s.metro)h+=`<div class="sub" style="margin-top:12px">Métro : <b>${esc(s.metro.nom)}</b>, ${n0(s.metro.d)} m</div>`;
+  return h+histoHTML(s.nom);},
+  after:()=>{$('df').onclick=()=>detail(vueDiff(s.nom,'pied'));lierHisto(s.nom,'pied');body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});
+   body.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{const p=s.places[+b.dataset.pl];voir([p.lat,p.lon],18);});}});}
 
 /* compte rendu de diff : une action faite en direct ; saisie au clavier, date, campagne et GA */
 function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('brd'+D.k,null);const rep=!e&&brd&&brd.nom===nom&&(Date.now()-brd.ts)<72e5?brd:null;
@@ -119,7 +196,7 @@ function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML
  h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>Faite le</span><b>${fmtJH(a.faite_le)}</b></div></div>`;
  h+=`<div class="pap-sum"><span>${esc(e.lieu.id)}</span><span><b>${n0(a.tracts)}</b> tracts</span>${a.nb?`<span><b>${a.nb}</b> militant${a.nb>1?'s':''}</span>`:''}${a.materiel?`<span>${esc(matNom(a.materiel))}</span>`:''}</div>`;
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
-function lierActionDiff(a){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché'};$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
+function lierActionDiff(a){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_pied:'pied'};$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
 /* ---------------- liste des actions : tri par date ou par GA, filtres type, statut, GA */
 let FILTRE={type:'tous',statut:'tous',ga:'tous',tri:'date'};
@@ -128,7 +205,7 @@ function vueActions(f){if(f&&f.type){FILTRE.type=f.type;}
   let l=ACTIONS.filter(a=>(F.type==='tous'||(F.type==='diff'?a.type.startsWith('diff'):a.type===F.type))&&(F.statut==='tous'||a.statut===F.statut)&&(F.ga==='tous'||a.ga.includes(F.ga)));
   l.sort((a,b)=>{const x=a.statut==='faite'?a.faite_le:a.prevue||a.cree_le,y=b.statut==='faite'?b.faite_le:b.prevue||b.cree_le;return (y||'').localeCompare(x||'');});
   let h=headHTML('Actions',`${pl(l.length,'action')} dans le journal`,true);
-  h+=`<div class="seg" role="group" aria-label="Type">${[['tous','Toutes'],['pap','PAP'],['boitage','Boîtage'],['diff','Diffs']].map(([k,t])=>`<button data-ft="${k}" aria-pressed="${F.type===k}">${t}</button>`).join('')}</div>`;
+  h+=`<div class="seg" role="group" aria-label="Type">${[['tous','Toutes'],['pap','PAP'],['diff','Tractage']].concat(ACTIONS.some(a=>a.type==='boitage')?[['boitage','Boîtage']]:[]).map(([k,t])=>`<button data-ft="${k}" aria-pressed="${F.type===k}">${t}</button>`).join('')}</div>`;
   h+=`<div class="seg" role="group" aria-label="Statut">${[['tous','Tous statuts'],['a_faire','À faire'],['faite','Faites']].map(([k,t])=>`<button data-fs="${k}" aria-pressed="${F.statut===k}">${t}</button>`).join('')}</div>`;
   h+=`<div class="frow2"><select id="fg" aria-label="GA"><option value="tous">Tous les GA</option>${REF.ga.map(g=>`<option value="${g.id}" ${F.ga===g.id?'selected':''}>${esc(g.nom)}${g.archive?' (archivé)':''}</option>`).join('')}</select><div class="seg sm" role="group" aria-label="Tri">${[['date','Par date'],['ga','Par GA']].map(([k,t])=>`<button data-fo="${k}" aria-pressed="${F.tri===k}">${t}</button>`).join('')}</div></div>`;
   if(!l.length)return h+'<div class="empty">Aucune action pour ces filtres.</div>';

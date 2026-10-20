@@ -1,7 +1,7 @@
 
 /* ---------------- actions : on les prepare (PAP, boitage) ou on les fait en direct (diffs), puis chacun peut les renseigner */
-const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff supermarché',diff_metro:'Diff en métro'};
-const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Supermarché',diff_metro:'Métro'};
+const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff supermarché',diff_metro:'Diff en métro',diff_pied:'Diff en pied d\'immeuble'};
+const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Supermarché',diff_metro:'Métro',diff_pied:'Pied d\'immeuble'};
 const actPar=id=>ACTIONS.find(a=>a.id===id);
 const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
@@ -63,6 +63,7 @@ function listeHTML(){const v=visibles(),top=v.slice(0,30);
 function compteEcran(){const b=map.getBounds();let n=0,ins=0;D.adresses.forEach((a,i)=>{if(isPr(a)&&b.contains([a[1],a[0]])&&!(faites[a[2]]&&!chips.faites)){n++;ins+=a[3];}});
  return `<b class="acc">${n0(n)}</b> adresse${n>1?'s':''} prioritaire${n>1?'s':''} à l'écran · <b class="acc">${n0(ins)}</b> inscrits`;}
 function majListe(){const c=$('nPr'),l=$('lst');if(!c||!l)return;c.innerHTML=compteEcran();l.innerHTML=listeHTML();lierRows();}
+const scoreTxt=()=>`Score : rang de l'adresse dans la circonscription. ${crit.score} veut dire plus prioritaire que ${crit.score} % des adresses de la circo.`;
 function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(...D.adresses.map(a=>a[3])));
   let h=`<div class="head"><div class="tt"><h1>Porte-à-porte</h1><div class="sub" id="nPr">${compteEcran()}</div></div></div>`;
   h+=selBar();
@@ -79,7 +80,7 @@ function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(
   $('pCtr').onclick=()=>{const c=centreVisible();preparer([c.lat,c.lng],'Autour du centre de la carte');};
   $('pMe').onclick=()=>localiser(ll=>preparer(ll,'Autour de votre position'));
   const rS=$('rS'),rI=$('rI'),rN=$('rN');const peint=()=>[rS,rI,rN].forEach(r=>r.style.setProperty('--p',(100*(r.value-r.min)/(r.max-r.min))+'%'));
-  const maj=()=>{crit={score:+rS.value,ins:+rI.value,ni:+rN.value};LS.set('crit',crit);peint();$('vS').textContent=crit.score+'+';$('vI').textContent=crit.ins+'+';$('vN').textContent=niTxt(crit.ni);
+  const maj=()=>{crit={v:2,score:+rS.value,ins:+rI.value,ni:+rN.value};LS.set('crit',crit);peint();$('vS').textContent=crit.score+'+';const hs=$('hS');if(hs)hs.textContent=scoreTxt();PRC={};$('vI').textContent=crit.ins+'+';$('vN').textContent=niTxt(crit.ni);
    clearTimeout(regT);regT=setTimeout(()=>{filtrer();majListe();},80);};
   rS.oninput=maj;rI.oninput=maj;rN.oninput=maj;peint();}};}
 function sel(i){if(!selL)return;selL.clearLayers();if(i==null)return;const a=D.adresses[i];
@@ -101,7 +102,7 @@ function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')s
  detail({id:'adr',html:()=>{const inS=SEL.includes(i),f=faites[a[2]],x=ACC[a[2]];
   let h=headHTML(esc(a[2]),`Bureau ${esc(a[8])}${a[8]!==a[9]?` (bureau ${esc(a[9])} en 2022)`:''} · ${pl(a[3],'inscrit')}`,true);
   if(p.zone)h+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
-  h+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','score'],[a[4],'jeunes de 18 à 25 ans']]);
+  h+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','score dans la circo'],[a[4],'jeunes de 18 à 25 ans']]);
   if(a[14]>=1)h+=`<div class="sub" style="margin-top:8px">Environ ${pl(a[14],'non-inscrit')} à cette adresse${FIAB[a[15]]?`, estimation de fiabilité ${FIAB[a[15]]}`:''}.</div>`;
   if(a[7]>0)h+=`<div class="sub" style="margin-top:8px">${n0(a[7])}<sup>e</sup> adresse la plus prioritaire de Paris.</div>`;
   if(f||x)h+=`<div class="done-l">${f?`${I.check}<span>PAP fait le ${fmtJ(f)}</span>`:`<span>Pas pu entrer le ${fmtJ(x.q)}${x.r&&ACCES_T[x.r]?' : '+ACCES_T[x.r].toLowerCase():''}</span>`}</div>`;

@@ -23,6 +23,7 @@ const I={
  basket:sv('<path d="M4.5 10h15l-1.8 8.5H6.3z"/><path d="M8.5 10l3.5-5 3.5 5"/>',2.2),
  grid:sv('<path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z"/>'),
  tract:sv('<path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/>'),
+ pied:sv('<path d="M4.5 20.5V8l5-3v15.5M9.5 20.5V10.5h6v10M15.5 20.5V13h4v7.5M3 20.5h18"/>',2.2),
  list:sv('<path d="M9 6.5h10M9 12h10M9 17.5h10"/><path d="M5 6.5h.01M5 12h.01M5 17.5h.01"/>',2),
  up:sv('<path d="M7 14l5-5 5 5"/>'),down:sv('<path d="M7 10l5 5 5-5"/>'),next:sv('<path d="M10 7l5 5-5 5"/>'),
  carte:sv('<path d="M9 4.5l-5 2v13l5-2 6 2 5-2v-13l-5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',1.6),couches:sv('<path d="M12 4l8 4.5-8 4.5-8-4.5z"/><path d="M4 13l8 4.5 8-4.5"/>',1.6),
@@ -33,8 +34,7 @@ const I={
 const map=L.map('map',{zoomControl:false,attributionControl:false,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:90,minZoom:10.5,maxZoom:19,tapTolerance:18});
 [['fond',200],['bati',210],['adr',400],['contour',410],['papl',415],['noms',430],['lieux',620],['pap',650]].forEach(([n,z])=>{map.createPane(n).style.zIndex=z;});
 ['noms','fond','bati','contour','papl'].forEach(n=>map.getPane(n).style.pointerEvents='none');
-const rFond=L.canvas({pane:'fond',padding:.4}),rBati=L.canvas({pane:'bati',padding:.4}),
- rC=L.canvas({pane:'contour',padding:.4}),rA=L.canvas({pane:'adr',padding:.4,tolerance:7}),rP=L.canvas({pane:'papl',padding:.4});
+const rC=L.canvas({pane:'contour',padding:.25}),rA=L.canvas({pane:'adr',padding:.25,tolerance:7}),rP=L.canvas({pane:'papl',padding:.25});
 
 /* ---------------- tiroir a crans, au-dessus de la barre des missions */
 const sheet=$('sheet'),body=$('body'),app=$('app');
