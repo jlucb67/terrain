@@ -36,15 +36,17 @@ function prioSect(ll,k,geo){k=k||'su';const key=k+','+ll[0].toFixed(5)+','+ll[1]
   else{const dx=(a[0]-ll[1])*111320*c,dy=(a[1]-ll[0])*110540;if(dx*dx+dy*dy>R*R)continue;}
   t+=a[3];p+=a[3]*a[5];}
  return PRC[key]={t,v:t?Math.round(p/t):0};}
-function prHTML(ll,k,geo){const r=prioSect(ll,k,geo);if(!r.t)return '';return `<span class="prs" style="${prioStyle(r.v)}">Priorité ${r.v}/100</span>`;}
-function prPhrase(ll,k,geo){const r=prioSect(ll,k,geo);return r.t?`<div style="margin-top:10px">${prHTML(ll,k,geo)}</div>`:'';}
+/* magasins à petits prix (JL, 25/10/2026 : « les Aldi, Lidl et autres magasins pas chers, c'est prioritaire ») : priorité
+   100 d'office, en tête des magasins quel que soit le tri */
+const PETITS=/^(aldi|lidl|paris ?store|tang fr[eè]res|action|gifi)\b/i,petitPrix=s=>!!s&&PETITS.test(s.ens||s.nom||'');
+const prioLieu=(ll,k,geo,s)=>k==='su'&&petitPrix(s)?{t:1,v:100}:prioSect(ll,k,geo);
+function prHTML(ll,k,geo,s){const r=prioLieu(ll,k,geo,s);if(!r.t)return '';return `<span class="prs" style="${prioStyle(r.v)}">Priorité ${r.v}/100</span>`;}
+function prPhrase(ll,k,geo,s){const r=prioLieu(ll,k,geo,s);return r.t?`<div style="margin-top:10px">${prHTML(ll,k,geo,s)}</div>`:'';}
 const nomSup=s=>(s.ens||s.nom)+', '+s.adr;
-const distTxt=d=>d<1000?Math.round(d/10)*10+' m':(d/1000).toFixed(1).replace('.',',')+' km';
-function refPos(){if(posMoi)return posMoi;const c=centreVisible();return [c.lat,c.lng];}
 
 /* lieux classés pour le moment choisi : v = monde attendu (sert au tri), info = ce qu'on en dit */
-function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]},ref=TRI==='pres'?refPos():null;
- const fin=(o,ll)=>{o.pr=prioSect(ll,o.k,o.k==='pi'?o.s.geo:null).v;o.d=ref?dist(ref,ll):0;return o;};
+function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
+ const fin=(o,ll)=>{o.pr=prioLieu(ll,o.k,o.k==='pi'?o.s.geo:null,o.s).v;return o;};
  if(chips.tMa)D.marches.forEach((s,i)=>{const x=ouvertM(s,m);out.ma.push(fin({k:'ma',i,s,nom:s.nom,v:x?100:0,
    info:x?`<span class="acc">Ouvert jusqu'à ${x.fin}</span>`:`Fermé · ${joursMarche(s)}`},[s.lat,s.lon]));});
  if(chips.tSu)(D.supers||[]).filter(s=>s.dedans).forEach((s,i)=>{const a=affAt(s,m);out.su.push(fin({k:'su',i:D.supers.indexOf(s),s,nom:s.ens||s.nom,v:a==null?-1:a,
@@ -55,20 +57,21 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]},ref=TRI==='pres'?refP
    info:`${n0(s.ls)} logements sociaux${a!=null?` · animation <span class="acc">${a} %</span>`:''}`},[s.lat,s.lon]));});
  /* pieds d'immeuble : le monde attendu (indicateur indirect) pondéré par la priorité du secteur */
  out.pi.forEach(o=>{if(o.v>=0)o.v=(o.pr+1)*o.v;});
- const tri=TRI==='prio'?(x,y)=>y.pr-x.pr||y.v-x.v:TRI==='pres'?(x,y)=>x.d-y.d:(x,y)=>y.v-x.v||y.pr-x.pr;
- Object.values(out).forEach(l=>l.sort(tri));return out;}
-const SECT=[['ma','Marchés',"marchés"],['su','Supermarchés',"supermarchés"],['me','Métro',"stations"],['pi',"Pieds d'immeuble","secteurs"]];
+ const tri=TRI==='prio'?(x,y)=>y.pr-x.pr||y.v-x.v:(x,y)=>y.v-x.v||y.pr-x.pr;
+ Object.values(out).forEach(l=>l.sort(tri));out.su.sort((x,y)=>petitPrix(y.s)-petitPrix(x.s));return out;}
+const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"],['pi',"Pieds d'immeuble","secteurs"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
  const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';
- return `<div class="row p"><button class="tx${o.k!=='pi'&&o.k!=='me'&&o.v<=0&&TRI==='monde'?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}${TRI==='pres'?` · ${distTxt(o.d)}`:''}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null)}</button>${right}</div>`;}
+ return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}${o.k==='su'&&petitPrix(o.s)?' <span class="lim pp">petits prix</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
   <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
 function vueTractage(){return {id:'base',html:()=>{const m=mom(),L_=lieuxTract(m);
   let h=headHTML('Tractage','');
   h+=momHTML(m);
-  h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires'],['pres','Près de moi']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
+  h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
+  h+=parcHTML();
   let vide=true;
   SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
    h+=`<div class="tsec"><h2>${t}</h2>${l.length>4?`<button class="more" data-ex="${k}">${EXP[k]?'Moins':`Voir les ${l.length}`}</button>`:''}</div>`+l.slice(0,n).map(rowTract).join('');});
@@ -80,7 +83,7 @@ function vueTractage(){return {id:'base',html:()=>{const m=mom(),L_=lieuxTract(m
   body.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>{TRI=b.dataset.tri;render(true);});
   body.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{EXP[b.dataset.ex]=!EXP[b.dataset.ex];render(true);});
   body.querySelectorAll('[data-tl]').forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.tl.split(':');ouvrirLieu(k,+i);});
-  body.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>basculerPied(+b.dataset.tp));}};}
+  body.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>basculerPied(+b.dataset.tp));lierParc();}};}
 function ouvrirLieu(k,i){if(k==='ma')ouvrirMarche(D.marches[i]);else if(k==='su')ouvrirMagasin(D.supers[i]);else if(k==='me')ouvrirStation(D.metro[i]);else ouvrirPied(D.pieds[i]);}
 function diffLieu(k,i){if(k==='ma')detail(vueDiff(D.marches[i].nom,'marché'));else if(k==='su')detail(vueDiff(nomSup(D.supers[i]),'supermarché'));else if(k==='me')detail(vueDiff(D.metro[i].nom,'station'));else detail(vueDiff(D.pieds[i].nom,'pied'));}
 /* sur la carte : les lieux sans monde au moment choisi s'estompent ; autour des stations, un cercle dit les entrées */
@@ -122,13 +125,14 @@ const pointesTxt=v=>HEURES.slice().sort((x,y)=>v[y]-v[x]).slice(0,2).sort((x,y)=
 const jourSegHTML=d=>`<div class="seg" role="group" aria-label="Jour">${[1,2,3,4,5,6,0].map(x=>`<button data-fj="${x}" aria-pressed="${d===x}">${JCOURT[x].replace('.','')}</button>`).join('')}</div>`;
 function picSemaine(af){let b=null;af.forEach((r,j)=>r.forEach((v,h)=>{if(v!=null&&(!b||v>b.v))b={v,j,h};}));return b?`${JOURS[(b.j+1)%7]} vers ${b.h} h`:'';}
 
-/* ---------------- supermarchés : affluence heure par heure, jour par jour */
+/* ---------------- magasins : affluence heure par heure, jour par jour (relevé Google ; inconnue pour ceux de l'Apur) */
 function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=nomSup(s);let jd=mom().d;
- detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon],'su');
+ detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon],'su',null,s);
+  if(petitPrix(s))h+=`<div class="sub" style="margin-top:8px">Magasin à petits prix : priorité 100 d'office.</div>`;
   h+=equipeHTML(nom,[1,2,3,4,5,6,0]);
   if(s.af){const v=s.af[JAF(jd)],ou=v.some(x=>x>0);
    h+=`<h2>Affluence</h2>${jourSegHTML(jd)}`+(ou?`<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Affluence par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`:`<div class="empty">Fermé ce jour-là.</div>`);}
-  else h+=`<div class="hint">Affluence inconnue.</div>`;
+  else h+=`<div class="hint">Affluence inconnue${s.src==='apur2023'?' : magasin absent du relevé Google, repris de la base des commerces de l\'Apur (2023)':''}.</div>`;
   return h+histoHTML(nom);},
   after:()=>{lierEquipe(nom,'commerce');lierHisto(nom,'supermarché');body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});}});}
 
@@ -208,21 +212,19 @@ function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
 function lierActionDiff(a){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_pied:'pied'};$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
-/* ---------------- liste des actions : tri par date ou par GA, filtres type, statut, GA */
-let FILTRE={type:'tous',statut:'tous',ga:'tous',tri:'date'};
+/* ---------------- liste des actions : tri par date ou par GA, filtres type et GA (filtre statut retiré, JL 25/10/2026) */
+let FILTRE={type:'tous',ga:'tous',tri:'date'};
 function vueActions(f){if(f&&f.type){FILTRE.type=f.type;}
  return {id:'actions',html:()=>{const F=FILTRE;
-  let l=ACTIONS.filter(a=>a.type!=='equipe'&&(F.type==='tous'||(F.type==='diff'?a.type.startsWith('diff'):a.type===F.type))&&(F.statut==='tous'||a.statut===F.statut)&&(F.ga==='tous'||a.ga.includes(F.ga)));
+  let l=ACTIONS.filter(a=>a.type!=='equipe'&&(F.type==='tous'||(F.type==='diff'?a.type.startsWith('diff'):a.type===F.type))&&(F.ga==='tous'||a.ga.includes(F.ga)));
   l.sort((a,b)=>{const x=a.statut==='faite'?a.faite_le:a.prevue||a.cree_le,y=b.statut==='faite'?b.faite_le:b.prevue||b.cree_le;return (y||'').localeCompare(x||'');});
   let h=headHTML('Actions',`${pl(l.length,'action')} dans le journal`,true);
   h+=`<div class="seg" role="group" aria-label="Type">${[['tous','Toutes'],['pap','PAP'],['diff','Tractage']].concat(ACTIONS.some(a=>a.type==='boitage')?[['boitage','Boîtage']]:[]).map(([k,t])=>`<button data-ft="${k}" aria-pressed="${F.type===k}">${t}</button>`).join('')}</div>`;
-  h+=`<div class="seg" role="group" aria-label="Statut">${[['tous','Tous statuts'],['a_faire','À faire'],['faite','Faites']].map(([k,t])=>`<button data-fs="${k}" aria-pressed="${F.statut===k}">${t}</button>`).join('')}</div>`;
   h+=`<div class="frow2"><select id="fg" aria-label="GA"><option value="tous">Tous les GA</option>${REF.ga.map(g=>`<option value="${g.id}" ${F.ga===g.id?'selected':''}>${esc(g.nom)}${g.archive?' (archivé)':''}</option>`).join('')}</select><div class="seg sm" role="group" aria-label="Tri">${[['date','Par date'],['ga','Par GA']].map(([k,t])=>`<button data-fo="${k}" aria-pressed="${F.tri===k}">${t}</button>`).join('')}</div></div>`;
   if(!l.length)return h+'<div class="empty">Aucune action pour ces filtres.</div>';
   if(F.tri==='ga'){const gs=REF.ga.filter(g=>l.some(a=>a.ga.includes(g.id)));gs.forEach(g=>{const m=l.filter(a=>a.ga.includes(g.id));h+=`<div class="side">${esc(g.nom)} · ${m.length}</div>`+m.map(rowAction).join('');});}
   else h+=l.map(rowAction).join('');
   return h;},
  after:()=>{body.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{FILTRE.type=b.dataset.ft;render(true);});
-  body.querySelectorAll('[data-fs]').forEach(b=>b.onclick=()=>{FILTRE.statut=b.dataset.fs;render(true);});
   body.querySelectorAll('[data-fo]').forEach(b=>b.onclick=()=>{FILTRE.tri=b.dataset.fo;render(true);});
   $('fg').onchange=e=>{FILTRE.ga=e.target.value;render(true);};}};}
