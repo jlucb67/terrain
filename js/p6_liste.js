@@ -27,10 +27,10 @@ function parQui(a,id){const s=(a&&a.saisies||[]).slice().reverse().find(x=>x.quo
 function rafr(){if($('lres'))majRes(true);else render(true);}
 
 function vueListe(){return {id:'base',
- html:()=>`<div class="lhead"><div><h1 class="lt">Liste</h1><div class="sub" id="lsub">${compteListe()}</div></div></div><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par inscrits']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><div id="lres">${resHTML()}</div>`,
+ html:()=>`<div class="lhead"><div><h1 class="lt">Liste</h1><div class="sub" id="lsub">${compteListe()}</div></div></div>${qaHTML()}<label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par inscrits']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><div id="lres">${resHTML()}</div>`,
  after:()=>{const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes();},150);};
   body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes();});
-  $('lres').onclick=clicRes;suite();}};}
+  $('lres').onclick=clicRes;lierQA();suite();}};}
 /* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026), ou par priorité, ou par inscrits ; la recherche filtre */
 const resHTML=()=>rechercheHTML();
 function compteListe(){let pr=0,f=0;D.adresses.forEach(a=>{if(isPr(a))pr++;if(statutA(a[2])==='fait')f++;});return `${pl(D.adresses.length,'adresse')} · ${n0(pr)} prioritaires · <span class="g">${pl(f,'faite')}</span>`;}
@@ -179,15 +179,15 @@ const eqDe=nom=>ACTIONS.find(a=>a.type==='equipe'&&a.etapes[0]&&a.etapes[0].lieu
 const ordJ=l=>l.slice().sort((x,y)=>((x+6)%7)-((y+6)%7));
 const eqTxt=a=>`${(a.ga||[]).map(gaNom).join(', ')||'Une équipe'}${a.jours&&a.jours.length?' · '+ordJ(a.jours).map(d=>JC[d]).join(', '):''}`;
 const nomEq=a=>{const l=a.etapes[0].lieu;return l.t==='station'?'Métro '+l.id:l.id;};
-function llLieu(l){let s=null;if(l.t==='station')s=D.metro.find(x=>x.nom===l.id);else if(l.t==='marche')s=D.marches.find(x=>x.nom===l.id);else if(l.t==='commerce')s=(D.supers||[]).find(x=>nomSup(x)===l.id);return s?[s.lat,s.lon]:null;}
-function ouvrirLieuEq(t,id){if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
+function llLieu(l){let s=null;if(l.t==='station')s=D.metro.find(x=>x.nom===l.id);else if(l.t==='marche')s=D.marches.find(x=>x.nom===l.id);else if(l.t==='commerce')s=(D.supers||[]).find(x=>nomSup(x)===l.id);else if(l.t==='parcours'){const p=parcDe(l.id);return p?(p.trace?p.trace[0]:arretsDe(p)[0].ll):null;}return s?[s.lat,s.lon]:null;}
+function ouvrirLieuEq(t,id){if(t==='parcours'){ouvrirParcours(id);return;}if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
 function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
  let h=`<div class="eqr"><b>Une équipe y va</b><button class="tog" id="eqT" role="switch" aria-checked="${!!a}" aria-label="Une équipe y va"></button></div>`;
  if(a){h+=`<div class="lbl" style="margin-top:2px">Équipe</div><div class="chw">${G.map(g=>`<button class="ch${a.ga.includes(g.id)?' on':''}" data-eg="${g.id}" aria-pressed="${a.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div>`;
   h+=`<div class="lbl">Jour</div><div class="chw">${jours.map(d=>`<button class="ch${(a.jours||[]).includes(d)?' on':''}" data-ej="${d}" aria-pressed="${(a.jours||[]).includes(d)}">${cap(JOURS[d])}</button>`).join('')}</div>`;}
  const aut=ACTIONS.filter(x=>x.type==='equipe'&&x!==a&&x.etapes[0]);
  if(aut.length)h+=`<div class="h3">Une équipe y va aussi</div>`+aut.map(x=>{const l=x.etapes[0].lieu;
-  return `<div class="lr">${l.t==='station'?avH('mt','M'):l.t==='marche'?avH('ma',I.basket):avH('su',I.cart)}<button class="tx" data-eo="${esc(l.t)}|${esc(l.id)}"><b>${esc(nomEq(x))}</b><small>${esc(eqTxt(x))}</small></button><span></span></div>`;}).join('');
+  return `<div class="lr">${l.t==='station'?avH('mt','M'):l.t==='marche'?avH('ma',I.basket):l.t==='parcours'?avH('af',I.route):avH('su',I.cart)}<button class="tx" data-eo="${esc(l.t)}|${esc(l.id)}"><b>${esc(nomEq(x))}</b><small>${esc(eqTxt(x))}</small></button><span></span></div>`;}).join('');
  return h;}
 function lierEquipe(nom,t){const tg=$('eqT');if(!tg)return;
  tg.onclick=()=>{const a=eqDe(nom);
@@ -207,7 +207,7 @@ function majEq(){if(!D||typeof L==='undefined')return;if(!eqL)eqL=L.layerGroup()
  if(!map.hasLayer(eqL))eqL.addTo(map);}
 
 /* ---------------- PAP conseillés (25/10/2026) : sans qu'on dise où. On part de chaque adresse prioritaire libre, on bâtit le
-   PAP comme « PAP autour de cette adresse » (adresses proches, taille choisie), on garde le plus efficace, on retire ses adresses,
+   PAP comme « PAP autour de cette adresse » (de proche en proche, voir pasSuivant ; taille choisie), on garde le plus efficace, on retire ses adresses,
    on recommence. Efficace = le plus d'inscrits prioritaires pas encore vus pour le moins de marche : inscrits x score / (marche
    + 40 m par adresse). Libre = prioritaire, pas faite depuis le délai, pas « pas pu entrer » récemment, pas déjà dans un PAP à
    faire. Recalculé à chaque validation. Pas de nombre minimum d'adresses (arbitrage JL du 25/10/2026). */
@@ -220,9 +220,8 @@ function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,c
  const d=(i,j)=>Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1]);
  const pres=i=>{const cx=Math.floor(P[i][0]/CEL),cy=Math.floor(P[i][1]/CEL),o=[];for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){const g=grid.get(x+','+y);if(g)for(const j of g)if(ok[j])o.push(j);}return o;};
  const lot=i0=>{const out=[i0],pris=new Set(out);let s=A[i0][3],km=0,cur=i0;
-  while(s<cible*.9){const reste=cible-s;let bi=-1,bv=-1,bd=0;const V=pres(cur);
-   for(const lim of [250,400]){for(const j of V){if(pris.has(j))continue;const a=A[j];if(a[3]>Math.max(reste*1.5,12))continue;const dd=d(cur,j);if(dd>lim)continue;const v=a[3]*(a[5]/100)/(dd+40);if(v>bv){bv=v;bi=j;bd=dd;}}if(bi>=0)break;}
-   if(bi<0)break;out.push(bi);pris.add(bi);s+=A[bi][3];km+=bd;cur=bi;}
+  while(s<cible*.9){const reste=cible-s,c0=cur;const r=pasSuivant(pres(cur),j=>d(c0,j),pris,reste,cur,[250,400],false);
+   if(!r)break;const bi=r[0];out.push(bi);pris.add(bi);s+=A[bi][3];km+=r[1];cur=bi;}
   return {ids:out,ins:s,km};};
  const res=[],memo=new Array(n);
  /* adresses de départ : toutes pour un petit PAP ; au-delà de 150 inscrits, la meilleure de chaque carré de 150 m (calcul
