@@ -36,7 +36,7 @@ function prioSect(ll,k,geo){k=k||'su';const key=k+','+ll[0].toFixed(5)+','+ll[1]
   else{const dx=(a[0]-ll[1])*111320*c,dy=(a[1]-ll[0])*110540;if(dx*dx+dy*dy>R*R)continue;}
   t+=a[3];p+=a[3]*a[5];}
  return PRC[key]={t,v:t?Math.round(p/t):0};}
-function prHTML(ll,k,geo){const r=prioSect(ll,k,geo);if(!r.t)return '';return `<span class="prs q${pcls(r.v)}">Priorité ${r.v}/100</span>`;}
+function prHTML(ll,k,geo){const r=prioSect(ll,k,geo);if(!r.t)return '';return `<span class="prs" style="${prioStyle(r.v)}">Priorité ${r.v}/100</span>`;}
 function prPhrase(ll,k,geo){const r=prioSect(ll,k,geo);return r.t?`<div style="margin-top:10px">${prHTML(ll,k,geo)}</div>`:'';}
 const nomSup=s=>(s.ens||s.nom)+', '+s.adr;
 const distTxt=d=>d<1000?Math.round(d/10)*10+' m':(d/1000).toFixed(1).replace('.',',')+' km';
