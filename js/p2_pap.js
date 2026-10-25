@@ -1,7 +1,7 @@
 
 /* ---------------- actions : on les prepare (PAP, boitage) ou on les fait en direct (diffs), puis chacun peut les renseigner */
-const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff supermarché',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe qui y va'};
-const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Supermarché',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe'};
+const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff devant un magasin',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe qui y va'};
+const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Magasin',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe'};
 const actPar=id=>ACTIONS.find(a=>a.id===id);
 const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
@@ -61,7 +61,7 @@ function rowAdr(i,num,noAct){const a=D.adresses[i],z=zoneOf(a);
  const left=num?`<span class="nb">${num}</span>`:`<span class="zd" style="background:${prioCol(a[5])}"></span>`;
  return `<div class="row${num?' n':''}">${left}<button class="tx" data-i="${i}"><b>${esc(a[2])}</b><small>${adrSub(a)}${faiteTxt(i)}</small></button><span class="sc">${Math.round(a[5])}<small>score</small></span>`+
   (noAct?'':num?`<button class="rm" data-rm="${i}" aria-label="Retirer de la sélection">${I.x}</button>`:addBtn(i))+`</div>`;}
-function lierRows(){body.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>ouvrirAdresse(+b.dataset.i));
+function lierRows(fils){body.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>ouvrirAdresse(+b.dataset.i,fils));
  body.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{basculer(+b.dataset.add);render(true);});
  body.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{basculer(+b.dataset.rm);render(true);});}
 function visibles(){const b=map.getBounds();const r=[];D.adresses.forEach((a,i)=>{if(a[3]<1||!b.contains([a[1],a[0]]))return;if(!isPr(a))return;if(!chips.faites&&statutA(a[2])==='fait')return;r.push(i);});
@@ -83,13 +83,10 @@ function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(
   h+=`<div class="slc"><label for="rI">Inscrits</label><input type="range" id="rI" min="1" max="${mx}" step="1" value="${crit.ins}"><output id="vI">${crit.ins}+</output></div>`;
   const nM=niMax();if(crit.ni>nM)crit.ni=nM;
   h+=`<div class="slc"><label for="rN">Non-inscrits</label><input type="range" id="rN" min="0" max="${nM}" step="1" value="${crit.ni}"><output id="vN">${niTxt(crit.ni)}</output></div>`;
-  h+=`<h2>Un PAP ailleurs</h2><div class="start"><button class="btn line" id="pMe">${I.me} Autour de moi</button><button class="btn line" id="pCtr">${I.target} Centre de la carte</button></div>`;
   h+=`<h2>Adresses prioritaires à l'écran</h2><div class="sub" id="nPr">${compteEcran()}</div><div id="lst">${listeHTML()}</div>`;
   h+=`<details class="more"><summary>La ${D.k}e circonscription en chiffres</summary>${kpis([[n0(D.objectif),'voix à obtenir en 2027'],[pc(D.objectif_p),'des exprimés'],['+'+n0(D.gain),'voix par rapport à 2022']])}</details>`;
   h+=lienCR();
   return h;},after:()=>{lierRows();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
-  $('pCtr').onclick=()=>{const c=centreVisible();preparer([c.lat,c.lng],'Autour du centre de la carte');};
-  $('pMe').onclick=()=>localiser(ll=>preparer(ll,'Autour de votre position'));
   const rS=$('rS'),rI=$('rI'),rN=$('rN');const peint=()=>[rS,rI,rN].forEach(r=>r.style.setProperty('--p',(100*(r.value-r.min)/(r.max-r.min))+'%'));
   const maj=()=>{crit={v:2,score:+rS.value,ins:+rI.value,ni:+rN.value};LS.set('crit',crit);peint();$('vS').textContent=crit.score+'+';const hs=$('hS');if(hs)hs.textContent=scoreTxt();PRC={};$('vI').textContent=crit.ins+'+';$('vN').textContent=niTxt(crit.ni);
    clearTimeout(regT);regT=setTimeout(()=>{filtrer();majListe();},80);};
@@ -111,8 +108,8 @@ function quartierHTML(a){const q=QS&&D&&QS.circos&&QS.circos[D.k];
  return `<h2>Ce quartier par rapport à la circonscription</h2><div class="bars">${QN.map((t,j)=>jauge(t,a[10+j],q&&q.med[j],q&&q.max[j])).join('')}</div>`;}
 /* fiche d'une adresse (version légère) : son état, « Cette semaine » (valider, +1 passage, pas pu entrer), préparer un PAP
    autour, ses passages ; le reste (chiffres, quartier, bureau) replié en bas */
-function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')setMode('pap');if(det==='peek')setDet('half');voir([a[1],a[0]],Math.max(map.getZoom(),16.5));sel(i);
- detail({id:'adr',html:()=>{const inS=SEL.includes(i);
+function ouvrirAdresse(i,fils){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')setMode('pap');if(det==='peek')setDet('half');voir([a[1],a[0]],Math.max(map.getZoom(),16.5));sel(i);
+ detail({id:'adr',fils,html:()=>{const inS=SEL.includes(i);
   let h=headHTML(esc(a[2]),`Bureau ${esc(a[8])}${a[8]!==a[9]?` (bureau ${esc(a[9])} en 2022)`:''} · ${pl(a[3],'inscrit')}`,true);
   h+=puceEtatHTML(i)+semaineHTML(i);
   h+=`<div class="btns"><button class="btn primary" id="ici">${I.target} Choisir un PAP autour de cette adresse</button></div>`;
@@ -127,20 +124,32 @@ function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')s
   m+=quartierHTML(a);
   if(p.id)m+=`<div class="btns"><button class="btn line" id="bv">Voir le bureau ${esc(p.id)}</button></div>`;
   h+=`<details class="more"><summary>Plus sur cette adresse</summary>${m}</details>`;
-  return h;},after:()=>{$('tg').onclick=()=>{basculer(i);render(true);};$('ici').onclick=()=>preparer([a[1],a[0]],'Autour de '+a[2],i);const b=$('bv');if(b)b.onclick=()=>ouvrirBureau(p.id);
+  return h;},after:()=>{$('tg').onclick=()=>{basculer(i);render(true);};$('ici').onclick=()=>preparer([a[1],a[0]],'Autour de '+a[2],i);const b=$('bv');if(b)b.onclick=()=>ouvrirBureau(p.id,true);
    lierSemaine(i);body.querySelectorAll('[data-act]').forEach(x=>x.onclick=()=>detail(vueAction(x.dataset.act)));}});}
-function ouvrirBureau(id){const p=BZ[id];if(!p)return;sel(null);if(det==='peek')setDet('half');
+function ouvrirBureau(id,fils){const p=BZ[id];if(!p)return;sel(null);if(det==='peek')setDet('half');
  const f=D.bureaux.find(x=>x.properties.id===id);voir(L.geoJSON(f).getBounds().getCenter(),Math.max(map.getZoom(),15.5));
- detail({id:'bv',html:()=>{let h=headHTML('Bureau '+esc(id),p.liste===1?'Bureau à faire voter':p.liste===2?'Bureau à convaincre':'',true);
+ detail({id:'bv',fils,html:()=>{let h=headHTML('Bureau '+esc(id),p.liste===1?'Bureau à faire voter':p.liste===2?'Bureau à convaincre':'',true);
   h+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
   h+=kpis([[pc(100*p.mel/p.exp),'Mélenchon 2022'],[n0(p.v27),'voix à obtenir en 2027'],['+'+n0(p.gain),'voix à gagner']]);
   h+=`<h2>D'où viennent les voix à gagner</h2><div class="bars">${[['Abstentionnistes de 2022',p.L1],['Jeunes électeurs',p.L2],['Électeurs d\'autres candidats',p.L3],['Nouveaux inscrits',p.L4]].map(([t,v])=>`<div class="bar"><span>${t}</span><b>${n0(v)}</b><div class="tr"><i style="width:${Math.min(100,100*v/Math.max(1,p.L1+p.L2+p.L3+p.L4))}%"></i></div></div>`).join('')}</div>`;
   h+=`<div class="sub" style="margin-top:10px">Participation 2022 : ${pc(100*p.vot/p.ins)} · ${n0(p.abst)} abstentionnistes</div>`;
   const best=D.adresses.map((a,i)=>[a,i]).filter(([a])=>a[9]===id&&isPr(a)).sort((x,y)=>y[0][5]-x[0][5]).slice(0,8).map(x=>x[1]);
   if(best.length)h+=`<h2>Adresses prioritaires du bureau</h2>`+best.map(i=>rowAdr(i)).join('');
-  return h;},after:lierRows});}
+  return h;},after:()=>lierRows(true)});}
 
 /* ---------------- lot d'adresses autour d'un point : taille respectee, adresses proches */
+/* pas suivant d'un PAP (JL, 25/10/2026 : « privilégier les adresses à côté quand elles sont toutes globalement bien ») :
+   l'adresse libre la plus proche, de préférence dans la même rue (une adresse d'une autre rue compte 1,5 fois plus loin).
+   On ne saute une voisine que si elle est nettement moins prioritaire : plus de 15 points sous la meilleure adresse libre
+   à moins de 150 m. Une adresse qui dépasserait trop la taille voulue est laissée (sauf au départ, s'il n'y a qu'elle). */
+const ECART_PAS=15;
+function pasSuivant(C,dd,pris,reste,curI,lims,souple){const A=D.adresses,v0=curI!=null&&ADRP[curI]?ADRP[curI].voie:null;
+ for(const lim of lims)for(const strict of (souple?[true,false]:[true])){const c=[];let mq=-1;
+  for(const j of C){if(pris.has(j))continue;const a=A[j];if(strict&&a[3]>Math.max(reste*1.5,12))continue;const d=dd(j);if(d>lim)continue;c.push([j,d]);if(d<=150&&a[5]>mq)mq=a[5];}
+  if(!c.length)continue;if(mq<0)for(const x of c)mq=Math.max(mq,A[x[0]][5]);
+  let bi=-1,be=Infinity,bd=0;for(const [j,d] of c){if(A[j][5]<mq-ECART_PAS)continue;const e=d*(v0&&ADRP[j]&&ADRP[j].voie!==v0?1.5:1);if(e<be){be=e;bi=j;bd=d;}}
+  if(bi>=0)return [bi,bd];}
+ return null;}
 const dist=(a,b)=>{const R=6371e3,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x));};
 let taille=LS.get('taille',null)||REF.reglages.taille||100;
 function construireLot(ll,cible,i0){
@@ -149,13 +158,8 @@ function construireLot(ll,cible,i0){
  const out=[],pris=new Set();let cur=ll,s=0,km=0,msg='';
  if(i0!=null){if(ok(i0)){out.push(i0);pris.add(i0);s+=D.adresses[i0][3];cur=ptA(i0);}
   else msg=`${D.adresses[i0][2]} ${recente(i0)?'a été faite récemment':pasEntreRecent(i0)?'était fermée il y a peu':'n\'est pas prioritaire'} : l'action part des adresses prioritaires les plus proches.`;}
- while(s<cible*.9){const reste=cible-s;let bi=-1,bv=-1,bd=0;
-  for(const lim of (out.length?[250,400]:[300,600])){
-   for(const strict of (out.length?[true]:[true,false])){
-    for(const i of C){if(pris.has(i))continue;const a=D.adresses[i];if(strict&&a[3]>Math.max(reste*1.5,12))continue;const d=dist(cur,ptA(i));if(d>lim)continue;const v=a[3]*(a[5]/100)/(d+40);if(v>bv){bv=v;bi=i;bd=d;}}
-    if(bi>=0)break;}
-   if(bi>=0)break;}
-  if(bi<0)break;if(out.length)km+=bd;out.push(bi);pris.add(bi);s+=D.adresses[bi][3];cur=ptA(bi);}
+ while(s<cible*.9){const reste=cible-s,c0=cur;const r=pasSuivant(C,i=>dist(c0,ptA(i)),pris,reste,out.length?out[out.length-1]:null,out.length?[250,400]:[300,600],!out.length);
+  if(!r)break;const bi=r[0];if(out.length)km+=r[1];out.push(bi);pris.add(bi);s+=D.adresses[bi][3];cur=ptA(bi);}
  return {ll,ids:out,ins:s,km,cible,msg};}
 const kmDe=ids=>{let k=0;for(let j=1;j<ids.length;j++)k+=dist(ptA(ids[j-1]),ptA(ids[j]));return k;};
 function effLot(){if(lotL)lotL.clearLayers();lot=null;}
