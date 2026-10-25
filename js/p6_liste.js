@@ -4,7 +4,7 @@
    reçoit un passage de plus (« +1 passage »). Les PAP prévus s'y valident adresse par adresse, ou d'un coup (« Tout
    valider ») ; un PAP dont toutes les adresses sont validées passe en « faite ». Pas de date à saisir : un passage est daté
    par sa semaine. Tout passe par les mêmes actions que la carte (journal partagé). */
-var LQ='',LQT='',LN=200,LOUV=null;
+var LQ='',LQT='',LN=200,LOUV=null,LTRI=LS.get('ltri','rue');
 const LPAS=200;
 /* semaine d'un passage : lundi de la semaine */
 const lundiDe=s=>{const d=toD(s)||new Date(),x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return isoD(x).slice(0,10);};
@@ -27,10 +27,11 @@ function parQui(a,id){const s=(a&&a.saisies||[]).slice().reverse().find(x=>x.quo
 function rafr(){if($('lres'))majRes(true);else render(true);}
 
 function vueListe(){return {id:'base',
- html:()=>`<div class="lhead"><div><h1 class="lt">Liste</h1><div class="sub" id="lsub">${compteListe()}</div></div></div><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div id="lres">${resHTML()}</div>`,
+ html:()=>`<div class="lhead"><div><h1 class="lt">Liste</h1><div class="sub" id="lsub">${compteListe()}</div></div></div><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par inscrits']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><div id="lres">${resHTML()}</div>`,
  after:()=>{const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes();},150);};
+  body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes();});
   $('lres').onclick=clicRes;suite();}};}
-/* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026) ; la recherche filtre */
+/* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026), ou par priorité, ou par inscrits ; la recherche filtre */
 const resHTML=()=>rechercheHTML();
 function compteListe(){let pr=0,f=0;D.adresses.forEach(a=>{if(isPr(a))pr++;if(statutA(a[2])==='fait')f++;});return `${pl(D.adresses.length,'adresse')} · ${n0(pr)} prioritaires · <span class="g">${pl(f,'faite')}</span>`;}
 function majRes(keep){const r=$('lres');if(!r)return;const y=body.scrollTop;r.innerHTML=resHTML();body.scrollTop=keep?y:0;const c=$('lsub');if(c)c.innerHTML=compteListe();suite();}
@@ -63,9 +64,12 @@ const TYPV=/^(rue|avenue|boulevard|place|passage|impasse|allée|allee|villa|cit�
 const clefVoie=v=>v.replace(TYPV,'').trim()||v;
 function ordreAdrRue(){if(D._or)return D._or;const K={};D.adresses.forEach((a,i)=>{const v=ADRP[i].voie;if(!(v in K))K[v]=clefVoie(v);});
  D._or=D.adresses.map((a,i)=>i).sort((x,y)=>K[ADRP[x].voie].localeCompare(K[ADRP[y].voie],'fr',{sensitivity:'base'})||ADRP[x].voie.localeCompare(ADRP[y].voie,'fr')||ADRP[x].num-ADRP[y].num||ADRP[x].suf.localeCompare(ADRP[y].suf));return D._or;}
-function rechercheHTML(){const l=LQ?ordreAdrRue().filter(i=>normA(D.adresses[i][2]).includes(LQ)):ordreAdrRue();
+function rechercheHTML(){let l=LQ?ordreAdrRue().filter(i=>normA(D.adresses[i][2]).includes(LQ)):ordreAdrRue();
  if(!l.length)return `<div class="empty">Aucune adresse ne correspond.</div>`;
  let h='';
+ /* par priorité (la plus haute d'abord, puis les inscrits) ou par inscrits (le plus d'inscrits d'abord, puis la priorité) */
+ if(LTRI==='prio'||LTRI==='ins'){const A=D.adresses;l=l.slice().sort(LTRI==='prio'?(x,y)=>A[y][5]-A[x][5]||A[y][3]-A[x][3]:(x,y)=>A[y][3]-A[x][3]||A[y][5]-A[x][5]);
+  h=l.slice(0,LN).map(ligneA).join('');if(l.length>LN)h+=`<button class="lmore" id="lmore">Afficher la suite · ${pl(l.length-LN,'adresse')}</button>`;return h;}
  const G=new Map();l.forEach(i=>{const v=ADRP[i].voie;if(!G.has(v))G.set(v,[]);G.get(v).push(i);});
  let rue=null;l.slice(0,LN).forEach(i=>{const v=ADRP[i].voie;if(v!==rue){rue=v;h+=teteRue(v,G.get(v));}h+=ligneA(i);});
  if(l.length>LN)h+=`<button class="lmore" id="lmore">Afficher la suite · ${pl(l.length-LN,'adresse')}</button>`;
@@ -82,8 +86,9 @@ function etatAdr(i){const a=D.adresses[i],id=a[2],s=statutA(id),ps=PASS[id]||[],
  else if(s==='prevu'){const p=actPar(PREV[id].aid);t=p&&p.prevue?'prévue le '+fmtJ(p.prevue):'prévue dans un PAP';}
  else if(!isPr(a))t='non prioritaire';
  return {k:sem?'f':s==='fait'?'p':'v',t,s,ps};}
-function avAdr(i){const a=D.adresses[i],e=etatAdr(i);
- return e.s==='fait'?avH('ok',e.ps.length>1?e.ps.length:I.check):e.s==='ferme'?avH('ko','!'):e.s==='prevu'?avH('af pv',I.home):isPr(a)?avH('af',I.home):avH('np',I.home);}
+/* pastille d'une adresse : faite (✓ ou nombre de passages), pas pu entrer (!), sinon sa priorité de 0 à 100, dans la couleur du dégradé */
+function avAdr(i){const a=D.adresses[i],e=etatAdr(i),v=a[5]||0;
+ return e.s==='fait'?avH('ok',e.ps.length>1?e.ps.length:I.check):e.s==='ferme'?avH('ko','!'):`<span class="av pq${e.s==='prevu'?' pv':''}${isPr(a)?'':' np'}" style="${prioStyle(v)}">${Math.round(v)}</span>`;}
 function ligneA(i){const a=D.adresses[i],e=etatAdr(i);
  return `<div class="lr" data-li="${i}">${avAdr(i)}<button class="tx" data-lt="${i}"><b>${esc(a[2])}</b><small>${pl(a[3],'inscrit')}${e.t?' · '+e.t:''}</small></button>${pillH(e.k,`data-lv="${i}"`)}</div>`;}
 
@@ -146,7 +151,7 @@ function puceEtatHTML(i){const a=D.adresses[i],id=a[2],s=statutA(id),ps=PASS[id]
  else if(s==='ferme')h+=`<span class="pc ko"><i></i>Pas pu entrer ${relSem(FER[id].q)}</span>`;
  else if(s==='prevu'){const p=actPar(PREV[id].aid);h+=`<span class="pc pv"><i></i>Prévue${p&&p.prevue?' le '+fmtJ(p.prevue):' dans un PAP'}</span>`;}
  else h+=`<span class="pc af"><i></i>À faire</span>`;
- h+=isPr(a)?`<span class="pc t">Prioritaire</span>`:`<span class="pc n">Non prioritaire</span>`;
+ h+=`<span class="prs" style="${prioStyle(a[5]||0)}">Priorité ${Math.round(a[5]||0)}/100</span>`+(isPr(a)?'':`<span class="pc n">Non prioritaire</span>`);
  return `<div class="pcs">${h}</div>`;}
 function semaineHTML(i){const id=AID(i),ps=PASS[id]||[],f=FER[id],semP=ps.length&&cetteSem(ps[0].q),semF=!semP&&f&&cetteSem(f.q)&&statutA(id)==='ferme';
  let sub='',right;
