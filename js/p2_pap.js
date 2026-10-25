@@ -58,7 +58,7 @@ function adrSub(a){return `Bureau ${esc(a[8])} · ${pl(a[3],'inscrit')}`;}
 const addBtn=(i)=>{const inS=SEL.includes(i);return `<button class="addb${inS?' in':''}" data-add="${i}" aria-label="${inS?'Retirer de la sélection':'Ajouter à la sélection'}">${inS?I.check+'Ajoutée':I.plus+'Ajouter'}</button>`;};
 const faiteTxt=i=>{const f=faites[AID(i)],x=ACC[AID(i)];return f?` · faite le ${fmtJ(f)}`:x?` · pas pu entrer le ${fmtJ(x.q)}`:'';};
 function rowAdr(i,num,noAct){const a=D.adresses[i],z=zoneOf(a);
- const left=num?`<span class="nb">${num}</span>`:`<span class="zd" style="background:var(--z${z})"></span>`;
+ const left=num?`<span class="nb">${num}</span>`:`<span class="zd" style="background:${prioCol(a[5])}"></span>`;
  return `<div class="row${num?' n':''}">${left}<button class="tx" data-i="${i}"><b>${esc(a[2])}</b><small>${adrSub(a)}${faiteTxt(i)}</small></button><span class="sc">${Math.round(a[5])}<small>score</small></span>`+
   (noAct?'':num?`<button class="rm" data-rm="${i}" aria-label="Retirer de la sélection">${I.x}</button>`:addBtn(i))+`</div>`;}
 function lierRows(){body.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>ouvrirAdresse(+b.dataset.i));
@@ -83,8 +83,7 @@ function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(
   h+=`<div class="slc"><label for="rI">Inscrits</label><input type="range" id="rI" min="1" max="${mx}" step="1" value="${crit.ins}"><output id="vI">${crit.ins}+</output></div>`;
   const nM=niMax();if(crit.ni>nM)crit.ni=nM;
   h+=`<div class="slc"><label for="rN">Non-inscrits</label><input type="range" id="rN" min="0" max="${nM}" step="1" value="${crit.ni}"><output id="vN">${niTxt(crit.ni)}</output></div>`;
-  h+=blocActions('pap');
-  h+=`<h2>Préparer une action</h2><div class="start"><button class="btn line" id="pMe">${I.me} Autour de moi</button><button class="btn line" id="pCtr">${I.target} Centre de la carte</button></div><div class="hint">Ou touchez des adresses sur la carte, puis « Ajouter ».</div>`;
+  h+=`<h2>Un PAP ailleurs</h2><div class="start"><button class="btn line" id="pMe">${I.me} Autour de moi</button><button class="btn line" id="pCtr">${I.target} Centre de la carte</button></div>`;
   h+=`<h2>Adresses prioritaires à l'écran</h2><div class="sub" id="nPr">${compteEcran()}</div><div id="lst">${listeHTML()}</div>`;
   h+=`<details class="more"><summary>La ${D.k}e circonscription en chiffres</summary>${kpis([[n0(D.objectif),'voix à obtenir en 2027'],[pc(D.objectif_p),'des exprimés'],['+'+n0(D.gain),'voix par rapport à 2022']])}</details>`;
   h+=lienCR();
@@ -116,7 +115,7 @@ function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')s
  detail({id:'adr',html:()=>{const inS=SEL.includes(i);
   let h=headHTML(esc(a[2]),`Bureau ${esc(a[8])}${a[8]!==a[9]?` (bureau ${esc(a[9])} en 2022)`:''} · ${pl(a[3],'inscrit')}`,true);
   h+=puceEtatHTML(i)+semaineHTML(i);
-  h+=`<div class="btns"><button class="btn primary" id="ici">${I.target} Préparer un PAP autour de cette adresse</button></div>`;
+  h+=`<div class="btns"><button class="btn primary" id="ici">${I.target} Choisir un PAP autour de cette adresse</button></div>`;
   h+=`<button class="lnk2 c" id="tg">${inS?'Retirer de ma sélection':'Ajouter à ma sélection'}</button>`;
   h+=passagesHTML(a[2]);
   let m='';if(p.zone)m+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
@@ -165,38 +164,44 @@ function dessinerLot(){if(!lotL)return;lotL.clearLayers();if(!lot)return;
  const ll=lot.ids.map(i=>ptA(i));
  L.polyline(lot.ll?[lot.ll,...ll]:ll,{renderer:rP,color:tok('--accent'),weight:2,opacity:.9,dashArray:'1 5',lineCap:'round',interactive:false}).addTo(lotL);
  if(lot.type!=='boitage')lot.ids.forEach((i,k)=>L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin lot">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>ouvrirAdresse(i)).addTo(lotL));}
-/* les trois semaines à venir, pour le jour prévu d'un PAP */
-const joursAVenir=()=>{const o=[],d=new Date();d.setHours(12,0,0,0);for(let k=0;k<21;k++){const x=new Date(d.getTime()+k*864e5),v=isoD(x).slice(0,10);o.push([v,k===0?'Aujourd\'hui':k===1?'Demain':cap(x.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))]);}return o;};
-/* préparer un PAP : autour d'une adresse ou d'un point, ou un PAP conseillé ; on règle la taille, on retire des adresses,
-   on choisit le GA et le jour, on crée */
+/* un PAP choisi est un PAP fait (JL, 25/10/2026 : « quand quelqu'un choisit une action, ça la considère direct comme
+   validée ») : toutes ses adresses sont validées cette semaine, le PAP est « faite » */
+function validerTout(a){const now=isoD(new Date());a.etapes.forEach(e=>{if(idxE(e)!=null&&stE(e)==='afaire'){e.st='faite';e.le=now;}});a.statut='faite';a.faite_le=now;a.prevue='';}
+/* taille d'un PAP : curseur de 50 à 1 000 inscrits (JL, 25/10/2026) */
+const TMIN=50,TMAX=1000,TPAS=50;
+const tailleHTML=(id,lab)=>`<div class="slc tl2"><label for="${id}">${lab||'Taille'}</label><input type="range" id="${id}" min="${TMIN}" max="${TMAX}" step="${TPAS}" value="${taille}" style="--p:${100*(taille-TMIN)/(TMAX-TMIN)}%"><output id="${id}v">${taille} inscrits</output></div>`;
+function lierTaille(id,fin){const r=$(id);if(!r)return;r.oninput=()=>{r.style.setProperty('--p',(100*(r.value-TMIN)/(TMAX-TMIN))+'%');$(id+'v').textContent=r.value+' inscrits';};
+ r.onchange=()=>{taille=+r.value;LS.set('taille',taille);fin();};}
+/* choisir un PAP : autour d'une adresse ou d'un point, ou un PAP conseillé ; on règle la taille, on retire des adresses,
+   on choisit le GA, on valide : c'est fait */
 function preparer(ll,nom,i0,ids,titre,cons){if(mode!=='pap')setMode('pap');
  if(cons){lot=consLot(cons.r);if(!lot){toast('Aucun PAP conseillé pour l\'instant.');return;}}
  else if(!ids){if(!dansCirco(ll)){toast('Ce point est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}lot=construireLot(ll,taille,i0);}
  else lot={ll:null,ids,ins:insDe(ids),km:kmDe(ids),cible:insDe(ids),msg:'',recu:titre||'Action reçue'};
- let gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',pv='';
+ let gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'';
  const cadrer=()=>{if(lot.ids.length)map.flyToBounds(L.latLngBounds([...(lot.ll?[lot.ll]:[]),...lot.ids.map(ptA)]).pad(.25),{...pad(),maxZoom:17.5,duration:.5});};
  dessinerLot();if(!wide&&det!=='half')setDet('half');cadrer();
  detail({id:'lot',html:()=>{
   const tt=lot.recu?esc(lot.recu):lot.rang?`PAP conseillé n° ${lot.rang}`:'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
   let h=headHTML(tt,lot.recu?'Reçu par lien':lot.rang?esc(lot.rue||''):'',true);
-  if(!lot.recu)h+=`<div class="lbl">Taille du PAP, en inscrits</div><div class="sgc" role="group" aria-label="Taille du PAP, en inscrits">${[50,100,150,200].map(t=>`<button data-t="${t}" aria-pressed="${taille===t}">${t}</button>`).join('')}</div>`;
+  if(!lot.recu)h+=tailleHTML('lta','Taille');
   if(lot.msg)h+=`<div class="note">${esc(lot.msg)}</div>`;
   if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire assez proche. Baissez les curseurs ou choisissez un autre point.</div>`;
   h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(lot.ins)}</b>inscrits</span>${lot.ids.length>1?`<span><b>${m10(lot.km)} m</b>de marche</span>`:''}</div>`;
-  if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${lot.cible} inscrits.</div>`;
+  if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${n0(lot.cible)} inscrits.</div>`;
   h+=lot.ids.map((i,k)=>`<div class="lr">${avH('br',k+1)}<button class="tx" data-i="${i}"><b>${esc(D.adresses[i][2])}</b><small>${pl(D.adresses[i][3],'inscrit')}</small></button><button class="xb" data-lx="${k}" aria-label="Retirer ${esc(D.adresses[i][2])}">${I.x}</button></div>`).join('');
   const G=gaActifs();
-  h+=`<div class="pour"><label class="chs">${G.length?`<select id="lga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label>`+
-   `<label class="chs">${I.cal}<select id="lpv" aria-label="Jour prévu"><option value="">Sans date</option>${joursAVenir().map(([v,t])=>`<option value="${v}"${v===pv?' selected':''}>${t}</option>`).join('')}</select>${I.down}</label></div>`;
-  h+=`<div class="btns"><button class="btn primary" id="cree" ${gaC?'':'disabled'}>${I.check} Créer le PAP</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}</div>`;
+  h+=`<div class="pour"><label class="chs">${G.length?`<select id="lga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
+  h+=`<div class="btns"><button class="btn primary" id="cree" ${gaC?'':'disabled'}>${I.check} Valider ce PAP</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}</div>`;
   return h;},
  after:()=>{lierRows();
-  body.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{taille=+b.dataset.t;LS.set('taille',taille);const r=lot.rang;lot=r?(consLot(r)||lot):construireLot(lot.ll,taille,i0);dessinerLot();render(true);cadrer();});
+  lierTaille('lta',()=>{const r=lot.rang;lot=r?(consLot(r)||lot):construireLot(lot.ll,taille,i0);dessinerLot();render(true);cadrer();});
   body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
-  const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};const d=$('lpv');if(d)d.onchange=()=>{pv=d.value;};
+  const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};
   const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length)return;
-   const a=nouvelleAction('pap',{ga:[gaC],prevue:pv||'',etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:{lot:'propose',cible:lot.cible}});
-   a.nom=nomDefaut(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'création');sauverA();effLot();stack=[vueBase(),vueAction(a.id)];render();toast('PAP créé : '+a.nom);};}});}
+   const a=nouvelleAction('pap',{ga:[gaC],etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:{lot:'propose',cible:lot.cible}});
+   a.nom=nomDefaut(a);validerTout(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'PAP choisi : validé');sauverA();effLot();dessinerParcours();stack=[vueBase(),vueAction(a.id)];render();
+   toast(`PAP validé : ${pl(a.etapes.length,'adresse faite','adresses faites')}`,{t:'Annuler',fn:()=>{const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();dessinerParcours();}show(vueBase());}});};}});}
 map.on('contextmenu',e=>{if(!D||!adrL||!map.hasLayer(adrL)||mode!=='pap')return;preparer([e.latlng.lat,e.latlng.lng],'Autour de ce point');});
 
 /* ---------------- ma selection : adresses choisies a la main, avant de creer l'action */
@@ -225,7 +230,7 @@ function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne,ga=a.ga.slice(),prev=a
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const ap=$('ap');if(ap)ap.onchange=()=>{prev=ap.value;};
   const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';LS.set('dga',a.ga);
-   if(neuve){ACTIONS.push(a);saisie(a,'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
+   if(neuve){if(a.type==='pap')validerTout(a);ACTIONS.push(a);saisie(a,a.type==='pap'?'PAP choisi : validé':'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
    sauverA();stack=[vueBase(),vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
   $('sv').onclick=()=>enr(false);const s2=$('sv2');if(s2)s2.onclick=()=>enr(true);}};}
 
