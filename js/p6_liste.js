@@ -27,11 +27,13 @@ function parQui(a,id){const s=(a&&a.saisies||[]).slice().reverse().find(x=>x.quo
 function rafr(){if($('lres'))majRes(true);else render(true);}
 
 function vueListe(){return {id:'base',
- html:()=>`<div class="lhead"><h1 class="lt">Liste</h1></div><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Adresse, rue ou pied d'immeuble" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse, une rue ou un pied d'immeuble"></label><div id="lres">${resHTML()}</div>`,
+ html:()=>`<div class="lhead"><div><h1 class="lt">Liste</h1><div class="sub" id="lsub">${compteListe()}</div></div></div><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div id="lres">${resHTML()}</div>`,
  after:()=>{const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes();},150);};
   $('lres').onclick=clicRes;suite();}};}
-const resHTML=()=>LQ.length>=2?rechercheHTML():accueilListeHTML();
-function majRes(keep){const r=$('lres');if(!r)return;const y=body.scrollTop;r.innerHTML=resHTML();body.scrollTop=keep?y:(LQ.length>=2?0:y);suite();}
+/* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026) ; la recherche filtre */
+const resHTML=()=>rechercheHTML();
+function compteListe(){let pr=0,f=0;D.adresses.forEach(a=>{if(isPr(a))pr++;if(statutA(a[2])==='fait')f++;});return `${pl(D.adresses.length,'adresse')} · ${n0(pr)} prioritaires · <span class="g">${pl(f,'faite')}</span>`;}
+function majRes(keep){const r=$('lres');if(!r)return;const y=body.scrollTop;r.innerHTML=resHTML();body.scrollTop=keep?y:0;const c=$('lsub');if(c)c.innerHTML=compteListe();suite();}
 var lObs=null;
 function suite(){const m=$('lmore');if(!m)return;try{if(lObs)lObs.disconnect();lObs=new IntersectionObserver(es=>{if(es.some(x=>x.isIntersecting)){lObs.disconnect();LN+=LPAS;majRes(true);}},{root:body,rootMargin:'300px'});lObs.observe(m);}catch(e){}}
 function clicRes(ev){const t=ev.target.closest('[data-lv],[data-le],[data-gv],[data-pv],[data-gh],[data-lt],[data-pt],#lmore');if(!t)return;const d=t.dataset;
@@ -56,11 +58,14 @@ function grpPapHTML(a,ouv){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})).filter
  return h+'</div>';}
 
 /* ---- recherche : une rue, une adresse, un pied d'immeuble ; par rue, puis par numéro */
-function ordreAdrRue(){if(D._or)return D._or;D._or=D.adresses.map((a,i)=>i).sort((x,y)=>ADRP[x].voie.localeCompare(ADRP[y].voie,'fr')||ADRP[x].num-ADRP[y].num||ADRP[x].suf.localeCompare(ADRP[y].suf));return D._or;}
-function rechercheHTML(){const l=ordreAdrRue().filter(i=>normA(D.adresses[i][2]).includes(LQ));
- const pi=(D.pieds||[]).map((s,j)=>j).filter(j=>normA(D.pieds[j].nom+' '+D.pieds[j].qpv.map(q=>q.nom).join(' ')).includes(LQ));
- if(!l.length&&!pi.length)return `<div class="empty">Aucune adresse ne correspond.</div>`;
- let h=pi.length?`<div class="sh2">Pieds d'immeuble</div>`+pi.map(lignePied).join(''):'';
+/* rues rangées par leur nom, sans le type de voie : Amandiers (rue des), Annam (rue d'), Belleville (boulevard de)… */
+const TYPV=/^(rue|avenue|boulevard|place|passage|impasse|allée|allee|villa|cité|cite|square|quai|cour|chemin|sentier|rond-point|parvis|voie|square|porte|galerie|hameau|jardin|promenade|esplanade|route|ruelle|sente|carrefour)\s+((de la|de l'|du|des|de|d'|la|le|les|l')\s*)?/i;
+const clefVoie=v=>v.replace(TYPV,'').trim()||v;
+function ordreAdrRue(){if(D._or)return D._or;const K={};D.adresses.forEach((a,i)=>{const v=ADRP[i].voie;if(!(v in K))K[v]=clefVoie(v);});
+ D._or=D.adresses.map((a,i)=>i).sort((x,y)=>K[ADRP[x].voie].localeCompare(K[ADRP[y].voie],'fr',{sensitivity:'base'})||ADRP[x].voie.localeCompare(ADRP[y].voie,'fr')||ADRP[x].num-ADRP[y].num||ADRP[x].suf.localeCompare(ADRP[y].suf));return D._or;}
+function rechercheHTML(){const l=LQ?ordreAdrRue().filter(i=>normA(D.adresses[i][2]).includes(LQ)):ordreAdrRue();
+ if(!l.length)return `<div class="empty">Aucune adresse ne correspond.</div>`;
+ let h='';
  const G=new Map();l.forEach(i=>{const v=ADRP[i].voie;if(!G.has(v))G.set(v,[]);G.get(v).push(i);});
  let rue=null;l.slice(0,LN).forEach(i=>{const v=ADRP[i].voie;if(v!==rue){rue=v;h+=teteRue(v,G.get(v));}h+=ligneA(i);});
  if(l.length>LN)h+=`<button class="lmore" id="lmore">Afficher la suite · ${pl(l.length-LN,'adresse')}</button>`;
@@ -101,7 +106,10 @@ function actionSemaine(){const now=isoD(new Date());
  let a=ACTIONS.find(x=>deListe(x)&&x.type==='pap'&&x.cree_par===moi().id&&cetteSem(x.faite_le)&&x.campagne===campDefaut());
  if(!a){a=nouvelleAction('pap',{nom:'Passages de la '+semTxt(now),statut:'faite',faite_le:now,origine:{lot:'liste'}});ACTIONS.push(a);saisie(a,'création depuis la liste');}
  return a;}
-function noterSemaine(i,st){const id=AID(i),now=isoD(new Date()),pv=PREV[id];
+/* adresse d'un PAP validé cette semaine, retirée puis notée de nouveau : elle revient dans ce PAP */
+function etapeSemaine(id){for(const a of ACTIONS){if(a.type!=='pap'||deListe(a)||a.campagne!==campDefaut())continue;if(a.statut==='faite'&&!cetteSem(a.faite_le))continue;
+ const k=a.etapes.findIndex(e=>e.lieu.id===id&&stE(e)==='afaire');if(k>=0)return {aid:a.id,k};}return null;}
+function noterSemaine(i,st){const id=AID(i),now=isoD(new Date()),pv=PREV[id]||etapeSemaine(id);
  if(pv){const a=actPar(pv.aid);if(a&&a.etapes[pv.k]&&a.etapes[pv.k].lieu.id===id){setE(a,pv.k,{st});return;}}
  const a=actionSemaine(),k=a.etapes.findIndex(e=>e.lieu.id===id);
  if(k>=0)Object.assign(a.etapes[k],{st,le:now,acc:''});else a.etapes.push(Object.assign(etapeAdr(i),{st,le:now}));
@@ -157,7 +165,7 @@ function passagesHTML(id){const ps=PASS[id]||[];if(!ps.length)return '';
   return `<div class="tl"><i></i><div><b>${esc(semLong(p.q))}</b><span>${t}</span></div></div>`;}).join('')+(ps.length>6?`<div class="hs">et ${pl(ps.length-6,'passage')} plus ancien${ps.length-6>1?'s':''}</div>`:'');}
 
 /* ---- pastille de l'onglet Liste : PAP dont la date est passée, pas encore tout validés */
-function majBadge(){const b=$('bdgL');if(!b||!D)return;const auj=isoD(new Date()).slice(0,10);
+function majBadge(){const b=$('bdgL');if(!b||!D)return;b.hidden=true;return;const auj=isoD(new Date()).slice(0,10);
  const n=ACTIONS.filter(a=>a.type==='pap'&&a.statut==='a_faire'&&!deListe(a)&&a.prevue&&a.prevue.slice(0,10)<=auj).length;b.textContent=n||'';b.hidden=!n;b.setAttribute('aria-label',n?pl(n,'PAP à valider'):'');}
 
 /* ---------------- tractage : on coche qu'une équipe y va (arbitrage JL du 25/10/2026). Une action « équipe » par lieu,
@@ -194,7 +202,7 @@ function majEq(){if(!D||typeof L==='undefined')return;if(!eqL)eqL=L.layerGroup()
  if(!map.hasLayer(eqL))eqL.addTo(map);}
 
 /* ---------------- PAP conseillés (25/10/2026) : sans qu'on dise où. On part de chaque adresse prioritaire libre, on bâtit le
-   PAP comme « Préparer un PAP autour » (adresses proches, taille choisie), on garde le plus efficace, on retire ses adresses,
+   PAP comme « PAP autour de cette adresse » (adresses proches, taille choisie), on garde le plus efficace, on retire ses adresses,
    on recommence. Efficace = le plus d'inscrits prioritaires pas encore vus pour le moins de marche : inscrits x score / (marche
    + 40 m par adresse). Libre = prioritaire, pas faite depuis le délai, pas « pas pu entrer » récemment, pas déjà dans un PAP à
    faire. Recalculé à chaque validation. Pas de nombre minimum d'adresses (arbitrage JL du 25/10/2026). */
@@ -212,9 +220,13 @@ function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,c
    if(bi<0)break;out.push(bi);pris.add(bi);s+=A[bi][3];km+=bd;cur=bi;}
   return {ids:out,ins:s,km};};
  const res=[],memo=new Array(n);
+ /* adresses de départ : toutes pour un petit PAP ; au-delà de 150 inscrits, la meilleure de chaque carré de 150 m (calcul
+    plus court ; un grand PAP couvre de toute façon plusieurs carrés) */
+ let SEM=[];if(cible<=150){for(let i=0;i<n;i++)if(ok[i])SEM.push(i);}
+ else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150),v=A[i][3]*A[i][5];const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
  /* un lot ne change que si une de ses adresses est retirée : retirer une adresse qu'il n'a pas prise ne change pas ses choix */
  while(res.length<6){let best=null;
-  for(let i=0;i<n;i++){if(!ok[i]||A[i][3]>cible*1.5)continue;let r=memo[i];
+  for(const i of SEM){if(!ok[i]||A[i][3]>cible*1.5)continue;let r=memo[i];
    if(!r||r.ids.some(j=>!ok[j])){r=lot(i);r.e=r.ins<cible*.6?-1:r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100,0)/(r.km+40*r.ids.length);memo[i]=r;}
    if(r.e>=0&&(!best||r.e>best.e))best=r;}
   if(!best)break;best=Object.assign({},best,{ids:best.ids.slice()});res.push(best);best.ids.forEach(j=>ok[j]=0);
@@ -225,13 +237,14 @@ function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,c
  CONS=res;CONS_K=cle;if(CSEL>=res.length)CSEL=0;return res;}
 function consLot(r){const z=conseilles()[r-1];return z?{ll:null,ids:z.ids.slice(),ins:z.ins,km:z.km,cible:taille,msg:'',rang:r,rue:z.rue}:null;}
 function consHTML(){const C=conseilles();
- let h=`<div class="csh"><h1>PAP conseillés</h1><label class="tsel"><select id="cTa" aria-label="Taille des PAP conseillés">${[50,100,150,200].map(t=>`<option value="${t}"${t===taille?' selected':''}>${t} inscrits</option>`).join('')}</select>${I.down}</label></div>`;
+ let h=`<div class="csh"><h1>PAP conseillés</h1></div>`;
  h+=`<div class="sub">${wide?'Les plus efficaces d\'abord : le plus d\'inscrits prioritaires pas encore vus, le moins de marche. Mis à jour à chaque validation.':'Les plus efficaces d\'abord'}</div>`;
+ h+=tailleHTML('cTa','Taille');
  if(!C.length)return h+`<div class="empty">Aucune adresse prioritaire libre. Baissez les curseurs.</div>`;
- if(wide)return h+`<div style="margin-top:10px">`+C.map((z,k)=>`<div class="dk${k===CSEL?' on':''}" data-ck="${k}"><span class="rk">${k+1}</span><div><b>${esc(z.rue)}</b><small>${z.ins} inscrits · ${pl(z.ids.length,'adresse')}${z.ids.length>1?` · ${m10(z.km)} m de marche`:''}</small></div>${pillH(k===CSEL?'b':'p',`data-cs="${k}"`,'Préparer')}</div>`).join('')+`</div>`;
- return h+`<div class="car" id="car">${C.map((z,k)=>`<div class="cc${k===CSEL?' on':''}" data-ck="${k}"><div class="t"><span class="rk">${k+1}</span><b>${esc(z.rue)}</b></div><small>${esc(z.nums)}</small><div class="st"><span><b>${z.ins}</b>inscrits</span><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span>${z.ids.length>1?`<span><b>${m10(z.km)} m</b>de marche</span>`:''}</div><button class="go" data-cs="${k}">Préparer ce PAP</button></div>`).join('')}</div><div class="dots" id="cdots">${C.map((z,k)=>`<i${k===CSEL?' class="on"':''}></i>`).join('')}</div>`;}
+ if(wide)return h+`<div style="margin-top:10px">`+C.map((z,k)=>`<div class="dk${k===CSEL?' on':''}" data-ck="${k}"><span class="rk">${k+1}</span><div><b>${esc(z.rue)}</b><small>${z.ins} inscrits · ${pl(z.ids.length,'adresse')}${z.ids.length>1?` · ${m10(z.km)} m de marche`:''}</small></div>${pillH(k===CSEL?'b':'p',`data-cs="${k}"`,'Choisir')}</div>`).join('')+`</div>`;
+ return h+`<div class="car" id="car">${C.map((z,k)=>`<div class="cc${k===CSEL?' on':''}" data-ck="${k}"><div class="t"><span class="rk">${k+1}</span><b>${esc(z.rue)}</b></div><small>${esc(z.nums)}</small><div class="st"><span><b>${z.ins}</b>inscrits</span><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span>${z.ids.length>1?`<span><b>${m10(z.km)} m</b>de marche</span>`:''}</div><button class="go" data-cs="${k}">Choisir ce PAP</button></div>`).join('')}</div><div class="dots" id="cdots">${C.map((z,k)=>`<i${k===CSEL?' class="on"':''}></i>`).join('')}</div>`;}
 function lierCons(){const cb=$('cons');if(!cb)return;
- const ta=$('cTa');if(ta)ta.onchange=()=>{taille=+ta.value;LS.set('taille',taille);CSEL=0;majCons();};
+ lierTaille('cTa',()=>{CSEL=0;majCons();});
  cb.onclick=ev=>{const s=ev.target.closest('[data-cs]');if(s){const k=+s.dataset.cs;preparer(null,'',null,null,null,{r:k+1});return;}
   const c=ev.target.closest('[data-ck]');if(c)choisirCons(+c.dataset.ck,false,true);};
  const car=$('car');if(car){let t=0;car.onscroll=()=>{clearTimeout(t);t=setTimeout(()=>{const w=car.firstElementChild?car.firstElementChild.offsetWidth+10:1,k=Math.max(0,Math.min(car.children.length-1,Math.round(car.scrollLeft/w)));if(k!==CSEL)choisirCons(k,false,false);},90);};}}
