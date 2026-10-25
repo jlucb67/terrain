@@ -1,13 +1,16 @@
 /* ---------------- pile des vues du tiroir, branchee sur le retour du telephone */
 let stack=[],hist=0,attendu=0;
 function show(v){stack=[v];render();}
+/* fiches touchées sur la carte : passer d'une fiche à l'autre (adresse, bureau, lieu) remplace la fiche, sans
+   empiler le retour (JL, 25/10/2026). Seule une fiche ouverte depuis une autre fiche (fils) s'empile. */
+const FICHES=new Set(['adr','bv','ma','mg','st','pi','rue']);
 function detail(v){if(!stack.length||stack[0].id!=='base')stack=[vueBase()];const t=stack[stack.length-1];
- if(t.id===v.id&&v.id!=='fini')stack[stack.length-1]=v;else{stack.push(v);try{history.pushState({terrain:1},'');hist++;}catch(e){}}render();}
+ if((t.id===v.id&&v.id!=='fini')||(FICHES.has(t.id)&&FICHES.has(v.id)&&!v.fils))stack[stack.length-1]=v;else{stack.push(v);try{history.pushState({terrain:1},'');hist++;}catch(e){}}render();}
 function depiler(){if(stack.length<2)return false;stack.pop();sel(null);if(stack.length===1)effLot();render();return true;}
 function back(){if(hist>0){attendu=stack.length;try{history.back();}catch(e){attendu=0;hist=0;depiler();return;}
   setTimeout(()=>{if(attendu&&stack.length===attendu){attendu=0;hist=Math.max(0,hist-1);depiler();}},450);return;}depiler();}
 addEventListener('popstate',()=>{if(hist>0)hist--;if(attendu&&stack.length<attendu){attendu=0;return;}attendu=0;depiler();});
-function render(keep){const v=stack[stack.length-1],y=body.scrollTop;body.innerHTML=v.html();body.scrollTop=keep?y:0;
+function render(keep){const v=stack[stack.length-1],y=body.scrollTop;if(v.id!=='parc'&&typeof effParc==='function')effParc();body.innerHTML=v.html();body.scrollTop=keep?y:0;
  const b=body.querySelector('.back');if(b)b.onclick=back;
  const c=$('vCR');if(c)c.onclick=()=>detail(vueActions({}));
  body.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>detail(vueAction(b.dataset.act)));
@@ -99,7 +102,7 @@ let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=
 let mode='pap',ONG='pap',vueMetroJour='now';
 const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:true};
 const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Bureaux','--quiet'],['faites','Faites','--ok'],['metro','Métro','--ink']],
- tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Supermarchés','--sup'],['tMe','Métro','--ink'],['tPi',"Pieds d'immeuble",'--pied']]};
+ tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Magasins','--sup'],['tMe','Métro','--ink'],['tPi',"Pieds d'immeuble",'--pied']]};
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
 const AID=i=>D.adresses[i][2];
@@ -156,10 +159,16 @@ async function chargerJSON(url,onp){const r=await fetch(url);if(!r.ok)throw new 
  if(!r.body||!tot||!onp||!window.TextDecoder)return r.json();const rd=r.body.getReader();const parts=[];let got=0,last=-1;
  for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;const p=Math.min(99,Math.round(100*got/tot));if(p!==last){last=p;onp(p);}}
  const buf=new Uint8Array(got);let o=0;parts.forEach(x=>{buf.set(x,o);o+=x.length;});return JSON.parse(new TextDecoder().decode(buf));}
+/* magasins absents du relevé Google (Apur, commerces 2023), Action et Gifi (v15, 25/10/2026) : un fichier pour tout Paris,
+   on garde ceux de la circo (pas ses abords : carte épurée) ; sans affluence */
+let MAGS=null;
+function ajouterMagasins(){if(D._mag||!MAGS||!MAGS.magasins)return;D._mag=1;const b=D.bounds;D.supers=D.supers||[];
+ MAGS.magasins.forEach(s=>{if(s.lat<b[0][0]||s.lat>b[1][0]||s.lon<b[0][1]||s.lon>b[1][1]||!dansCirco([s.lat,s.lon]))return;D.supers.push(Object.assign({},s,{dedans:true}));});}
 async function ouvrir(n,ensuite){
  if(!(n>=1&&n<=18)||!peutCirco(n))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
- try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;construire();chargerBati(n);}}
+ try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;
+  if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();construire();chargerBati(n);chargerParcours(n);}}
  catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
  [parisL,eauL,arrL,labL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});sheet.classList.remove('paris');
  [fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL].forEach(l=>{if(l)l.addTo(map);});
@@ -304,7 +313,7 @@ function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)
  if(mode==='tractage'&&chips.tMe&&z>=14.5)D.metro.forEach(s=>{if(!b.contains([s.lat,s.lon]))return;stnL.addLayer(L.marker([s.lat,s.lon],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="stn" style="transform:translate(12px,-50%)">${esc(s.nom)}</div>`})}));});}
 /* au zoom, les points ne changent de taille qu'au passage d'un palier : on ne les restyle qu'à ce moment */
 map.on('zoomend',()=>{if(D&&adrL&&map.hasLayer(adrL)){if(zBucket(map.getZoom())!==dernZ)stylerAdr();lieux();}});
-let mvT=0;map.on('moveend',()=>{if(!D||!adrL||!map.hasLayer(adrL))return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();if(v&&v.id==='base'&&mode==='tractage'&&TRI==='pres'&&!posMoi)render(true);},150);});
+let mvT=0;map.on('moveend',()=>{if(!D||!adrL||!map.hasLayer(adrL))return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();},150);});
 
 /* missions */
 /* trois onglets depuis le 25/10/2026 : Porte-à-porte, Liste (adresses à valider, même carte que le porte-à-porte) et Tractage */
