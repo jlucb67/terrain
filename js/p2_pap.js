@@ -27,7 +27,7 @@ function deriver(){faites={};ACC={};BOI={};PASS={};FER={};PREV={};const cc=campD
  VERS=(VERS||0)+1;if(typeof majBadge==='function')majBadge();if(typeof majEq==='function')majEq();}
 /* statut d'une adresse dans la campagne en cours : fait, ferme (pas pu entrer), prevu (dans un PAP à faire), afaire */
 const statutA=id=>{const p=PASS[id],f=FER[id];if(p&&(!f||p[0].q>=f.q))return 'fait';if(f)return 'ferme';if(PREV[id])return 'prevu';return 'afaire';};
-/* pastille d'une étape : verte si faite, orange si pas pu entrer */
+/* pastille d'une étape : violette si faite, grise si pas pu entrer */
 const nbCls=e=>e.st==='ferme'?' ko':(e.toquees>0||e.st==='faite')?' fa':'';
 function voieDe(e){const i=idxE(e);return i!=null&&typeof ADRP!=='undefined'&&ADRP[i]?ADRP[i].voie:(e.lieu.voie||'');}
 function nomDefaut(a){const v=a.etapes.length?voieDe(a.etapes[0])||lieuNom(a.etapes[0]):'';return `${TYPES_C[a.type]}${v?' '+v:''}`;}
