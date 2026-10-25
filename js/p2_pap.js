@@ -1,7 +1,7 @@
 
 /* ---------------- actions : on les prepare (PAP, boitage) ou on les fait en direct (diffs), puis chacun peut les renseigner */
-const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff supermarché',diff_metro:'Diff en métro',diff_pied:'Diff en pied d\'immeuble'};
-const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Supermarché',diff_metro:'Métro',diff_pied:'Pied d\'immeuble'};
+const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff supermarché',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe qui y va'};
+const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Supermarché',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe'};
 const actPar=id=>ACTIONS.find(a=>a.id===id);
 const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
@@ -23,7 +23,8 @@ function deriver(){faites={};ACC={};BOI={};PASS={};FER={};PREV={};const cc=campD
    if(a.campagne===cc){if(ok)(PASS[id]=PASS[id]||[]).push({q,aid:a.id,k,ga:a.ga,t:e.toquees,o:e.ouvertes});else if(e.st==='ferme'&&(!FER[id]||FER[id].q<q))FER[id]={q,r:e.acc,aid:a.id,k};}
    if(a.statut==='a_faire'&&!ok&&e.st!=='ferme'&&!PREV[id])PREV[id]={aid:a.id,k};}
   else if(a.type==='boitage'&&(e.st==='boite'||e.st==='ferme')){if(!BOI[id]||BOI[id].q<q)BOI[id]={q,st:e.st};}}));
- Object.values(PASS).forEach(l=>l.sort((x,y)=>String(y.q).localeCompare(String(x.q))));}
+ Object.values(PASS).forEach(l=>l.sort((x,y)=>String(y.q).localeCompare(String(x.q))));
+ VERS=(VERS||0)+1;if(typeof majBadge==='function')majBadge();if(typeof majEq==='function')majEq();}
 /* statut d'une adresse dans la campagne en cours : fait, ferme (pas pu entrer), prevu (dans un PAP à faire), afaire */
 const statutA=id=>{const p=PASS[id],f=FER[id];if(p&&(!f||p[0].q>=f.q))return 'fait';if(f)return 'ferme';if(PREV[id])return 'prevu';return 'afaire';};
 /* pastille d'une étape : verte si faite, orange si pas pu entrer */
@@ -50,7 +51,7 @@ function dessinerParcours(){if(!papL)return;papL.clearLayers();if(!D)return;
  if(ll.length>1)L.polyline(ll,{renderer:rP,color:ac,weight:2,opacity:.9,dashArray:'1 5',lineCap:'round',interactive:false}).addTo(papL);
  if(a&&a.type==='boitage'){L.marker(ll[0],{pane:'pap',interactive:false,icon:L.divIcon({className:'',html:'<div class="start-pin"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(papL);return;}
  ids.forEach((i,k)=>{const e=a?a.etapes[k]:null,c=e?nbCls(e):'';const m=L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin${c}${a?'':' sel'}">${c===' fa'?'✓':c===' ko'?'!':k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})});
-  m.on('click',()=>a?ouvrirEtape(a.id,k):ouvrirAdresse(i));papL.addLayer(m);});}
+  m.on('click',()=>ouvrirAdresse(i));papL.addLayer(m);});}
 
 /* ---------------- porte-a-porte : accueil */
 function adrSub(a){return `Bureau ${esc(a[8])} · ${pl(a[3],'inscrit')}`;}
@@ -76,7 +77,7 @@ function compteEcran(){const b=map.getBounds();let n=0,ins=0;D.adresses.forEach(
 function majListe(){const c=$('nPr'),l=$('lst');if(!c||!l)return;c.innerHTML=compteEcran();l.innerHTML=listeHTML();lierRows();}
 const scoreTxt=()=>`Score : rang de l'adresse dans la circonscription. ${crit.score} veut dire plus prioritaire que ${crit.score} % des adresses de la circo.`;
 function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(...D.adresses.map(a=>a[3])));
-  let h=`<div class="head"><div class="tt"><h1>Porte-à-porte</h1><div class="sub" id="nPr">${compteEcran()}</div></div></div>`;
+  let h=`<div id="cons">${consHTML()}</div>`;
   h+=selBar();
   h+=`<div class="slc" style="margin-top:6px"><label for="rS">Score</label><input type="range" id="rS" min="0" max="100" step="1" value="${crit.score}"><output id="vS">${crit.score}+</output></div>`;
   h+=`<div class="slc"><label for="rI">Inscrits</label><input type="range" id="rI" min="1" max="${mx}" step="1" value="${crit.ins}"><output id="vI">${crit.ins}+</output></div>`;
@@ -84,7 +85,7 @@ function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(
   h+=`<div class="slc"><label for="rN">Non-inscrits</label><input type="range" id="rN" min="0" max="${nM}" step="1" value="${crit.ni}"><output id="vN">${niTxt(crit.ni)}</output></div>`;
   h+=blocActions('pap');
   h+=`<h2>Préparer une action</h2><div class="start"><button class="btn line" id="pMe">${I.me} Autour de moi</button><button class="btn line" id="pCtr">${I.target} Centre de la carte</button></div><div class="hint">Ou touchez des adresses sur la carte, puis « Ajouter ».</div>`;
-  h+=`<h2>Adresses prioritaires à l'écran</h2><div id="lst">${listeHTML()}</div>`;
+  h+=`<h2>Adresses prioritaires à l'écran</h2><div class="sub" id="nPr">${compteEcran()}</div><div id="lst">${listeHTML()}</div>`;
   h+=`<details class="more"><summary>La ${D.k}e circonscription en chiffres</summary>${kpis([[n0(D.objectif),'voix à obtenir en 2027'],[pc(D.objectif_p),'des exprimés'],['+'+n0(D.gain),'voix par rapport à 2022']])}</details>`;
   h+=lienCR();
   return h;},after:()=>{lierRows();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
@@ -93,7 +94,7 @@ function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(
   const rS=$('rS'),rI=$('rI'),rN=$('rN');const peint=()=>[rS,rI,rN].forEach(r=>r.style.setProperty('--p',(100*(r.value-r.min)/(r.max-r.min))+'%'));
   const maj=()=>{crit={v:2,score:+rS.value,ins:+rI.value,ni:+rN.value};LS.set('crit',crit);peint();$('vS').textContent=crit.score+'+';const hs=$('hS');if(hs)hs.textContent=scoreTxt();PRC={};$('vI').textContent=crit.ins+'+';$('vN').textContent=niTxt(crit.ni);
    clearTimeout(regT);regT=setTimeout(()=>{filtrer();majListe();},80);};
-  rS.oninput=maj;rI.oninput=maj;rN.oninput=maj;peint();}};}
+  rS.oninput=maj;rI.oninput=maj;rN.oninput=maj;rS.onchange=rI.onchange=rN.onchange=()=>majCons();peint();lierCons();}};}
 function sel(i){if(!selL)return;selL.clearLayers();if(i==null)return;const a=D.adresses[i];
  L.circleMarker([a[1],a[0]],{renderer:rP,radius:rad(a[3],Math.max(map.getZoom(),16.5))+5,color:tok('--accent'),weight:2,fill:false,interactive:false}).addTo(selL);}
 function voir(ll,z){const H=wide?0:hOf(det==='peek'?'half':det)+TB();z=z||map.getZoom();const pt=map.project(ll,z);const off=wide?[-190,0]:[0,(H-100)/2];
@@ -109,23 +110,26 @@ function jauge(t,v,md,mx){
  return `<div class="bar j"><span>${t}</span><div class="jv"><b class="${cv}" style="left:${pv}%">${v} %</b></div><div class="tr"><i style="width:${pv}%"></i><u style="left:${pm}%"></u></div><div class="jl"><em class="md${cm}" style="left:${pm}%">médiane ${md} %</em><em class="mx">max ${mx} %</em></div></div>`;}
 function quartierHTML(a){const q=QS&&D&&QS.circos&&QS.circos[D.k];
  return `<h2>Ce quartier par rapport à la circonscription</h2><div class="bars">${QN.map((t,j)=>jauge(t,a[10+j],q&&q.med[j],q&&q.max[j])).join('')}</div>`;}
+/* fiche d'une adresse (version légère) : son état, « Cette semaine » (valider, +1 passage, pas pu entrer), préparer un PAP
+   autour, ses passages ; le reste (chiffres, quartier, bureau) replié en bas */
 function ouvrirAdresse(i){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='pap')setMode('pap');if(det==='peek')setDet('half');voir([a[1],a[0]],Math.max(map.getZoom(),16.5));sel(i);
- detail({id:'adr',html:()=>{const inS=SEL.includes(i),f=faites[a[2]],x=ACC[a[2]];
+ detail({id:'adr',html:()=>{const inS=SEL.includes(i);
   let h=headHTML(esc(a[2]),`Bureau ${esc(a[8])}${a[8]!==a[9]?` (bureau ${esc(a[9])} en 2022)`:''} · ${pl(a[3],'inscrit')}`,true);
-  if(p.zone)h+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
-  h+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','score dans la circo'],[a[4],'jeunes de 18 à 25 ans']]);
-  if(a[14]>=1)h+=`<div class="sub" style="margin-top:8px">Environ ${pl(a[14],'non-inscrit')} à cette adresse${FIAB[a[15]]?`, estimation de fiabilité ${FIAB[a[15]]}`:''}.</div>`;
-  if(a[7]>0)h+=`<div class="sub" style="margin-top:8px">${n0(a[7])}<sup>e</sup> adresse la plus prioritaire de Paris.</div>`;
+  h+=puceEtatHTML(i)+semaineHTML(i);
+  h+=`<div class="btns"><button class="btn primary" id="ici">${I.target} Préparer un PAP autour de cette adresse</button></div>`;
+  h+=`<button class="lnk2 c" id="tg">${inS?'Retirer de ma sélection':'Ajouter à ma sélection'}</button>`;
   h+=passagesHTML(a[2]);
-  const dans=ACTIONS.filter(t=>t.type==='pap'&&t.etapes.some(e=>e.lieu.id===a[2]));
-  if(dans.length)h+=`<h2>Dans ${dans.length>1?'les actions':'l\'action'}</h2>`+dans.slice(0,4).map(rowAction).join('');
-  h+=`<div class="btns"><button class="btn primary" id="ici">${I.spark} Proposer un PAP autour de cette adresse</button></div>`;
-  h+=`<div class="btns two" style="margin-top:8px"><button class="btn line" id="tg">${inS?I.check+' Retirer de ma sélection':I.plus+' Ajouter à ma sélection'}</button><a class="btn line" target="_blank" rel="noopener" href="${yAller(a[1],a[0])}">${I.walk} Y aller</a></div>`;
-  h+=boutonPassageHTML(a[2]);
-  h+=quartierHTML(a);
-  if(p.id)h+=`<div class="btns"><button class="btn line" id="bv">Voir le bureau ${esc(p.id)}</button></div>`;
+  let m='';if(p.zone)m+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
+  m+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','score dans la circo'],[a[4],'jeunes de 18 à 25 ans']]);
+  if(a[14]>=1)m+=`<div class="sub" style="margin-top:8px">Environ ${pl(a[14],'non-inscrit')} à cette adresse${FIAB[a[15]]?`, estimation de fiabilité ${FIAB[a[15]]}`:''}.</div>`;
+  if(a[7]>0)m+=`<div class="sub" style="margin-top:8px">${n0(a[7])}<sup>e</sup> adresse la plus prioritaire de Paris.</div>`;
+  const dans=ACTIONS.filter(t=>t.type==='pap'&&!deListe(t)&&t.etapes.some(e=>e.lieu.id===a[2]));
+  if(dans.length)m+=`<h2>Dans ${dans.length>1?'les PAP':'le PAP'}</h2>`+dans.slice(0,4).map(rowAction).join('');
+  m+=quartierHTML(a);
+  if(p.id)m+=`<div class="btns"><button class="btn line" id="bv">Voir le bureau ${esc(p.id)}</button></div>`;
+  h+=`<details class="more"><summary>Plus sur cette adresse</summary>${m}</details>`;
   return h;},after:()=>{$('tg').onclick=()=>{basculer(i);render(true);};$('ici').onclick=()=>preparer([a[1],a[0]],'Autour de '+a[2],i);const b=$('bv');if(b)b.onclick=()=>ouvrirBureau(p.id);
-   const ap=$('adp');if(ap)ap.onclick=()=>{ajouterPassage(i);render(true);toast('Passage ajouté : '+a[2]);};}});}
+   lierSemaine(i);body.querySelectorAll('[data-act]').forEach(x=>x.onclick=()=>detail(vueAction(x.dataset.act)));}});}
 function ouvrirBureau(id){const p=BZ[id];if(!p)return;sel(null);if(det==='peek')setDet('half');
  const f=D.bureaux.find(x=>x.properties.id===id);voir(L.geoJSON(f).getBounds().getCenter(),Math.max(map.getZoom(),15.5));
  detail({id:'bv',html:()=>{let h=headHTML('Bureau '+esc(id),p.liste===1?'Bureau à faire voter':p.liste===2?'Bureau à convaincre':'',true);
@@ -161,27 +165,38 @@ function dessinerLot(){if(!lotL)return;lotL.clearLayers();if(!lot)return;
  const ll=lot.ids.map(i=>ptA(i));
  L.polyline(lot.ll?[lot.ll,...ll]:ll,{renderer:rP,color:tok('--accent'),weight:2,opacity:.9,dashArray:'1 5',lineCap:'round',interactive:false}).addTo(lotL);
  if(lot.type!=='boitage')lot.ids.forEach((i,k)=>L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin lot">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>ouvrirAdresse(i)).addTo(lotL));}
-function preparer(ll,nom,i0,ids,titre){if(mode!=='pap')setMode('pap');
- if(!ids){if(!dansCirco(ll)){toast('Ce point est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}lot=construireLot(ll,taille,i0);}
+/* les trois semaines à venir, pour le jour prévu d'un PAP */
+const joursAVenir=()=>{const o=[],d=new Date();d.setHours(12,0,0,0);for(let k=0;k<21;k++){const x=new Date(d.getTime()+k*864e5),v=isoD(x).slice(0,10);o.push([v,k===0?'Aujourd\'hui':k===1?'Demain':cap(x.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}))]);}return o;};
+/* préparer un PAP : autour d'une adresse ou d'un point, ou un PAP conseillé ; on règle la taille, on retire des adresses,
+   on choisit le GA et le jour, on crée */
+function preparer(ll,nom,i0,ids,titre,cons){if(mode!=='pap')setMode('pap');
+ if(cons){lot=consLot(cons.r);if(!lot){toast('Aucun PAP conseillé pour l\'instant.');return;}}
+ else if(!ids){if(!dansCirco(ll)){toast('Ce point est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}lot=construireLot(ll,taille,i0);}
  else lot={ll:null,ids,ins:insDe(ids),km:kmDe(ids),cible:insDe(ids),msg:'',recu:titre||'Action reçue'};
- dessinerLot();if(det==='peek')setDet('half');
- if(lot.ids.length)map.flyToBounds(L.latLngBounds([...(lot.ll?[lot.ll]:[]),...lot.ids.map(ptA)]).pad(.25),{...pad(),maxZoom:17.5,duration:.5});
+ let gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',pv='';
+ const cadrer=()=>{if(lot.ids.length)map.flyToBounds(L.latLngBounds([...(lot.ll?[lot.ll]:[]),...lot.ids.map(ptA)]).pad(.25),{...pad(),maxZoom:17.5,duration:.5});};
+ dessinerLot();if(!wide&&det!=='half')setDet('half');cadrer();
  detail({id:'lot',html:()=>{
-  let h=headHTML(lot.recu?esc(lot.recu):'Adresses proposées',lot.recu?'Reçue par lien':nom,true);
-  if(!lot.recu)h+=`<div class="seg" role="group" aria-label="Taille">${[50,100,150,200].map(t=>`<button data-t="${t}" aria-pressed="${taille===t}">${t} inscrits</button>`).join('')}</div>`;
+  const tt=lot.recu?esc(lot.recu):lot.rang?`PAP conseillé n° ${lot.rang}`:'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
+  let h=headHTML(tt,lot.recu?'Reçu par lien':lot.rang?esc(lot.rue||''):'',true);
+  if(!lot.recu)h+=`<div class="lbl">Taille du PAP, en inscrits</div><div class="sgc" role="group" aria-label="Taille du PAP, en inscrits">${[50,100,150,200].map(t=>`<button data-t="${t}" aria-pressed="${taille===t}">${t}</button>`).join('')}</div>`;
   if(lot.msg)h+=`<div class="note">${esc(lot.msg)}</div>`;
   if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire assez proche. Baissez les curseurs ou choisissez un autre point.</div>`;
-  const min=Math.round(lot.km/75),big=lot.ids.length>1?lot.ids.find(i=>D.adresses[i][3]>lot.ins*.5):undefined;
-  h+=`<div class="pap-sum"><span><b>${pl(lot.ids.length,'adresse')}</b></span><span><b>${n0(lot.ins)}</b> inscrits</span><span>Marche entre adresses : <b>${min} min</b> (sans le temps aux portes)</span></div>`;
-  if(big!=null)h+=`<div class="sub">Dont 1 grand immeuble de ${D.adresses[big][3]} inscrits.</div>`;
+  h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(lot.ins)}</b>inscrits</span>${lot.ids.length>1?`<span><b>${m10(lot.km)} m</b>de marche</span>`:''}</div>`;
   if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${lot.cible} inscrits.</div>`;
-  h+=`<div class="btns"><button class="btn primary" id="cree">${I.check} Créer l'action avec ces adresses</button><button class="btn line" id="aj">Ajouter à ma sélection</button></div>`;
-  h+=`<div style="margin-top:8px">${lot.ids.map((i,k)=>rowAdr(i,k+1,true)).join('')}</div>`;
-  h+=`<div class="hint">Ordre de marche, à moins de 400 m d'une adresse à l'autre. Les adresses faites depuis moins de ${REF.reglages.delaiFaite} jours sont écartées.</div>`;
+  h+=lot.ids.map((i,k)=>`<div class="lr">${avH('br',k+1)}<button class="tx" data-i="${i}"><b>${esc(D.adresses[i][2])}</b><small>${pl(D.adresses[i][3],'inscrit')}</small></button><button class="xb" data-lx="${k}" aria-label="Retirer ${esc(D.adresses[i][2])}">${I.x}</button></div>`).join('');
+  const G=gaActifs();
+  h+=`<div class="pour"><label class="chs">${G.length?`<select id="lga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label>`+
+   `<label class="chs">${I.cal}<select id="lpv" aria-label="Jour prévu"><option value="">Sans date</option>${joursAVenir().map(([v,t])=>`<option value="${v}"${v===pv?' selected':''}>${t}</option>`).join('')}</select>${I.down}</label></div>`;
+  h+=`<div class="btns"><button class="btn primary" id="cree" ${gaC?'':'disabled'}>${I.check} Créer le PAP</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}</div>`;
   return h;},
- after:()=>{lierRows();body.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{taille=+b.dataset.t;LS.set('taille',taille);lot=construireLot(lot.ll,taille,i0);dessinerLot();render(true);});
-  const c=$('cree');if(c)c.onclick=()=>{const a=nouvelleAction('pap',{etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:{lot:'propose',cible:lot.cible}});a.nom=nomDefaut(a);effLot();detail(vueEditer(a,true));};
-  const j=$('aj');if(j)j.onclick=()=>{lot.ids.forEach(i=>{if(!SEL.includes(i))SEL.push(i);});LS.set('sel'+D.k,SEL);effLot();dessinerParcours();stack=[vueBase(),vueSel()];render();toast('Ajoutées à la sélection');};}});}
+ after:()=>{lierRows();
+  body.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{taille=+b.dataset.t;LS.set('taille',taille);const r=lot.rang;lot=r?(consLot(r)||lot):construireLot(lot.ll,taille,i0);dessinerLot();render(true);cadrer();});
+  body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
+  const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};const d=$('lpv');if(d)d.onchange=()=>{pv=d.value;};
+  const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length)return;
+   const a=nouvelleAction('pap',{ga:[gaC],prevue:pv||'',etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:{lot:'propose',cible:lot.cible}});
+   a.nom=nomDefaut(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'création');sauverA();effLot();stack=[vueBase(),vueAction(a.id)];render();toast('PAP créé : '+a.nom);};}});}
 map.on('contextmenu',e=>{if(!D||!adrL||!map.hasLayer(adrL)||mode!=='pap')return;preparer([e.latlng.lat,e.latlng.lng],'Autour de ce point');});
 
 /* ---------------- ma selection : adresses choisies a la main, avant de creer l'action */
@@ -203,7 +218,7 @@ function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne,ga=a.ga.slice(),prev=a
   h+=`<div class="fl"><span>Groupes d'action (un ou plusieurs)</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
   if(prepa)h+=`<label class="fld" for="ap">Date prévue<input type="date" id="ap" value="${prev}"></label>`;
   const ok=camp&&ga.length;
-  h+=`<div class="btns stick"><button class="btn primary" id="sv" ${ok?'':'disabled'}>${I.check} ${neuve?'Enregistrer l\'action':'Enregistrer'}</button>${neuve&&prepa?`<button class="btn line" id="sv2" ${ok?'':'disabled'}>Enregistrer et commencer</button>`:''}${ok?'':'<div class="hint">Choisissez une campagne et au moins un GA.</div>'}</div>`;
+  h+=`<div class="btns stick"><button class="btn primary" id="sv" ${ok?'':'disabled'}>${I.check} ${neuve?'Enregistrer l\'action':'Enregistrer'}</button>${ok?'':'<div class="hint">Choisissez une campagne et au moins un GA.</div>'}</div>`;
   return h;},
  after:()=>{$('an').oninput=e=>{nom=e.target.value;};
   body.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{camp=b.dataset.cp;render(true);});
@@ -225,6 +240,8 @@ const peutSupprimer=a=>estAdmin()||a.cree_par===moi().id;
 function totaux(a){return a.etapes.reduce((s,e)=>{s.p+=e.portes;s.t+=e.toquees;s.o+=e.ouvertes;s.b+=e.st==='boite'?1:0;s.f+=e.st==='ferme'?1:0;s.n+=(e.st||e.toquees>0)?1:0;return s;},{p:0,t:0,o:0,b:0,f:0,n:0});}
 function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('Action supprimée','',true);
   if(a.type.startsWith('diff'))return vueActionDiffHTML(a);
+  if(a.type==='pap')return papActionHTML(a,ordre);
+  if(a.type==='equipe')return headHTML(esc(a.nom),TYPES.equipe,true)+`<div class="sub" style="margin-top:10px">${esc(eqTxt(a))}</div><div class="btns"><button class="btn line" id="eqv">Voir le lieu</button></div>`+histoSaisies(a);
   const t=totaux(a),ids=a.etapes.map(idxE).filter(i=>i!=null);
   let h=headHTML(esc(a.nom||TYPES[a.type]),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
   h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Faite le':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?fmtJH(a.faite_le):'date à indiquer'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
@@ -252,6 +269,8 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   h+=histoSaisies(a);
   return h;},
  after:()=>{const a=actPar(id);if(!a)return;if(a.type.startsWith('diff')){lierActionDiff(a);return;}
+  if(a.type==='equipe'){$('eqv').onclick=()=>{setMode('tractage');ouvrirLieuEq(a.etapes[0].lieu.t,a.etapes[0].lieu.id);};return;}
+  if(a.type==='pap'){lierPapAction(a,()=>{ordre=!ordre;render(true);});return;}
   $('ord').onclick=()=>{ordre=!ordre;render(true);};const au=$('auto');if(au)au.onclick=()=>{const ord=ordonner(a.etapes.map(idxE).filter(i=>i!=null));const rest=a.etapes.filter(e=>idxE(e)==null);a.etapes=[...ord.map(i=>a.etapes.find(e=>e.lieu.id===AID(i))),...rest];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);};
   body.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const k=+b.dataset.up;if(k<1)return;[a.etapes[k-1],a.etapes[k]]=[a.etapes[k],a.etapes[k-1]];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);});
   body.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const k=+b.dataset.dn;if(k>=a.etapes.length-1)return;[a.etapes[k+1],a.etapes[k]]=[a.etapes[k],a.etapes[k+1]];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);});
@@ -261,6 +280,30 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   const fn=$('fin');if(fn)fn.onclick=()=>detail(vueCloture(a.id));const ge=$('goE');if(ge)ge.onclick=()=>{const j=a.etapes.findIndex(e=>!(e.st||e.toquees>0)&&idxE(e)!=null);if(j>=0)ouvrirEtape(a.id,j);};$('mod').onclick=()=>detail(vueEditer(a,false));$('sh').onclick=()=>partager(txtAction(a));
   const d=$('del');if(d)d.onclick=()=>{const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();back();toast('Action supprimée',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});};
   if(a.etapes.length&&det!=='full'){const ll=a.etapes.map(idxE).filter(i=>i!=null).map(ptA);if(ll.length)map.flyToBounds(L.latLngBounds(ll).pad(.25),{...pad(),maxZoom:17.5,duration:.5});}}};}
+/* un PAP (version légère) : ses adresses à valider d'une touche, ou toutes d'un coup ; l'ordre de passage se change */
+function papActionHTML(a,ordre){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})),ids=E.filter(x=>x.i!=null).map(x=>x.i),nf=E.filter(x=>x.i!=null&&stE(x.e)!=='afaire').length,t=totaux(a);
+ let h=headHTML(esc(a.nom||TYPES[a.type]),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
+ h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')||'sans GA'}</b></div><div><span>${a.statut==='faite'?'Faite':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?esc(semTxt(a.faite_le)):'faite'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
+ h+=`<div class="sum2"><span><b>${ids.length}</b>adresse${ids.length>1?'s':''}</span><span><b>${n0(insDe(ids))}</b>inscrits</span><span><b>${nf}</b>faite${nf>1?'s':''}</span>${t.t?`<span><b>${t.t}</b>toquées</span>`:''}</div>`;
+ h+=`<div class="ordbar"><span>Adresses</span><button class="lnk3" id="ord">${ordre?'Terminé':'Changer l\'ordre'}</button></div>`;
+ if(ordre)h+=`<div class="btns"><button class="btn line" id="auto">${I.route} Remettre dans l'ordre de marche</button></div>`;
+ E.forEach(x=>{if(x.i==null)return;const ad=D.adresses[x.i],s=stE(x.e),sub=etatE(a,x.e);
+  const right=ordre?`<span class="ord"><button data-up="${x.k}" aria-label="Monter" ${x.k===0?'disabled':''}>${I.up}</button><button data-dn="${x.k}" aria-label="Descendre" ${x.k===a.etapes.length-1?'disabled':''}>${I.down}</button></span>`:pillH(s==='fait'?'f':'v',`data-ae="${x.k}"`);
+  h+=`<div class="lr">${s==='fait'?avH('ok',I.check):s==='ferme'?avH('ko','!'):avH('br',x.k+1)}<button class="tx" data-e="${x.k}"><b>${esc(ad[2])}</b><small>${pl(ad[3],'inscrit')}${s==='ferme'?' · <span class="o">pas pu entrer</span>':x.e.toquees>0?' · '+esc(sub):''}</small></button>${right}</div>`;});
+ if(a.statut==='a_faire'&&nf<ids.length)h+=`<div class="btns"><button class="btn primary" id="tv">${I.check} Tout valider</button></div>`;
+ h+=`<div class="btns two"><button class="btn line" id="mod">Campagne, GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
+ if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer le PAP</button></div>`;
+ return h+histoSaisies(a);}
+function lierPapAction(a,basc){$('ord').onclick=basc;
+ const au=$('auto');if(au)au.onclick=()=>{const ord=ordonner(a.etapes.map(idxE).filter(i=>i!=null));const rest=a.etapes.filter(e=>idxE(e)==null);a.etapes=[...ord.map(i=>a.etapes.find(e=>e.lieu.id===AID(i))),...rest];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);};
+ body.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const k=+b.dataset.up;if(k<1)return;[a.etapes[k-1],a.etapes[k]]=[a.etapes[k],a.etapes[k-1]];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);});
+ body.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const k=+b.dataset.dn;if(k>=a.etapes.length-1)return;[a.etapes[k+1],a.etapes[k]]=[a.etapes[k],a.etapes[k+1]];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);});
+ body.querySelectorAll('[data-ae]').forEach(b=>b.onclick=()=>basculerEtape(a.id,+b.dataset.ae));
+ body.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const i=idxE(a.etapes[+b.dataset.e]);if(i!=null)ouvrirAdresse(i);});
+ const tv=$('tv');if(tv)tv.onclick=()=>toutValider(a.id);
+ $('mod').onclick=()=>detail(vueEditer(a,false));$('sh').onclick=()=>partager(txtAction(a));
+ const d=$('del');if(d)d.onclick=()=>{const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();back();toast('PAP supprimé',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});};
+ if(a.etapes.length&&det!=='full'){const ll=a.etapes.map(idxE).filter(i=>i!=null).map(ptA);if(ll.length)map.flyToBounds(L.latLngBounds(ll).pad(.25),{...pad(),maxZoom:17.5,duration:.5});}}
 function histoSaisies(a){const l=a.saisies.slice(-5).reverse();if(!l.length)return '';
  return `<h2>Historique</h2>`+l.map(s=>`<div class="hs"><b>${esc(userNom(s.par))}</b> · ${esc(s.quoi)} · ${fmtJH(s.le)}</div>`).join('')+(a.saisies.length>5?`<div class="hs">et ${a.saisies.length-5} saisies plus anciennes</div>`:'');}
 function txtAction(a){const t=totaux(a);let s=`${a.nom} (${TYPES[a.type]}, ${D.k}e circonscription)\nCampagne : ${campNom(a.campagne)} · GA : ${a.ga.map(gaNom).join(', ')}\n${a.statut==='faite'?'Faite le '+fmtJH(a.faite_le):a.prevue?'Prévue le '+fmtJ(a.prevue):'À faire'}\n`;
@@ -274,7 +317,7 @@ function setE(a,k,p){const e=a.etapes[k];Object.assign(e,p);
  if('toquees' in p){if(e.toquees>e.portes)e.portes=e.toquees;if(e.ouvertes>e.toquees)e.ouvertes=e.toquees;if(e.toquees>0&&!e.st)e.st='faite';}
  if('ouvertes' in p){if(e.ouvertes>e.toquees)e.toquees=e.ouvertes;if(e.toquees>e.portes)e.portes=e.toquees;if(e.ouvertes>0&&!e.st)e.st='faite';}
  if(p.st&&p.st!=='ferme')e.acc='';e.le=isoD(new Date());
- const i=idxE(e);saisie(a,'adresse '+(i!=null?D.adresses[i][2]:e.lieu.id));sauverA();dessinerParcours();}
+ const i=idxE(e);saisie(a,'adresse '+(i!=null?D.adresses[i][2]:e.lieu.id));finAuto(a);sauverA();dessinerParcours();}
 /* adresse suivante à renseigner : après k, sinon la première restée avant k */
 function suivE(a,k){const v=j=>j!==k&&!a.etapes[j].st&&!a.etapes[j].toquees&&idxE(a.etapes[j])!=null,ks=[...a.etapes.keys()];return ks.slice(k+1).find(v)??ks.slice(0,k).find(v);}
 function ouvrirEtape(id,k){const a=actPar(id);if(!a)return;const e0=a.etapes[k],i=idxE(e0);if(i==null)return;const ad=D.adresses[i];

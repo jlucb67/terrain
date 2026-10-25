@@ -13,6 +13,8 @@ function render(keep){const v=stack[stack.length-1],y=body.scrollTop;body.innerH
  body.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>detail(vueAction(b.dataset.act)));
  body.querySelectorAll('[data-va]').forEach(b=>b.onclick=()=>detail(vueActions({type:b.dataset.va})));
  if(D)majOuverte();
+ if(D&&typeof dessinerCons==='function')dessinerCons();
+ if(!wide&&det==='peek'){const h=hOf('peek');if(Math.abs(sheet.getBoundingClientRect().height-h)>2)setDet('peek');}
  if(v.after)v.after();}
 const headHTML=(title,sub,canBack)=>`<div class="head">${canBack?`<button class="ib back" aria-label="Retour">${I.back}</button>`:''}<div class="tt"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
 const kpis=a=>`<div class="kpis">${a.map(([v,t])=>`<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('')}</div>`;
@@ -157,7 +159,7 @@ async function ouvrir(n,ensuite){
 }
 /* fond statique de la circonscription (espaces verts, chaussées, eau, bâti) : un seul canvas, des chemins calculés une
    fois au zoom de référence puis redessinés par simple changement d'échelle. Rien n'est recalculé au zoom ni au glissé
-   (les calques vectoriels de Leaflet reprojetaient et découpaient des centaines de milliers de sommets à chaque geste). */
+   (les calques vectoriels de Leaflet reprojetaient et découpaient des centaines de milliers de sommets à chaque mouvement de la carte). */
 const ZREF=16,SREF=256*Math.pow(2,ZREF),RAD=Math.PI/180;
 const pxX=lon=>SREF*(lon/360+.5),pxY=lat=>SREF*(.5-Math.log(Math.tan(Math.PI/4+lat*RAD/2))/(2*Math.PI));
 const Fond=L.Layer.extend({
@@ -296,8 +298,8 @@ function setMode(m,first){if(m==='boitage')m='pap';if(m!=='pap'&&m!=='liste'&&m!
  $('tabbar').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
- ACT_OUV=null;dessinerParcours();
- if(ONG==='liste'&&det==='peek')setDet('half');
+ ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();
+ if(!wide){if(ONG==='liste')setDet('full');else if(det==='full')setDet('peek');}
  show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');if(ONG!=='liste')map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
 $('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
@@ -307,4 +309,4 @@ function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='trac
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
   const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
 const vueBase=()=>ONG==='liste'?vueListe():mode==='tractage'?vueTractage():vueAccueil();
-const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.length})</button>`;
+const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.filter(a=>a.type!=='equipe').length})</button>`;

@@ -25,6 +25,7 @@ const I={
  tract:sv('<path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/>'),
  pied:sv('<path d="M4.5 20.5V8l5-3v15.5M9.5 20.5V10.5h6v10M15.5 20.5V13h4v7.5M3 20.5h18"/>',2.2),
  list:sv('<path d="M9 6.5h10M9 12h10M9 17.5h10"/><path d="M5 6.5h.01M5 12h.01M5 17.5h.01"/>',2),
+ loupe:sv('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'),cal:sv('<rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
  up:sv('<path d="M7 14l5-5 5 5"/>'),down:sv('<path d="M7 10l5 5 5-5"/>'),next:sv('<path d="M10 7l5 5-5 5"/>'),
  carte:sv('<path d="M9 4.5l-5 2v13l5-2 6 2 5-2v-13l-5 2z"/><path d="M9 4.5v13M15 6.5v13"/>',1.6),couches:sv('<path d="M12 4l8 4.5-8 4.5-8-4.5z"/><path d="M4 13l8 4.5 8-4.5"/>',1.6),
  admin:sv('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',1.6),sortie:sv('<path d="M14 5h4a1 1 0 011 1v12a1 1 0 01-1 1h-4"/><path d="M10 16l-4-4 4-4M6 12h9"/>',1.6)
@@ -40,8 +41,10 @@ const rC=L.canvas({pane:'contour',padding:.25}),rA=L.canvas({pane:'adr',padding:
 const sheet=$('sheet'),body=$('body'),app=$('app');
 let det='half',wide=matchMedia('(min-width:900px)').matches;
 const PEEK=170;
+/* porte-à-porte, accueil : le tiroir bas montre en entier une carte des PAP conseillés */
+const pk=()=>{try{return ONG==='pap'&&stack.length===1&&stack[0].id==='base'?300:PEEK;}catch(e){return PEEK;}};
 const TB=()=>$('tabbar').hidden||wide?0:$('tabbar').offsetHeight;
-function hOf(d){const H=app.clientHeight-TB();return d==='peek'?PEEK:d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
+function hOf(d){const H=app.clientHeight-TB();return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
 function setDet(d){det=d;if(wide){app.style.setProperty('--sh','0px');return;}const h=hOf(d);app.style.setProperty('--sh',h+'px');sheet.style.height=h+'px';}
 matchMedia('(min-width:900px)').addEventListener('change',e=>{wide=e.matches;sheet.style.height='';setDet(det);});
 addEventListener('resize',()=>setDet(det));
@@ -60,5 +63,5 @@ addEventListener('resize',()=>setDet(det));
 function toast(m,act){const t=$('toast');t.innerHTML='';const sp=document.createElement('span');sp.textContent=m;t.appendChild(sp);
  if(act){const b=document.createElement('button');b.textContent=act.t;b.onclick=()=>{t.hidden=true;act.fn();};t.appendChild(b);}
  t.hidden=false;clearTimeout(toast.k);toast.k=setTimeout(()=>t.hidden=true,act?6000:2800);}
-const pad=(top)=>({paddingTopLeft:wide?[420,24]:[12,(top||100)],paddingBottomRight:wide?[24,24]:[12,(det==='peek'?PEEK:hOf(det==='fit'?'fit':'half'))+TB()+8]});
+const pad=(top)=>({paddingTopLeft:wide?[420,24]:[12,(top||100)],paddingBottomRight:wide?[24,24]:[12,(det==='peek'?pk():hOf(det==='fit'?'fit':'half'))+TB()+8]});
 
