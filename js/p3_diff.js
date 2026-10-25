@@ -21,23 +21,30 @@ const affAt=(s,m)=>s.af?s.af[JAF(m.d)][m.h]:null;
 const totJ=(s,t)=>t==='sam'?(s.jsa||s.jour||0):t==='dim'?(s.jdi||s.jour||0):(s.jour||0);
 const entreesM=(s,m)=>{const t=JTYPE(m.d),v=(s[t]||[])[m.h]||0;return totJ(s,t)*v/100;};
 const ouvertM=(s,m)=>seances(s).find(x=>x.d===m.d&&x.h0<m.h+1&&x.h1>m.h);
-/* priorité du secteur : part des inscrits à moins de 300 m qui habitent une adresse prioritaire (score dans la circo au
-   niveau du curseur, 70 par défaut, ou plus) */
-function prioSect(ll){const k=ll[0].toFixed(5)+','+ll[1].toFixed(5)+','+crit.score;if(PRC[k])return PRC[k];
- let t=0,p=0;const c=Math.cos(ll[0]*Math.PI/180);
- for(const a of D.adresses){const dx=(a[0]-ll[1])*111320*c,dy=(a[1]-ll[0])*110540;if(dx*dx+dy*dy>9e4)continue;t+=a[3];if(a[5]>=crit.score)p+=a[3];}
- return PRC[k]={t,p,v:t?Math.round(100*p/t):0};}
-const prNiv=v=>v>=50?3:v>=30?2:1;
-const NIV=['','Peu prioritaire','Prioritaire','Très prioritaire'];
-function prHTML(ll){const r=prioSect(ll);if(!r.t)return '';const n=prNiv(r.v);return `<span class="prs p${n}">${NIV[n]} · ${r.v} %</span>`;}
-function prPhrase(ll){const r=prioSect(ll);return r.t?`<div style="margin-top:10px">${prHTML(ll)}</div>`:'';}
+/* priorité d'un lieu (25/10/2026, JL : « ils doivent se baser sur les adresses prio autour, dans la zone de chalandise ») :
+   priorité moyenne, de 0 à 100, des adresses de sa zone de chalandise, pondérée par leurs inscrits ; ne dépend pas des
+   curseurs. Zone de chalandise : le secteur lui-même pour un pied d'immeuble ; sinon un cercle autour du lieu (marché 500 m,
+   station 400 m, supermarché 300 m : réglages, pas des mesures) */
+const RCH={ma:500,me:400,su:300};
+function dansPoly(x,y,geo){const P=geo.type==='MultiPolygon'?geo.coordinates:[geo.coordinates];let dd=false;
+ for(const poly of P){const r=poly[0];let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const [xi,yi]=r[i],[xj,yj]=r[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}if(c){dd=true;break;}}return dd;}
+function prioSect(ll,k,geo){k=k||'su';const key=k+','+ll[0].toFixed(5)+','+ll[1].toFixed(5);if(PRC[key])return PRC[key];
+ let t=0,p=0;const c=Math.cos(ll[0]*Math.PI/180),R=RCH[k]||300;let bb=null;
+ if(geo){bb=[1e9,1e9,-1e9,-1e9];(geo.type==='MultiPolygon'?geo.coordinates:[geo.coordinates]).forEach(po=>po[0].forEach(([x,y])=>{bb[0]=Math.min(bb[0],x);bb[1]=Math.min(bb[1],y);bb[2]=Math.max(bb[2],x);bb[3]=Math.max(bb[3],y);}));}
+ for(const a of D.adresses){if(a[5]==null)continue;
+  if(geo){if(a[0]<bb[0]||a[0]>bb[2]||a[1]<bb[1]||a[1]>bb[3]||!dansPoly(a[0],a[1],geo))continue;}
+  else{const dx=(a[0]-ll[1])*111320*c,dy=(a[1]-ll[0])*110540;if(dx*dx+dy*dy>R*R)continue;}
+  t+=a[3];p+=a[3]*a[5];}
+ return PRC[key]={t,v:t?Math.round(p/t):0};}
+function prHTML(ll,k,geo){const r=prioSect(ll,k,geo);if(!r.t)return '';return `<span class="prs q${pcls(r.v)}">Priorité ${r.v}/100</span>`;}
+function prPhrase(ll,k,geo){const r=prioSect(ll,k,geo);return r.t?`<div style="margin-top:10px">${prHTML(ll,k,geo)}</div>`:'';}
 const nomSup=s=>(s.ens||s.nom)+', '+s.adr;
 const distTxt=d=>d<1000?Math.round(d/10)*10+' m':(d/1000).toFixed(1).replace('.',',')+' km';
 function refPos(){if(posMoi)return posMoi;const c=centreVisible();return [c.lat,c.lng];}
 
 /* lieux classés pour le moment choisi : v = monde attendu (sert au tri), info = ce qu'on en dit */
 function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]},ref=TRI==='pres'?refPos():null;
- const fin=(o,ll)=>{o.pr=prioSect(ll).v;o.d=ref?dist(ref,ll):0;return o;};
+ const fin=(o,ll)=>{o.pr=prioSect(ll,o.k,o.k==='pi'?o.s.geo:null).v;o.d=ref?dist(ref,ll):0;return o;};
  if(chips.tMa)D.marches.forEach((s,i)=>{const x=ouvertM(s,m);out.ma.push(fin({k:'ma',i,s,nom:s.nom,v:x?100:0,
    info:x?`<span class="acc">Ouvert jusqu'à ${x.fin}</span>`:`Fermé · ${joursMarche(s)}`},[s.lat,s.lon]));});
  if(chips.tSu)(D.supers||[]).filter(s=>s.dedans).forEach((s,i)=>{const a=affAt(s,m);out.su.push(fin({k:'su',i:D.supers.indexOf(s),s,nom:s.ens||s.nom,v:a==null?-1:a,
@@ -54,7 +61,7 @@ const SECT=[['ma','Marchés',"marchés"],['su','Supermarchés',"supermarchés"],
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
  const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';
- return `<div class="row p"><button class="tx${o.k!=='pi'&&o.k!=='me'&&o.v<=0&&TRI==='monde'?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}${TRI==='pres'?` · ${distTxt(o.d)}`:''}</small>${prHTML(ll)}</button>${right}</div>`;}
+ return `<div class="row p"><button class="tx${o.k!=='pi'&&o.k!=='me'&&o.v<=0&&TRI==='monde'?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}${TRI==='pres'?` · ${distTxt(o.d)}`:''}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null)}</button>${right}</div>`;}
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
   <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
@@ -97,7 +104,7 @@ const joursMarche=s=>{const d=[...new Set(seances(s).map(x=>x.d))].sort((a,b)=>(
 const seanceLe=(nom,q)=>{const s=D.marches.find(m=>m.nom===nom);if(!s)return true;const d=toD(q);return !d||seances(s).some(x=>x.d===d.getDay());};
 function procheStation(ll){let b=null,bd=1e9;D.metro.forEach(s=>{const d=dist(ll,[s.lat,s.lon]);if(d<bd){bd=d;b=s;}});return b?{s:b,d:bd}:null;}
 function ouvrirMarche(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),15.5));const st=procheStation([s.lat,s.lon]);
- detail({id:'ma',html:()=>headHTML(esc(s.nom),quand(prochaine(s)),true)+prPhrase([s.lat,s.lon])+`<div class="zdef" style="margin-top:10px">${esc(s.lieu)}</div><h2>Jours et horaires</h2><ul class="hours">${s.horaires.map(x=>`<li>${esc(cap(x))}</li>`).join('')}</ul>`+
+ detail({id:'ma',html:()=>headHTML(esc(s.nom),quand(prochaine(s)),true)+prPhrase([s.lat,s.lon],'ma')+`<div class="zdef" style="margin-top:10px">${esc(s.lieu)}</div><h2>Jours et horaires</h2><ul class="hours">${s.horaires.map(x=>`<li>${esc(cap(x))}</li>`).join('')}</ul>`+
   (st?`<div class="sub" style="margin-top:12px">Métro : <b>${esc(st.s.nom)}</b>, ${Math.round(st.d/10)*10} m</div>`:'')+equipeHTML(s.nom,ordJ([...new Set(seances(s).map(x=>x.d))]))+histoHTML(s.nom),
   after:()=>{lierEquipe(s.nom,'marche');lierHisto(s.nom,'marché');}});}
 
@@ -117,7 +124,7 @@ function picSemaine(af){let b=null;af.forEach((r,j)=>r.forEach((v,h)=>{if(v!=nul
 
 /* ---------------- supermarchés : affluence heure par heure, jour par jour */
 function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=nomSup(s);let jd=mom().d;
- detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon]);
+ detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon],'su');
   h+=equipeHTML(nom,[1,2,3,4,5,6,0]);
   if(s.af){const v=s.af[JAF(jd)],ou=v.some(x=>x>0);
    h+=`<h2>Affluence</h2>${jourSegHTML(jd)}`+(ou?`<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Affluence par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`:`<div class="empty">Fermé ce jour-là.</div>`);}
@@ -138,7 +145,7 @@ function ouvrirStation(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s
   let h=headHTML(esc(s.nom),tot?`${n0(tot)} entrées par jour${t==='sem'?' en semaine':t==='sam'?' le samedi':' le dimanche'}`:'Station',true);
   h+=`<div class="lines">${s.lignes.map(l=>{const c=LIGNE[l]||['#888','#fff'];return `<span class="ln" style="background:${c[0]};color:${c[1]}">${esc(l)}</span>`;}).join('')}</div>`;
   if(!dansCirco([s.lat,s.lon]))h+=`<div class="sub" style="margin-top:8px"><span class="lim">limite de circo</span></div>`;
-  h+=prPhrase([s.lat,s.lon]);
+  h+=prPhrase([s.lat,s.lon],'me');
   h+=equipeHTML(s.nom,[1,2,3,4,5,6,0]);
   if(tot){h+=`<h2>Entrées par heure</h2>${jourSegHTML(jd)}<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Entrées par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`;}
   h+=histoHTML(s.nom);
@@ -149,7 +156,7 @@ function ouvrirPied(s){sel(null);if(det==='peek')setDet('half');try{map.flyToBou
  detail({id:'pi',html:()=>{let h=headHTML(esc(s.nom),s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
   const tg=[];if(s.qpv.length)tg.push('Quartier prioritaire');if(s.crit.ls)tg.push('Logement social');if(s.crit.prio)tg.push('Adresses prioritaires');
   h+=`<div class="tags">${tg.map(t=>`<span>${t}</span>`).join('')}</div>`;
-  h+=prPhrase([s.lat,s.lon]);
+  h+=prPhrase([s.lat,s.lon],'pi',s.geo);
   h+=kpis([[n0(s.hab),'habitants'],[n0(s.ls),'logements sociaux'],[n0(s.ins),'inscrits']]);
   const j=D.pieds.indexOf(s);h+=semPiedHTML(j);
   h+=`<h2>Où se poster</h2>`+(s.places.length?s.places.slice(0,3).map((p,k)=>`<div class="row p"><button class="tx" data-pl="${k}"><b>Square, ${esc(p.rue[0].toLowerCase()+p.rue.slice(1))}</b><small>${n0(p.m2)} m²</small></button></div>`).join(''):`<div class="hint">Pas de square : au pied des immeubles.</div>`);
