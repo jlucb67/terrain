@@ -18,7 +18,11 @@ function render(keep){const v=stack[stack.length-1],y=body.scrollTop;body.innerH
  if(v.after)v.after();}
 const headHTML=(title,sub,canBack)=>`<div class="head">${canBack?`<button class="ib back" aria-label="Retour">${I.back}</button>`:''}<div class="tt"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
 const kpis=a=>`<div class="kpis">${a.map(([v,t])=>`<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('')}</div>`;
-const zTag=z=>`<span class="ztag" style="--zc:var(--z${z})"><i></i>Zone n°${z}</span>`;
+const zTag=z=>`<span class="ztag" style="--zc:var(--quiet)"><i></i>Zone n°${z}</span>`;
+/* couleur d'une adresse selon sa priorité, de 0 à 100 (rang dans la circo), en 5 paliers de 20 (JL, 25/10/2026 : plus de
+   rouge, bleu, jaune des zones sur la carte) */
+const pcls=v=>v>=80?4:v>=60?3:v>=40?2:v>=20?1:0;
+let PC=[];const prioCol=v=>PC[pcls(v||0)]||tok('--dot');
 const pl=(n,s,p)=>`${n0(n)} ${n>1?(p||s+'s'):s}`;
 const pad2=n=>String(n).padStart(2,'0');
 
@@ -84,7 +88,7 @@ function ecranParis(){
 let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=null,adrL=null,nomsL=null,bvlL=null,stnL=null,lieuxL={},papL=null,lotL=null,selL=null,AM=[],ZC={},bulles=null;
 let mode='pap',ONG='pap',vueMetroJour='now';
 const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:true};
-const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Zones',null],['faites','Faites','--ok'],['metro','Métro','--ink']],
+const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Bureaux','--quiet'],['faites','Faites','--ok'],['metro','Métro','--ink']],
  tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Supermarchés','--sup'],['tMe','Métro','--ink'],['tPi',"Pieds d'immeuble",'--pied']]};
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
@@ -146,7 +150,7 @@ async function ouvrir(n,ensuite){
  if(!(n>=1&&n<=18)||!peutCirco(n))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;construire();chargerBati(n);}}
- catch(e){body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
+ catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
  [parisL,eauL,arrL,labL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});sheet.classList.remove('paris');
  [fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL].forEach(l=>{if(l)l.addTo(map);});
  $('brand').hidden=true;$('menuP').hidden=true;$('searchbox').hidden=false;$('fLeg').hidden=false;$('tabbar').hidden=false;app.classList.add('tabs');
@@ -220,8 +224,8 @@ function construire(){
  adrL=L.layerGroup();nomsL=L.layerGroup();bvlL=L.layerGroup();stnL=L.layerGroup();papL=L.layerGroup();lotL=L.layerGroup();selL=L.layerGroup();
  const mk=(ll,cls,html,sz,fn,lab)=>{const m=L.marker(ll,{pane:'lieux',icon:L.divIcon({className:'',html:lab?`<div class="mkl"><div class="mk ${cls}" style="width:${sz}px;height:${sz}px">${html}</div><span>${esc(lab)}</span></div>`:`<div class="mk ${cls}" style="width:${sz}px;height:${sz}px">${html}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:true});m.on('click',fn);return m;};
  lieuxL={metro:L.layerGroup(D.metro.map(s=>mk([s.lat,s.lon],'mk-m','M',14,()=>ouvrirStation(s)))),
-  marches:L.layerGroup(D.marches.map(s=>{const m=mk([s.lat,s.lon],'mk-ma',I.basket,18,()=>ouvrirMarche(s),s.nom.replace(/^Marché /,''));s._m=m;return m;})),
-  grands:L.layerGroup((D.supers||[]).map(s=>{const m=mk([s.lat,s.lon],'mk-c g',I.cart,14,()=>ouvrirMagasin(s));s._m=m;return m;})),
+  marches:L.layerGroup(D.marches.map(s=>{const m=mk([s.lat,s.lon],'mk-ma',I.basket,20,()=>ouvrirMarche(s),s.nom.replace(/^Marché /,''));s._m=m;return m;})),
+  grands:L.layerGroup((D.supers||[]).map(s=>{const m=mk([s.lat,s.lon],'mk-c g',I.cart,20,()=>ouvrirMagasin(s));s._m=m;return m;})),
   pieds:L.layerGroup((D.pieds||[]).map(s=>{const g=L.geoJSON(s.geo,{renderer:rA,style:{color:tok('--pied'),weight:1.6,opacity:.9,dashArray:'4 3',fillColor:tok('--pied'),fillOpacity:.1}}).on('click',()=>ouvrirPied(s));s._g=g;
    const m=mk([s.lat,s.lon],'mk-p',I.pied,18,()=>ouvrirPied(s));s._m=m;return L.layerGroup([g,m]);}))};
  PRC={};
@@ -250,11 +254,11 @@ const zoneOf=a=>(BZ[a[9]]||{}).zone||0;
 const rad=(ins,z)=>{const f=z<14?.48:z<15?.6:z<16?.78:z<17?1:z<18?1.3:1.65;return Math.max(1.8,(1.4+Math.sqrt(ins)*.58)*f);};
 const recente=i=>ageJ(faites[AID(i)])<REF.reglages.delaiFaite;
 const pasEntreRecent=i=>{const x=ACC[AID(i)];return !!x&&ageJ(x.q)<REF.reglages.delaiFerme;};
-function styler(){if(!D)return;ZC={1:tok('--z1'),2:tok('--z2'),3:tok('--z3')};
+function styler(){if(!D)return;ZC={1:tok('--z1'),2:tok('--z2'),3:tok('--z3')};PC=[0,1,2,3,4].map(k=>tok('--p'+k));
  const g=tok('--green'),r=tok('--road'),bt=tok('--bati'),ink=tok('--ink'),so=tok('--solid'),fo=parseFloat(tok('--fo-zone'))||.075,zo=parseFloat(tok('--zo'))||.55;
  fondL.couleurs();if(lieuxL.pieds){const pc=tok('--pied');(D.pieds||[]).forEach(x=>x._g&&x._g.setStyle({color:pc,fillColor:pc}));}
  const zon=(mode==='pap'||mode==='boitage')&&chips.zones;
- zonesL.setStyle(f=>{const c=ZC[f.properties.zone];return zon?{color:c,weight:1,opacity:zo,fillColor:c,fillOpacity:fo}:{color:tok('--quiet'),weight:.6,opacity:.22,fillOpacity:0};});
+ zonesL.setStyle(()=>zon?{color:tok('--quiet'),weight:1,opacity:.45,fillOpacity:0}:{color:tok('--quiet'),weight:.6,opacity:.22,fillOpacity:0});
  const cl=contourL.getLayers();cl[0].setStyle({color:so});cl[1].setStyle({color:ink});
  stylerAdr();}
 let dernZ=-1;const zBucket=z=>z<14?0:z<15?1:z<16?2:z<17?3:z<18?4:5;
@@ -263,16 +267,16 @@ function stylerAdr(){const z=map.getZoom(),so=tok('--solid'),dt=tok('--dot'),ac=
  const creux=(a,c,dash)=>({radius:Math.max(3,rad(a[3],z)*.85),stroke:true,color:c,weight:1.7,opacity:1,fill:true,fillColor:so,fillOpacity:.95,dashArray:dash||null});
  if(mode==='boitage'){const ao=ACT_OUV&&actPar(ACT_OUV),tour=new Set(ao&&ao.type==='boitage'?ao.etapes.map(e=>e.lieu.id):[]);AM.forEach(m=>{const a=D.adresses[m.i],b=BOI[a[2]],rec=b&&ageJ(b.q)<REF.reglages.delaiFaite;
   m.setStyle(rec&&b.st==='boite'?creux(a,ac):rec&&b.st==='ferme'?creux(a,qu,'2 2')
-   :tour.has(a[2])?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:ZC[zoneOf(a)]||dt,fillOpacity:1,dashArray:null}
-   :{radius:rad(a[3],z)*.7,stroke:false,fill:true,fillColor:chips.zones?ZC[zoneOf(a)]||dt:dt,fillOpacity:.55,dashArray:null});});return;}
- if(mode!=='pap'){AM.forEach(m=>{const a=D.adresses[m.i];m.setStyle({radius:rad(a[3],z)*.55,stroke:false,fill:true,fillColor:isPr(a)?ZC[zoneOf(a)]||dt:dt,fillOpacity:isPr(a)?.45:.35,dashArray:null});});return;}
+   :tour.has(a[2])?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:prioCol(a[5]),fillOpacity:1,dashArray:null}
+   :{radius:rad(a[3],z)*.7,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:.55,dashArray:null});});return;}
+ if(mode!=='pap'){AM.forEach(m=>{const a=D.adresses[m.i];m.setStyle({radius:rad(a[3],z)*.55,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:isPr(a)?.45:.35,dashArray:null});});return;}
 /* statut de l'adresse pendant la campagne en cours : faite (vert), pas pu entrer (orange), prévue dans un PAP (anneau) */
  const okc=tok('--ok'),koc=tok('--ko'),plein=(a,c)=>({radius:Math.max(3,rad(a[3],z)*.92),stroke:true,color:so,weight:z<15?.6:1.2,opacity:1,fill:true,fillColor:c,fillOpacity:1,dashArray:null});
  AM.forEach(m=>{const a=D.adresses[m.i],pr=isPr(a),s=statutA(a[2]);
   m.setStyle(s==='fait'?plein(a,okc):s==='ferme'?plein(a,koc)
    :s==='prevu'?{radius:Math.max(3,rad(a[3],z)),stroke:true,color:ac,weight:2,opacity:1,fill:true,fillColor:so,fillOpacity:1,dashArray:null}
-   :pr?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:ZC[zoneOf(a)]||dt,fillOpacity:1,dashArray:null}
-   :{radius:rad(a[3],z)*.62,stroke:false,fill:true,fillColor:dt,fillOpacity:.75,dashArray:null});});}
+   :pr?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:prioCol(a[5]),fillOpacity:1,dashArray:null}
+   :{radius:rad(a[3],z)*.62,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:.85,dashArray:null});});}
 function filtrer(){if(!D)return;adrL.clearLayers();
  if(mode==='boitage'){AM.forEach(m=>adrL.addLayer(m));styler();return;}
  const pr=[],ot=[];AM.forEach(m=>{const a=D.adresses[m.i],f=statutA(a[2])==='fait';if(f&&!chips.faites&&mode==='pap')return;if(isPr(a))pr.push(m);else if(!chips.prio||mode!=='pap'||f)ot.push(m);});
@@ -303,7 +307,7 @@ function setMode(m,first){if(m==='boitage')m='pap';if(m!=='pap'&&m!=='liste'&&m!
  show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');if(ONG!=='liste')map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
 $('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
- const sw=k==='zones'?`<i style="background:conic-gradient(var(--z1) 0 120deg,var(--z2) 120deg 240deg,var(--z3) 240deg)"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
+ const sw=k==='prio'?`<i style="background:linear-gradient(90deg,var(--p1),var(--p4))"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
  return `<button class="chip glass" data-k="${k}" aria-pressed="${chips[k]}">${sw}${t}</button>`;}).join('');
  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;chips[k]=!chips[k];b.setAttribute('aria-pressed',chips[k]);
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
