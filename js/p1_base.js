@@ -80,9 +80,9 @@ function ecranParis(){
 
 /* ---------------- ecran 2 : la circonscription et ses quatre missions */
 let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=null,adrL=null,nomsL=null,bvlL=null,stnL=null,lieuxL={},papL=null,lotL=null,selL=null,AM=[],ZC={},bulles=null;
-let mode='pap',vueMetroJour='now';
+let mode='pap',ONG='pap',vueMetroJour='now';
 const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:true};
-const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Zones',null],['faites','Faites','--done'],['metro','Métro','--ink']],
+const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Zones',null],['faites','Faites','--ok'],['metro','Métro','--ink']],
  tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Supermarchés','--sup'],['tMe','Métro','--ink'],['tPi',"Pieds d'immeuble",'--pied']]};
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
@@ -264,13 +264,16 @@ function stylerAdr(){const z=map.getZoom(),so=tok('--solid'),dt=tok('--dot'),ac=
    :tour.has(a[2])?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:ZC[zoneOf(a)]||dt,fillOpacity:1,dashArray:null}
    :{radius:rad(a[3],z)*.7,stroke:false,fill:true,fillColor:chips.zones?ZC[zoneOf(a)]||dt:dt,fillOpacity:.55,dashArray:null});});return;}
  if(mode!=='pap'){AM.forEach(m=>{const a=D.adresses[m.i];m.setStyle({radius:rad(a[3],z)*.55,stroke:false,fill:true,fillColor:isPr(a)?ZC[zoneOf(a)]||dt:dt,fillOpacity:isPr(a)?.45:.35,dashArray:null});});return;}
- AM.forEach(m=>{const a=D.adresses[m.i],pr=isPr(a),f=faites[a[2]],x=ACC[a[2]];
-  m.setStyle(f?creux(a,ac):x&&ageJ(x.q)<30?creux(a,qu,'2 2')
+/* statut de l'adresse pendant la campagne en cours : faite (vert), pas pu entrer (orange), prévue dans un PAP (anneau) */
+ const okc=tok('--ok'),koc=tok('--ko'),plein=(a,c)=>({radius:Math.max(3,rad(a[3],z)*.92),stroke:true,color:so,weight:z<15?.6:1.2,opacity:1,fill:true,fillColor:c,fillOpacity:1,dashArray:null});
+ AM.forEach(m=>{const a=D.adresses[m.i],pr=isPr(a),s=statutA(a[2]);
+  m.setStyle(s==='fait'?plein(a,okc):s==='ferme'?plein(a,koc)
+   :s==='prevu'?{radius:Math.max(3,rad(a[3],z)),stroke:true,color:ac,weight:2,opacity:1,fill:true,fillColor:so,fillOpacity:1,dashArray:null}
    :pr?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:ZC[zoneOf(a)]||dt,fillOpacity:1,dashArray:null}
    :{radius:rad(a[3],z)*.62,stroke:false,fill:true,fillColor:dt,fillOpacity:.75,dashArray:null});});}
 function filtrer(){if(!D)return;adrL.clearLayers();
  if(mode==='boitage'){AM.forEach(m=>adrL.addLayer(m));styler();return;}
- const pr=[],ot=[];AM.forEach(m=>{const a=D.adresses[m.i],f=faites[a[2]];if(f&&!chips.faites&&mode==='pap')return;if(isPr(a))pr.push(m);else if(!chips.prio||mode!=='pap'||f)ot.push(m);});
+ const pr=[],ot=[];AM.forEach(m=>{const a=D.adresses[m.i],f=statutA(a[2])==='fait';if(f&&!chips.faites&&mode==='pap')return;if(isPr(a))pr.push(m);else if(!chips.prio||mode!=='pap'||f)ot.push(m);});
  ot.forEach(m=>adrL.addLayer(m));pr.forEach(m=>adrL.addLayer(m));
  styler();}
 function lieux(){if(!D)return;const z=map.getZoom();
@@ -285,22 +288,23 @@ function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)
  if(mode==='tractage'&&chips.tMe&&z>=14.5)D.metro.forEach(s=>{if(!b.contains([s.lat,s.lon]))return;stnL.addLayer(L.marker([s.lat,s.lon],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="stn" style="transform:translate(12px,-50%)">${esc(s.nom)}</div>`})}));});}
 /* au zoom, les points ne changent de taille qu'au passage d'un palier : on ne les restyle qu'à ce moment */
 map.on('zoomend',()=>{if(D&&adrL&&map.hasLayer(adrL)){if(zBucket(map.getZoom())!==dernZ)stylerAdr();lieux();}});
-let mvT=0;map.on('moveend',()=>{if(!D||!adrL||!map.hasLayer(adrL))return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();if(v&&v.id==='base'&&mode==='tractage'&&TRI==='pres'&&!posMoi)render(true);},150);});
+let mvT=0;map.on('moveend',()=>{if(!D||!adrL||!map.hasLayer(adrL))return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();if(v&&v.id==='base'&&mode==='tractage'&&TRI==='pres'&&!posMoi)render(true);},150);});
 
 /* missions */
-/* deux onglets depuis le 20/10/2026 : Porte-à-porte et Tractage (marchés, supermarchés, métro, pieds d'immeuble) */
-function setMode(m,first){if(m!=='pap'&&m!=='tractage')m=m==='boitage'?'pap':'tractage';mode=m;LS.set('mode',m);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
- $('tabbar').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===m));
+/* trois onglets depuis le 25/10/2026 : Porte-à-porte, Liste (adresses à valider, même carte que le porte-à-porte) et Tractage */
+function setMode(m,first){if(m==='boitage')m='pap';if(m!=='pap'&&m!=='liste'&&m!=='tractage')m='tractage';ONG=m;m=m==='liste'?'pap':m;mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
+ $('tabbar').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
  ACT_OUV=null;dessinerParcours();
- show(vueBase());if(!first){if(det==='peek'&&m!=='pap')setDet('half');map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
-$('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==mode)setMode(b.dataset.m);});
+ if(ONG==='liste'&&det==='peek')setDet('half');
+ show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');if(ONG!=='liste')map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
+$('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
  const sw=k==='zones'?`<i style="background:conic-gradient(var(--z1) 0 120deg,var(--z2) 120deg 240deg,var(--z3) 240deg)"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
  return `<button class="chip glass" data-k="${k}" aria-pressed="${chips[k]}">${sw}${t}</button>`;}).join('');
  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;chips[k]=!chips[k];b.setAttribute('aria-pressed',chips[k]);
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
-  const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
-const vueBase=()=>mode==='tractage'?vueTractage():vueAccueil();
+  const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
+const vueBase=()=>ONG==='liste'?vueListe():mode==='tractage'?vueTractage():vueAccueil();
 const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.length})</button>`;
