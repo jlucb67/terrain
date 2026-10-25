@@ -19,10 +19,20 @@ function render(keep){const v=stack[stack.length-1],y=body.scrollTop;body.innerH
 const headHTML=(title,sub,canBack)=>`<div class="head">${canBack?`<button class="ib back" aria-label="Retour">${I.back}</button>`:''}<div class="tt"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
 const kpis=a=>`<div class="kpis">${a.map(([v,t])=>`<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('')}</div>`;
 const zTag=z=>`<span class="ztag" style="--zc:var(--quiet)"><i></i>Zone n°${z}</span>`;
-/* couleur d'une adresse selon sa priorité, de 0 à 100 (rang dans la circo), en 5 paliers de 20 (JL, 25/10/2026 : plus de
-   rouge, bleu, jaune des zones sur la carte) */
+/* couleur d'une adresse selon sa priorité, de 0 à 100 (rang dans la circo) : dégradé du jaune pâle (0) au rouge foncé (100)
+   (JL, 25/10/2026 : plus de couleurs de zones sur la carte ; rouge = très prioritaire ; pas de vert, pour les daltoniens).
+   pcls : palier de 20, gardé en secours si les couleurs ne sont pas lues */
 const pcls=v=>v>=80?4:v>=60?3:v>=40?2:v>=20?1:0;
-let PC=[];const prioCol=v=>PC[pcls(v||0)]||tok('--dot');
+let PC=[];
+const rgbH=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(String(h).trim());return m?[0,2,4].map(k=>parseInt(m[1].slice(k,k+2),16)):null;};
+/* dégradé continu : les 5 couleurs --p0 à --p4 posées à 0, 25, 50, 75 et 100, nuances entre elles */
+const prioDeg=v=>{const x=Math.max(0,Math.min(100,v||0))/25,i=Math.min(3,Math.floor(x)),f=x-i,a=rgbH(PC[i]),b=rgbH(PC[i+1]);if(!a||!b)return PC[pcls(v||0)];return 'rgb('+a.map((c,k)=>Math.round(c+(b[k]-c)*f)).join(',')+')';};
+/* couleur de la priorité : dégradé continu du jaune pâle (0) au rouge foncé (100) */
+const prioCol=v=>!PC.length?tok('--dot'):prioDeg(v);
+/* encre la plus lisible sur une couleur de fond (contraste le plus fort) */
+const lumR=c=>{const m=/(\d+),\s*(\d+),\s*(\d+)/.exec(c),x=m?[+m[1],+m[2],+m[3]]:(rgbH(c)||[0,0,0]);const l=x.map(u=>{u/=255;return u<=.03928?u/12.92:Math.pow((u+.055)/1.055,2.4);});return .2126*l[0]+.7152*l[1]+.0722*l[2];};
+const encreSur=c=>{const L=lumR(c),cf=(L+.05)/(lumR('#212320')+.05),cb=1.05/(L+.05);return cf>=cb?'#212320':'#FFFFFF';};
+const prioStyle=v=>{const c=prioCol(v);return `background:${c};color:${encreSur(c)}`;};
 const pl=(n,s,p)=>`${n0(n)} ${n>1?(p||s+'s'):s}`;
 const pad2=n=>String(n).padStart(2,'0');
 
@@ -270,7 +280,7 @@ function stylerAdr(){const z=map.getZoom(),so=tok('--solid'),dt=tok('--dot'),ac=
    :tour.has(a[2])?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:prioCol(a[5]),fillOpacity:1,dashArray:null}
    :{radius:rad(a[3],z)*.7,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:.55,dashArray:null});});return;}
  if(mode!=='pap'){AM.forEach(m=>{const a=D.adresses[m.i];m.setStyle({radius:rad(a[3],z)*.55,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:isPr(a)?.45:.35,dashArray:null});});return;}
-/* statut de l'adresse pendant la campagne en cours : faite (vert), pas pu entrer (orange), prévue dans un PAP (anneau) */
+/* statut de l'adresse pendant la campagne en cours : faite (violet), pas pu entrer (gris), prévue dans un PAP (anneau) */
  const okc=tok('--ok'),koc=tok('--ko'),plein=(a,c)=>({radius:Math.max(3,rad(a[3],z)*.92),stroke:true,color:so,weight:z<15?.6:1.2,opacity:1,fill:true,fillColor:c,fillOpacity:1,dashArray:null});
  AM.forEach(m=>{const a=D.adresses[m.i],pr=isPr(a),s=statutA(a[2]);
   m.setStyle(s==='fait'?plein(a,okc):s==='ferme'?plein(a,koc)
