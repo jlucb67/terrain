@@ -70,27 +70,13 @@ const insDe=ids=>ids.reduce((s,i)=>s+D.adresses[i][3],0);
 function selBar(){if(!SEL.length)return '';
  return `<div class="btns"><button class="btn primary" id="vSel">${I.route} Ma sélection · ${pl(SEL.length,'adresse')} · ${n0(insDe(SEL))} inscrits</button></div>`;}
 function listeHTML(){const v=visibles(),top=v.slice(0,30);
- let h=top.length?top.map(i=>rowAdr(i)).join(''):`<div class="empty">Aucune adresse prioritaire ici. Déplacez la carte ou baissez les curseurs.</div>`;
+ let h=top.length?top.map(i=>rowAdr(i)).join(''):`<div class="empty">Aucune adresse prioritaire ici. Déplacez la carte.</div>`;
  if(v.length>30)h+=`<div class="sub" style="margin-top:10px">Les 30 meilleures sur ${n0(v.length)}. Zoomez pour affiner.</div>`;return h;}
 function compteEcran(){const b=map.getBounds();let n=0,ins=0;D.adresses.forEach((a,i)=>{if(isPr(a)&&b.contains([a[1],a[0]])&&!(!chips.faites&&statutA(a[2])==='fait')){n++;ins+=a[3];}});
  return `<b class="acc">${n0(n)}</b> adresse${n>1?'s':''} prioritaire${n>1?'s':''} à l'écran · <b class="acc">${n0(ins)}</b> inscrits`;}
 function majListe(){const c=$('nPr'),l=$('lst');if(!c||!l)return;c.innerHTML=compteEcran();l.innerHTML=listeHTML();lierRows();}
 const scoreTxt=()=>`Score : rang de l'adresse dans la circonscription. ${crit.score} veut dire plus prioritaire que ${crit.score} % des adresses de la circo.`;
-function vueAccueil(){return {id:'base',html:()=>{const mx=Math.min(80,Math.max(...D.adresses.map(a=>a[3])));
-  let h=`<div id="cons">${consHTML()}</div>`;
-  h+=selBar();
-  h+=`<div class="slc" style="margin-top:6px"><label for="rS">Score</label><input type="range" id="rS" min="0" max="100" step="1" value="${crit.score}"><output id="vS">${crit.score}+</output></div>`;
-  h+=`<div class="slc"><label for="rI">Inscrits</label><input type="range" id="rI" min="1" max="${mx}" step="1" value="${crit.ins}"><output id="vI">${crit.ins}+</output></div>`;
-  const nM=niMax();if(crit.ni>nM)crit.ni=nM;
-  h+=`<div class="slc"><label for="rN">Non-inscrits</label><input type="range" id="rN" min="0" max="${nM}" step="1" value="${crit.ni}"><output id="vN">${niTxt(crit.ni)}</output></div>`;
-  h+=`<h2>Adresses prioritaires à l'écran</h2><div class="sub" id="nPr">${compteEcran()}</div><div id="lst">${listeHTML()}</div>`;
-  h+=`<details class="more"><summary>La ${D.k}e circonscription en chiffres</summary>${kpis([[n0(D.objectif),'voix à obtenir en 2027'],[pc(D.objectif_p),'des exprimés'],['+'+n0(D.gain),'voix par rapport à 2022']])}</details>`;
-  h+=lienCR();
-  return h;},after:()=>{lierRows();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
-  const rS=$('rS'),rI=$('rI'),rN=$('rN');const peint=()=>[rS,rI,rN].forEach(r=>r.style.setProperty('--p',(100*(r.value-r.min)/(r.max-r.min))+'%'));
-  const maj=()=>{crit={v:2,score:+rS.value,ins:+rI.value,ni:+rN.value};LS.set('crit',crit);peint();$('vS').textContent=crit.score+'+';const hs=$('hS');if(hs)hs.textContent=scoreTxt();PRC={};$('vI').textContent=crit.ins+'+';$('vN').textContent=niTxt(crit.ni);
-   clearTimeout(regT);regT=setTimeout(()=>{filtrer();majListe();},80);};
-  rS.oninput=maj;rI.oninput=maj;rN.oninput=maj;rS.onchange=rI.onchange=rN.onchange=()=>majCons();peint();lierCons();}};}
+/* accueil du porte-à-porte : voir p9_v16.js (v16, 31/10/2026 : plus de curseurs, PAP proposés, en cours, avancement) */
 function sel(i){if(!selL)return;selL.clearLayers();if(i==null)return;const a=D.adresses[i];
  L.circleMarker([a[1],a[0]],{renderer:rP,radius:rad(a[3],Math.max(map.getZoom(),16.5))+5,color:tok('--accent'),weight:2,fill:false,interactive:false}).addTo(selL);}
 function voir(ll,z){const H=wide?0:hOf(det==='peek'?'half':det)+TB();z=z||map.getZoom();const pt=map.project(ll,z);const off=wide?[-190,0]:[0,(H-100)/2];
@@ -151,7 +137,7 @@ function pasSuivant(C,dd,pris,reste,curI,lims,souple){const A=D.adresses,v0=curI
   if(bi>=0)return [bi,bd];}
  return null;}
 const dist=(a,b)=>{const R=6371e3,r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x));};
-let taille=LS.get('taille',null)||REF.reglages.taille||100;
+let taille=LS.get('taille16',null)||REF.reglages.taille||100;
 function construireLot(ll,cible,i0){
  const ok=i=>isPr(D.adresses[i])&&!recente(i)&&!pasEntreRecent(i);
  const C=[];D.adresses.forEach((a,i)=>{if(ok(i)&&dist(ll,[a[1],a[0]])<2500)C.push(i);});
@@ -168,17 +154,12 @@ function dessinerLot(){if(!lotL)return;lotL.clearLayers();if(!lot)return;
  const ll=lot.ids.map(i=>ptA(i));
  L.polyline(lot.ll?[lot.ll,...ll]:ll,{renderer:rP,color:tok('--accent'),weight:2,opacity:.9,dashArray:'1 5',lineCap:'round',interactive:false}).addTo(lotL);
  if(lot.type!=='boitage')lot.ids.forEach((i,k)=>L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin lot">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>ouvrirAdresse(i)).addTo(lotL));}
-/* un PAP choisi est un PAP fait (JL, 25/10/2026 : « quand quelqu'un choisit une action, ça la considère direct comme
-   validée ») : toutes ses adresses sont validées cette semaine, le PAP est « faite » */
+/* validerTout : toutes les adresses d'un PAP faites d'un coup (v15 : au choix du PAP ; v16 : « C'est fait » passe par finirPAP, p9_v16.js) */
 function validerTout(a){const now=isoD(new Date());a.etapes.forEach(e=>{if(idxE(e)!=null&&stE(e)==='afaire'){e.st='faite';e.le=now;}});a.statut='faite';a.faite_le=now;a.prevue='';}
-/* taille d'un PAP : curseur de 50 à 1 000 inscrits (JL, 25/10/2026) */
-const TMIN=50,TMAX=1000,TPAS=50;
-const tailleHTML=(id,lab)=>`<div class="slc tl2"><label for="${id}">${lab||'Taille'}</label><input type="range" id="${id}" min="${TMIN}" max="${TMAX}" step="${TPAS}" value="${taille}" style="--p:${100*(taille-TMIN)/(TMAX-TMIN)}%"><output id="${id}v">${taille} inscrits</output></div>`;
-function lierTaille(id,fin){const r=$(id);if(!r)return;r.oninput=()=>{r.style.setProperty('--p',(100*(r.value-TMIN)/(TMAX-TMIN))+'%');$(id+'v').textContent=r.value+' inscrits';};
- r.onchange=()=>{taille=+r.value;LS.set('taille',taille);fin();};}
-/* choisir un PAP : autour d'une adresse ou d'un point, ou un PAP conseillé ; on règle la taille, on retire des adresses,
-   on choisit le GA, on valide : c'est fait */
-function preparer(ll,nom,i0,ids,titre,cons){if(mode!=='pap')setMode('pap');
+/* choisir un PAP : autour d'une adresse ou d'un point, ou un PAP proposé ; on retire des adresses, on choisit le GA,
+   « On y va » le met en cours (JL, 31/10/2026 : « un OK ou GO pour mettre l'action en cours, puis un valider quand c'est
+   fait ») ; la taille se règle sur l'accueil (inscrits, ou personnes et temps) */
+function preparer(ll,nom,i0,ids,titre,cons){if(ONG!=='pap')setMode('pap');
  if(cons){lot=consLot(cons.r);if(!lot){toast('Aucun PAP conseillé pour l\'instant.');return;}}
  else if(!ids){if(!dansCirco(ll)){toast('Ce point est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}lot=construireLot(ll,taille,i0);}
  else lot={ll:null,ids,ins:insDe(ids),km:kmDe(ids),cible:insDe(ids),msg:'',recu:titre||'Action reçue'};
@@ -186,26 +167,24 @@ function preparer(ll,nom,i0,ids,titre,cons){if(mode!=='pap')setMode('pap');
  const cadrer=()=>{if(lot.ids.length)map.flyToBounds(L.latLngBounds([...(lot.ll?[lot.ll]:[]),...lot.ids.map(ptA)]).pad(.25),{...pad(),maxZoom:17.5,duration:.5});};
  dessinerLot();if(!wide&&det!=='half')setDet('half');cadrer();
  detail({id:'lot',html:()=>{
-  const tt=lot.recu?esc(lot.recu):lot.rang?`PAP conseillé n° ${lot.rang}`:'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
-  let h=headHTML(tt,lot.recu?'Reçu par lien':lot.rang?esc(lot.rue||''):'',true);
-  if(!lot.recu)h+=tailleHTML('lta','Taille');
+  const tt=lot.recu?esc(lot.recu):lot.rang?esc(lot.rue||'PAP proposé'):'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
+  let h=headHTML(tt,lot.recu?'Reçu par lien':lot.ids.length?`Priorité ${prioMoyIds(lot.ids)}${lot.rang?' · proposition n° '+lot.rang:''}`:'',true);
   if(lot.msg)h+=`<div class="note">${esc(lot.msg)}</div>`;
-  if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire assez proche. Baissez les curseurs ou choisissez un autre point.</div>`;
-  h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(lot.ins)}</b>inscrits</span>${lot.ids.length>1?`<span><b>${m10(lot.km)} m</b>de marche</span>`:''}</div>`;
+  if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire libre assez proche. Choisissez un autre endroit.</div>`;
+  h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(portesDe(lot.ins))}</b>portes environ</span><span><b>${n0(lot.ins)}</b>inscrits</span></div>`;
   if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${n0(lot.cible)} inscrits.</div>`;
   h+=lot.ids.map((i,k)=>`<div class="lr">${avH('br',k+1)}<button class="tx" data-i="${i}"><b>${esc(D.adresses[i][2])}</b><small>${pl(D.adresses[i][3],'inscrit')}</small></button><button class="xb" data-lx="${k}" aria-label="Retirer ${esc(D.adresses[i][2])}">${I.x}</button></div>`).join('');
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="lga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
-  h+=`<div class="btns"><button class="btn primary" id="cree" ${gaC?'':'disabled'}>${I.check} Valider ce PAP</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}</div>`;
+  h+=`<button class="btnf go2" id="cree" ${gaC?'':'disabled'}>On y va</button>${gaC?'<div class="hint" style="text-align:center">Le PAP passe « en cours » ; on le valide quand c\'est fait.</div>':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}`;
   return h;},
  after:()=>{lierRows();
-  lierTaille('lta',()=>{const r=lot.rang;lot=r?(consLot(r)||lot):construireLot(lot.ll,taille,i0);dessinerLot();render(true);cadrer();});
   body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
   const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};
   const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length)return;
    const a=nouvelleAction('pap',{ga:[gaC],etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:{lot:'propose',cible:lot.cible}});
-   a.nom=nomDefaut(a);validerTout(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'PAP choisi : validé');sauverA();effLot();dessinerParcours();stack=[vueBase(),vueAction(a.id)];render();
-   toast(`PAP validé : ${pl(a.etapes.length,'adresse faite','adresses faites')}`,{t:'Annuler',fn:()=>{const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();dessinerParcours();}show(vueBase());}});};}});}
+   a.nom=nomDefaut(a);lancer(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'PAP lancé : en cours');sauverA();effLot();dessinerParcours();stack=[vueBase(),vueEnCours(a.id)];render();
+   toast(`PAP en cours : ${pl(a.etapes.length,'adresse')}`,{t:'Annuler',fn:()=>{const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();dessinerParcours();}show(vueBase());}});};}});}
 map.on('contextmenu',e=>{if(!D||!adrL||!map.hasLayer(adrL)||mode!=='pap')return;preparer([e.latlng.lat,e.latlng.lng],'Autour de ce point');});
 
 /* ---------------- ma selection : adresses choisies a la main, avant de creer l'action */
@@ -234,8 +213,8 @@ function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne,ga=a.ga.slice(),prev=a
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const ap=$('ap');if(ap)ap.onchange=()=>{prev=ap.value;};
   const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';LS.set('dga',a.ga);
-   if(neuve){if(a.type==='pap')validerTout(a);ACTIONS.push(a);saisie(a,a.type==='pap'?'PAP choisi : validé':'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
-   sauverA();stack=[vueBase(),vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
+   if(neuve){if(a.type==='pap')lancer(a);ACTIONS.push(a);saisie(a,a.type==='pap'?'PAP lancé : en cours':'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
+   sauverA();stack=[vueBase(),neuve&&a.type==='pap'?vueEnCours(a.id):vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
   $('sv').onclick=()=>enr(false);const s2=$('sv2');if(s2)s2.onclick=()=>enr(true);}};}
 
 /* ---------------- une action : ses etapes dans l'ordre de passage, modifiable */
