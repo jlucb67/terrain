@@ -160,18 +160,19 @@ function validerTout(a){const now=isoD(new Date());a.etapes.forEach(e=>{if(idxE(
    « On y va » le met en cours (JL, 31/10/2026 : « un OK ou GO pour mettre l'action en cours, puis un valider quand c'est
    fait ») ; la taille se règle sur l'accueil (inscrits, ou personnes et temps) */
 function preparer(ll,nom,i0,ids,titre,cons){if(ONG!=='pap')setMode('pap');
- if(cons){lot=consLot(cons.r);if(!lot){toast('Aucun PAP conseillé pour l\'instant.');return;}}
+ if(cons){lot=cons.lot||consLot(cons.r);if(!lot){toast('Aucun PAP conseillé pour l\'instant.');return;}}
  else if(!ids){if(!dansCirco(ll)){toast('Ce point est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}lot=construireLot(ll,taille,i0);}
  else lot={ll:null,ids,ins:insDe(ids),km:kmDe(ids),cible:insDe(ids),msg:'',recu:titre||'Action reçue'};
  let gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'';
  const cadrer=()=>{if(lot.ids.length)map.flyToBounds(L.latLngBounds([...(lot.ll?[lot.ll]:[]),...lot.ids.map(ptA)]).pad(.25),{...pad(),maxZoom:17.5,duration:.5});};
  dessinerLot();if(!wide&&det!=='half')setDet('half');cadrer();
  detail({id:'lot',html:()=>{
-  const tt=lot.recu?esc(lot.recu):lot.rang?esc(lot.rue||'PAP proposé'):'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
-  let h=headHTML(tt,lot.recu?'Reçu par lien':lot.ids.length?`Priorité ${prioMoyIds(lot.ids)}${lot.rang?' · proposition n° '+lot.rang:''}`:'',true);
+  const tt=lot.recu?esc(lot.recu):(lot.rang||lot.zone)?esc(lot.rue||'PAP proposé'):'PAP '+esc(nom.charAt(0).toLowerCase()+nom.slice(1));
+  let h=headHTML(tt,lot.recu?'Reçu par lien':lot.ids.length?`Priorité ${prioMoyIds(lot.ids)}${lot.rang?' · proposition n° '+lot.rang:lot.zone?' · proposé dans cette zone':''}`:'',true);
   if(lot.msg)h+=`<div class="note">${esc(lot.msg)}</div>`;
   if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire libre assez proche. Choisissez un autre endroit.</div>`;
   h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(portesDe(lot.ins))}</b>portes environ</span><span><b>${n0(lot.ins)}</b>inscrits</span></div>`;
+  if(!lot.recu)h+=`<div class="agr"><button class="btn line" id="agr">${I.plus} Agrandir</button><small>ajoute l'adresse prioritaire libre la plus proche</small></div>`;
   if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${n0(lot.cible)} inscrits.</div>`;
   h+=lot.ids.map((i,k)=>`<div class="lr">${avH('br',k+1)}<button class="tx" data-i="${i}"><b>${esc(D.adresses[i][2])}</b><small>${pl(D.adresses[i][3],'inscrit')}</small></button><button class="xb" data-lx="${k}" aria-label="Retirer ${esc(D.adresses[i][2])}">${I.x}</button></div>`).join('');
   const G=gaActifs();
@@ -180,9 +181,10 @@ function preparer(ll,nom,i0,ids,titre,cons){if(ONG!=='pap')setMode('pap');
   return h;},
  after:()=>{lierRows();
   body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
+  const ag=$('agr');if(ag)ag.onclick=()=>{if(!agrandir(lot)){toast('Plus d\'adresse prioritaire libre à côté.');return;}dessinerLot();render(true);};
   const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};
   const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length)return;
-   const a=nouvelleAction('pap',{ga:[gaC],etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:{lot:'propose',cible:lot.cible}});
+   const a=nouvelleAction('pap',{ga:[gaC],etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:lot.zone?{lot:'zone',cible:lot.cible}:{lot:'propose',cible:lot.cible}});
    a.nom=nomDefaut(a);lancer(a);LS.set('dga',a.ga);ACTIONS.push(a);saisie(a,'PAP lancé : en cours');sauverA();effLot();dessinerParcours();stack=[vueBase(),vueEnCours(a.id)];render();
    toast(`PAP en cours : ${pl(a.etapes.length,'adresse')}`,{t:'Annuler',fn:()=>{const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();dessinerParcours();}show(vueBase());}});};}});}
 map.on('contextmenu',e=>{if(!D||!adrL||!map.hasLayer(adrL)||mode!=='pap')return;preparer([e.latlng.lat,e.latlng.lng],'Autour de ce point');});
