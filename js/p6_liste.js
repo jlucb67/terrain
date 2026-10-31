@@ -4,7 +4,7 @@
    reçoit un passage de plus (« +1 passage »). Les PAP prévus s'y valident adresse par adresse, ou d'un coup (« Tout
    valider ») ; un PAP dont toutes les adresses sont validées passe en « faite ». Pas de date à saisir : un passage est daté
    par sa semaine. Tout passe par les mêmes actions que la carte (journal partagé). */
-var LQ='',LQT='',LN=200,LOUV=null,LTRI=LS.get('ltri','rue');
+var LQ='',LQT='',LN=200,LOUV=null,LTRI=LS.get('ltri','rue'),LFAITES=false;
 const LPAS=200;
 /* semaine d'un passage : lundi de la semaine */
 const lundiDe=s=>{const d=toD(s)||new Date(),x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return isoD(x).slice(0,10);};
@@ -32,7 +32,7 @@ function vueListe(){return {id:'base',
   body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes();});
   $('lres').onclick=clicRes;lierQA();suite();}};}
 /* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026), ou par priorité, ou par inscrits ; la recherche filtre */
-const resHTML=()=>LQ?rechercheHTML():'';
+const resHTML=()=>rechercheHTML();
 function compteListe(){let pr=0,f=0;D.adresses.forEach(a=>{if(isPr(a))pr++;if(statutA(a[2])==='fait')f++;});return `${pl(D.adresses.length,'adresse')} · ${n0(pr)} prioritaires · <span class="g">${pl(f,'faite')}</span>`;}
 function majRes(keep){const r=$('lres');if(!r)return;const y=body.scrollTop;r.innerHTML=resHTML();body.scrollTop=keep?y:0;const c=$('lsub');if(c)c.innerHTML=compteListe();suite();}
 var lObs=null;
@@ -64,8 +64,8 @@ const TYPV=/^(rue|avenue|boulevard|place|passage|impasse|allée|allee|villa|cit�
 const clefVoie=v=>v.replace(TYPV,'').trim()||v;
 function ordreAdrRue(){if(D._or)return D._or;const K={};D.adresses.forEach((a,i)=>{const v=ADRP[i].voie;if(!(v in K))K[v]=clefVoie(v);});
  D._or=D.adresses.map((a,i)=>i).sort((x,y)=>K[ADRP[x].voie].localeCompare(K[ADRP[y].voie],'fr',{sensitivity:'base'})||ADRP[x].voie.localeCompare(ADRP[y].voie,'fr')||ADRP[x].num-ADRP[y].num||ADRP[x].suf.localeCompare(ADRP[y].suf));return D._or;}
-function rechercheHTML(){let l=LQ?ordreAdrRue().filter(i=>normA(D.adresses[i][2]).includes(LQ)):ordreAdrRue();
- if(!l.length)return `<div class="empty">Aucune adresse ne correspond.</div>`;
+function rechercheHTML(){let l=ordreAdrRue().filter(i=>(!LQ||normA(D.adresses[i][2]).includes(LQ))&&(!LFAITES||statutA(D.adresses[i][2])==='fait'));
+ if(!l.length)return `<div class="empty">${LFAITES&&!LQ?'Aucune adresse faite pour l\'instant.':'Aucune adresse ne correspond.'}</div>`;
  let h='';
  /* par priorité (la plus haute d'abord, puis les inscrits) ou par inscrits (le plus d'inscrits d'abord, puis la priorité) */
  if(LTRI==='prio'||LTRI==='ins'){const A=D.adresses;l=l.slice().sort(LTRI==='prio'?(x,y)=>A[y][5]-A[x][5]||A[y][3]-A[x][3]:(x,y)=>A[y][3]-A[x][3]||A[y][5]-A[x][5]);
