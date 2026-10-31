@@ -49,24 +49,24 @@ function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){c
 const lierEC=()=>body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));
 
 /* ---- accueil du porte-à-porte : en cours, avancement, taille, 3 PAP proposés */
-let TMODE=LS.get('tmode','ins'),EQN=LS.get('eqN',2),EQH=LS.get('eqH',2);
-const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h']],GENS=[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5 et +']];
+let TMODE=LS.get('tmode','ins'),EQN=LS.get('eqN',2),EQH=LS.get('eqH',2),VIS=false;
+const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5 et +']];
 const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
 function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles().slice(0,3),EC=enCours().filter(a=>a.encours);   /* les PAP prévus d'avant la v16 : dans le Suivi */
   const mien=EC.filter(a=>a.cree_par===moi().id),autres=EC.filter(a=>a.cree_par!==moi().id);
   let h=mien.concat(autres).slice(0,3).map(carteEC).join('');
   if(EC.length>3)h+=`<div class="sub" style="margin:-4px 0 10px">et ${pl(EC.length-3,'autre action')} en cours : voir le Suivi</div>`;
-  h+=bandeHTML(x);
   h+=`<h2>À faire en priorité</h2>`;
+  h+=`<div class="tsw"><span>Choisir la taille par</span>${segH('data-tm',[['ins','Nombre d\'inscrits'],['eq','Personnes et temps']],TMODE)}</div>`;
   if(TMODE==='eq'){h+=`<div class="qq"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
-   h+=`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div><div class="mode"><button id="tmod">ou choisir le nombre d'inscrits</button></div>`;}
-  else h+=`<div class="tsz"><span>Taille<small>environ ${n0(portesDe(taille))} portes</small></span><div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)}<small>inscrits</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div></div><div class="mode"><button id="tmod">ou selon le nombre de personnes et le temps</button></div>`;
+   h+=`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`;}
+  else h+=`<div class="tsz"><span>Taille<small>environ ${n0(portesDe(taille))} portes</small></span><div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)}<small>inscrits</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div></div>`;
   if(!C.length)h+=`<div class="empty">Aucune adresse prioritaire libre pour cette taille. Essayez une autre taille.</div>`;
   h+=C.map((z,k)=>{const pr=prioMoyIds(z.ids);
    return `<button class="pk" data-cs="${k}"><div class="t"><span class="rk2">${k+1}</span><b>${esc(ruesDe(z.ids)[0]||z.rue)}</b><span class="prs" style="${prioStyle(pr)}">Priorité ${pr}</span><span class="cv">${I.next}</span></div>`+
-    `<small>${esc(z.nums)}</small><div class="st"><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span><span><b>${n0(portesDe(z.ins))}</b>portes environ</span><span class="pls"><b>+${pc1(x.tot?100*z.ins/x.tot:0)} %</b>pour la circo</span></div></button>`;}).join('');
-  h+=`<button class="lnk9" id="autre">Choisir un autre endroit sur la carte</button>`;
+    `<small>${esc(z.nums)}</small><div class="st"><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span><span><b>${n0(portesDe(z.ins))}</b>portes environ</span><span><b>${n0(z.ins)}</b>inscrits</span></div></button>`;}).join('');
+  h+=`<div class="btns"><button class="btn line" id="autre">${I.target} Choisir un endroit sur la carte</button></div>`;
   h+=selBar();
   return h;},
  after:()=>{lierEC();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
@@ -74,8 +74,8 @@ function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='e
   body.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{taille=Math.max(25,Math.min(1000,taille+25*(+b.dataset.tp)));LS.set('taille16',taille);render(true);});
   body.querySelectorAll('[data-en]').forEach(b=>b.onclick=()=>{EQN=+b.dataset.en;LS.set('eqN',EQN);render(true);});
   body.querySelectorAll('[data-eh]').forEach(b=>b.onclick=()=>{EQH=+b.dataset.eh;LS.set('eqH',EQH);render(true);});
-  $('tmod').onclick=()=>{TMODE=TMODE==='eq'?'ins':'eq';LS.set('tmode',TMODE);if(TMODE==='ins'){taille=Math.max(25,Math.round(taille/25)*25);LS.set('taille16',taille);}render(true);};
-  $('autre').onclick=()=>{if(!wide)setDet('peek');toast('Restez appuyé sur la carte à l\'endroit voulu : l\'appli prépare un PAP autour.');};}};}
+  body.querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{TMODE=b.dataset.tm;LS.set('tmode',TMODE);if(TMODE==='ins'){taille=Math.max(25,Math.round(taille/25)*25);LS.set('taille16',taille);}render(true);});
+  $('autre').onclick=()=>viseur(true);}};}
 
 /* ---- un PAP en cours : on note « Pas pu entrer » là où c'est le cas, puis « C'est fait » */
 function vueEnCours(id){const ferm=new Set();return {id:'ec',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('PAP retiré','',true);
@@ -97,7 +97,6 @@ function vueNote(a,avant,titre){return {id:'note',html:()=>{const x=avance(),l=a
   let nf=0,ins=0;l.forEach(y=>y.etapes.forEach(e=>{const i=idxE(e);if(i!=null&&e.st==='faite'){nf++;ins+=D.adresses[i][3];}}));
   const g=x.pct-avant.pct,sem=papsFaits().filter(y=>cetteSem(y.faite_le)&&(y.ga||[]).some(id=>(a.ga||[]).includes(id))).length;
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>C'est noté</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
-  h+=`<div style="margin-top:16px">${bandeHTML(x,'La '+D.k+'e circonscription passe à',`${g>0?`<b>+${pc1(g)} %</b> grâce à cette action · `:''}${pc1(avant.pct)} % avant`)}</div>`;
   const B=parBureau();h+=kpis([[n0(sem),'PAP faits cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
   h+=`<button class="btnf" id="suite">Voir les propositions suivantes</button>`;
   return h;},after:()=>{$('suite').onclick=()=>{if(ONG!=='pap')setMode('pap');else show(vueBase());};}};}
@@ -114,11 +113,13 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
   if(B.length>6)h+=`<button class="lnk9" id="bzT">${BZTOUT?'Moins de bureaux':`Voir les ${B.length} bureaux`}</button>`;
   h+=`<div class="legb">${[['moins de 10 %',1],['10 à 25 %',2],['25 à 50 %',3],['50 % et plus',4]].map(([t,k])=>`<span><i style="background:${BZCOL[k][1]}"></i>${t}</span>`).join('')}</div>`;
-  h+=`<h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div id="lres">${resHTML()}</div>`;
+  h+=`<h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div>`;
   h+=qaHTML()+lienCR();
   return h;},
  after:()=>{lierEC();majCouches();
   const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes(true);},150);};
+  body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes(true);});
+  $('lfa').onclick=()=>{LFAITES=!LFAITES;LN=LPAS;$('lfa').setAttribute('aria-pressed',LFAITES);majRes(true);};
   $('lres').onclick=clicRes;lierQA();suite();
   body.querySelectorAll('[data-bv]').forEach(b=>b.onclick=()=>ouvrirBureau(b.dataset.bv,true));
   const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};}};}
@@ -146,15 +147,14 @@ function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPi
   let h=S.filter(o=>o.ec).map(o=>carteEC(o.ec)).join('');
   h+=`<div class="csh"><h1>Pieds d'immeuble</h1></div><div class="sub">On pose la tente, on tracte, on répond aux gens ; les autres partent en PAP autour.</div>`;
   if(!S.length)return h+`<div class="empty">Aucun secteur de pied d'immeuble dans cette circonscription.</div>`;
-  h+=bandeHTML({pct:0},`${D.k}e circonscription`,`<b>${nf}</b> pied${nf>1?'s':''} d'immeuble fait${nf>1?'s':''} sur ${S.length} cette campagne`,`${nf}/${S.length}`,100*nf/S.length);
   h+=S.map((o,k)=>{const c=prioCol(o.v);return `<button class="sect" data-ps="${D.pieds.indexOf(o.s)}"><span class="pv" style="background:${c};color:${encreSur(c)}">${o.v}</span><span><b>${esc(o.s.nom)}</b>`+
-   `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${pl(o.s.ins,'inscrit')} dans le secteur</small>${o.ec?`<span class="tg ec">En cours</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
+   `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">En cours</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
   return h;},
  after:()=>{lierEC();if(pfL){map.removeLayer(pfL);pfL=null;}majCouches();body.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>ouvrirPied(D.pieds[+b.dataset.ps]));}};}
 function ouvrirPied(s){if(!s)return;if(ONG!=='pieds')setMode('pieds');sel(null);if(!wide&&det==='peek')setDet('half');detail(vuePied(s));}
 /* équipes de 2 qui partent de la tente, chacune dans sa direction, de proche en proche, avec de quoi tenir le temps choisi */
 function equipes(ll,E,cible){if(!E)return [];const A=D.adresses,cosl=Math.cos(ll[0]*Math.PI/180),libre=new Set();
- A.forEach((a,i)=>{if(isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]]&&dist(ll,[a[1],a[0]])<=450)libre.add(i);});
+ A.forEach((a,i)=>{if(isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]]&&dist(ll,[a[1],a[0]])<=800)libre.add(i);});
  const ang=p=>Math.atan2(p[0]-ll[0],(p[1]-ll[1])*cosl),ecart=(p,th)=>{let x=Math.abs(ang(p)-th);return x>Math.PI?2*Math.PI-x:x;};
  let best=0,bv=-1;for(let d=0;d<24;d++){const th=-Math.PI+d*Math.PI/12;let v=0;libre.forEach(i=>{const p=ptA(i);if(ecart(p,th)<Math.PI/E)v+=A[i][3]/(80+dist(ll,p));});if(v>bv){bv=v;best=th;}}
  const T=[];for(let k=0;k<E;k++){const th=best+2*Math.PI*k/E,ids=[];let s=0,cur=ll;
@@ -163,16 +163,15 @@ function equipes(ll,E,cible){if(!E)return [];const A=D.adresses,cosl=Math.cos(ll
    if(bi==null)break;ids.push(bi);libre.delete(bi);s+=A[bi][3];cur=ptA(bi);}
   if(ids.length)T.push({ids,ins:s,rue:ruesDe(ids)[0]});}
  return T;}
-const EQC=['#4C0297','#1D4ED8','#0F766E','#B45309'];
+const EQC=['#4C0297','#1D4ED8','#0F766E','#B45309','#BE185D','#4D7C0F','#7C3AED','#0E7490','#C2410C','#374151'],eqSt=k=>`style="background:${EQC[k%10]};color:#fff"`;
 function dessinerPied(s,T){if(pfL)map.removeLayer(pfL);if(piL){map.removeLayer(piL);piL=null;}pfL=L.layerGroup().addTo(map);const c=prioCol(infoPied(s).v),ll=standLL(s);
  L.geoJSON(s.geo,{renderer:rP,style:{color:c,weight:1.4,opacity:.9,dashArray:'4 3',fill:false},interactive:false}).addTo(pfL);
- T.forEach((e,k)=>{const P=e.ids.map(ptA);L.polyline([ll,...P],{renderer:rP,color:EQC[k],weight:3,opacity:.85,lineCap:'round',dashArray:'1 6',interactive:false}).addTo(pfL);
-  P.forEach((p,j)=>L.marker(p,{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin2 eq${k+1}">${j+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]})}).on('click',()=>ouvrirAdresse(e.ids[j],true)).addTo(pfL));});
+ T.forEach((e,k)=>{const P=e.ids.map(ptA);L.polyline([ll,...P],{renderer:rP,color:EQC[k%10],weight:3,opacity:.85,lineCap:'round',dashArray:'1 6',interactive:false}).addTo(pfL);
+  P.forEach((p,j)=>L.marker(p,{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin2" ${eqSt(k)}>${j+1}</div>`,iconSize:[24,24],iconAnchor:[12,12]})}).on('click',()=>ouvrirAdresse(e.ids[j],true)).addTo(pfL));});
  L.marker(ll,{pane:'pap',zIndexOffset:2000,icon:L.divIcon({className:'',html:`<div class="tent" style="width:34px;height:34px;background:${c};color:${encreSur(c)}">${I.pied}</div>`,iconSize:[34,34],iconAnchor:[17,17]})}).addTo(pfL);
  try{map.stop();}catch(e){}map.fitBounds(L.latLngBounds([ll,...T.flatMap(e=>e.ids.map(ptA))]).pad(.15),{...pad(),maxZoom:17.5,animate:false});}
 const GENS_P=[[2,'2'],[4,'4'],[6,'6'],[8,'8'],[10,'10 et +']];
-function vuePied(s){let n=LS.get('pN',6),hh=LS.get('pH',2),gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',T=[];
- const eqs=()=>Math.min(4,Math.floor((n-2)/2));
+function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),pI=LS.get('pI',300),gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',T=[];
  return {id:'pi',html:()=>{const o=infoPied(s),ec=o.ec;
   let h=headHTML(esc(s.nom),s.qpv&&s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
   h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
@@ -181,25 +180,29 @@ function vuePied(s){let n=LS.get('pN',6),hh=LS.get('pH',2),gaC=gaDefaut()[0]||((
   if(ec){const G=ec.groupe?duGroupe(ec.groupe).filter(a=>a.type==='pap'&&a.statut==='a_faire'):[];T=G.map(a=>({ids:a.etapes.map(idxE).filter(i=>i!=null)}));T.forEach(e=>{e.ins=e.ids.reduce((t,i)=>t+D.adresses[i][3],0);e.rue=ruesDe(e.ids)[0];});
    h+=`<div class="encours"><b>En cours</b> ${depuis(ec.encours)} · ${esc(pourQui(ec))}</div>`;
    h+=`<h2>Qui fait quoi</h2><div class="eqx"><span class="av2 eqS">${I.pied}</span><div><b>Stand</b><small>${esc(standTxt(s))}</small></div></div>`;
-   h+=G.map((a,k)=>`<div class="eqx"><span class="av2 eq${k+1}">${k+1}</span><div><b>Équipe ${k+1} · ${esc(T[k].rue||'')}</b><small>${pl(T[k].ids.length,'adresse')} · environ ${n0(portesDe(T[k].ins))} portes</small></div></div>`).join('');
+   h+=G.map((a,k)=>`<div class="eqx"><span class="av2" ${eqSt(k)}>${k+1}</span><div><b>Équipe ${k+1} · ${esc(T[k].rue||'')}</b><small>${pl(T[k].ids.length,'adresse')} · environ ${n0(portesDe(T[k].ins))} portes</small></div></div>`).join('');
    h+=`<button class="btnf" id="pfini">${I.check} C'est fait</button><div class="hint" style="text-align:center">${G.length?'Le stand et les PAP des équipes sont validés d\'une seule touche.':'Le stand est validé.'}</div><button class="lnk9" id="pannul">On n'y va plus</button>`;
    return h;}
-  const E=eqs(),cible=2*hh*PORTES_H*INS_PORTE;T=equipes(standLL(s),E,cible);
-  h+=`<div class="qq"><span>Vous êtes combien en tout ?</span>${segH('data-pn',GENS_P,n)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-ph',DUREES,hh)}</div>`;
-  const pt=T.reduce((t,e)=>t+portesDe(e.ins),0);
-  h+=!E?`<div class="est">À <b>2</b> : on tient le stand, sans PAP autour.</div>`:T.length?`<div class="est"><b>2</b> au stand et <b>${T.length} équipe${T.length>1?'s':''} de 2</b> en PAP autour : environ <b>${n0(pt)} portes</b>.</div>`:`<div class="est">Plus d'adresse prioritaire libre autour : on tient le stand.</div>`;
+  const cible=PM==='i'?(E?pI/E:0):2*hh*PORTES_H*INS_PORTE;T=equipes(standLL(s),E,cible);
+  h+=`<div class="tsz"><span>Équipes de 2 en PAP<small>et 2 personnes au stand</small></span><div class="stp"><button data-pe="-1" aria-label="Une équipe de moins">−</button><b>${E}<small>équipe${E>1?'s':''}</small></b><button data-pe="1" aria-label="Une équipe de plus">+</button></div></div>`;
+  if(E){h+=`<div class="tsw"><span>Choisir la taille par</span>${segH('data-pm',[['h','Temps'],['i','Nombre d\'inscrits']],PM)}</div>`;
+   h+=PM==='h'?`<div class="qq"><span>Pendant combien de temps ?</span>${segH('data-ph',DUREES,hh)}</div>`:`<div class="tsz"><span>Inscrits en tout<small>environ ${n0(portesDe(pI))} portes</small></span><div class="stp"><button data-pi="-1" aria-label="50 inscrits de moins">−</button><b>${n0(pI)}<small>inscrits</small></b><button data-pi="1" aria-label="50 inscrits de plus">+</button></div></div>`;}
+  const pt=T.reduce((t,e)=>t+portesDe(e.ins),0),du=T.length?dureeTxt(pt/(2*PORTES_H*T.length)):'';
+  h+=!E?`<div class="est">On tient le stand à <b>2</b>, sans PAP autour.</div>`:T.length?`<div class="est"><b>2</b> au stand et <b>${T.length} équipe${T.length>1?'s':''} de 2</b> en PAP : environ <b>${n0(pt)} portes</b>${PM==='i'?`, environ <b>${du}</b>`:''}.${T.length<E?` Pas assez d'adresses prioritaires libres pour ${E} équipes.`:''}</div>`:`<div class="est">Plus d'adresse prioritaire libre autour : on tient le stand.</div>`;
   h+=`<h2>Qui fait quoi</h2><div class="eqx"><span class="av2 eqS">${I.pied}</span><div><b>Stand</b><small>2 personnes · ${esc(standTxt(s))}</small></div></div>`;
-  h+=T.map((e,k)=>`<div class="eqx"><span class="av2 eq${k+1}">${k+1}</span><div><b>Équipe ${k+1} · ${esc(e.rue)}</b><small>${pl(e.ids.length,'adresse')} · environ ${n0(portesDe(e.ins))} portes · départ de la tente</small></div></div>`).join('');
+  h+=T.map((e,k)=>`<div class="eqx"><span class="av2" ${eqSt(k)}>${k+1}</span><div><b>Équipe ${k+1} · ${esc(e.rue)}</b><small>${pl(e.ids.length,'adresse')} · environ ${n0(portesDe(e.ins))} portes · départ de la tente</small></div></div>`).join('');
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="pga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
   h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>On y va</button><div class="hint" style="text-align:center">Le stand${T.length?' et les PAP des équipes passent':' passe'} « en cours » ; à la fin, une seule touche « C'est fait » valide tout.</div>`;
   return h;},
  after:()=>{dessinerPied(s,T);
-  body.querySelectorAll('[data-pn]').forEach(b=>b.onclick=()=>{n=+b.dataset.pn;LS.set('pN',n);render(true);});
+  body.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>{E=Math.max(0,Math.min(10,E+(+b.dataset.pe)));LS.set('pE',E);render(true);});
+  body.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{PM=b.dataset.pm;LS.set('pM',PM);render(true);});
+  body.querySelectorAll('[data-pi]').forEach(b=>b.onclick=()=>{pI=Math.max(50,Math.min(5000,pI+50*(+b.dataset.pi)));LS.set('pI',pI);render(true);});
   body.querySelectorAll('[data-ph]').forEach(b=>b.onclick=()=>{hh=+b.dataset.ph;LS.set('pH',hh);render(true);});
   const g=$('pga');if(g)g.onchange=()=>{gaC=g.value;};
   const go=$('pgo');if(go)go.onclick=()=>{if(!gaC)return;const grp=uid();
-   const st=nouvelleAction('diff_pied',{ga:[gaC],nb:n,groupe:grp,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
+   const st=nouvelleAction('diff_pied',{ga:[gaC],nb:2+2*T.length,groupe:grp,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
    st.nom=`Pied d'immeuble ${s.nom}`;lancer(st);ACTIONS.push(st);saisie(st,'pied d\'immeuble lancé : en cours');
    T.forEach((e,k)=>{const a=nouvelleAction('pap',{ga:[gaC],nb:2,groupe:grp,origine:{lot:'pied',secteur:s.nom,equipe:k+1},etapes:e.ids.map(etapeAdr)});
     a.nom=`PAP ${e.rue} (équipe ${k+1}, ${s.nom})`;lancer(a);ACTIONS.push(a);saisie(a,'PAP lancé depuis un pied d\'immeuble');});
@@ -207,3 +210,34 @@ function vuePied(s){let n=LS.get('pN',6),hh=LS.get('pH',2),gaC=gaDefaut()[0]||((
   const f=$('pfini');if(f)f.onclick=()=>{sansToast();const ec=ecPied(s);if(!ec)return;const avant=avance();finirPied(ec);sauverA();dessinerParcours();vibrer();
    stack=[vueBase(),vueNote(ec,avant,"Pied d'immeuble "+s.nom)];render();};
   const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Retiré : '+s.nom);render(true);};}};}
+
+/* ---------------- v17 (31/10/2026, arbitrages JL) : le pourcentage seulement dans le Suivi ; un choix clair « par inscrits »
+   ou « par personnes et temps » ; jusqu'à 5 h ; pieds d'immeuble : 1 à 10 équipes de 2 et le stand, réglés par le temps ou
+   par le nombre d'inscrits ; une cible sur la carte et « Me proposer un PAP dans cette zone » ; un PAP proposé s'agrandit
+   avant « On y va ». */
+const dureeTxt=h=>{const m=Math.max(30,Math.round(h*2)*30);return m<60?'30 min':`${Math.floor(m/60)} h${m%60?' 30':''}`;};
+const libreP=i=>{const a=D.adresses[i];return isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]];};
+/* agrandir un PAP proposé : l'adresse prioritaire libre la plus proche de la dernière, de proche en proche (pasSuivant) */
+function agrandir(lot){if(!lot||!lot.ids.length)return false;const last=lot.ids[lot.ids.length-1],p0=ptA(last),C=[];
+ D.adresses.forEach((a,i)=>{if(libreP(i)&&!lot.ids.includes(i)&&dist(p0,[a[1],a[0]])<800)C.push(i);});
+ const r=pasSuivant(C,j=>dist(p0,ptA(j)),new Set(lot.ids),1e6,last,[250,400,600],false);if(!r)return false;
+ lot.ids.push(r[0]);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);return true;}
+/* le meilleur PAP autour de la cible : on part de chaque adresse prioritaire libre à 350 m au plus, on bâtit le PAP de
+   proche en proche à la taille choisie, on garde le plus efficace (même mesure que les PAP proposés, p6_liste.js) */
+function meilleurPAP(ll){const A=D.adresses,cible=taille,S=[],C=[];
+ A.forEach((a,i)=>{if(!libreP(i))return;const d=dist(ll,[a[1],a[0]]);if(d<1500)C.push(i);if(d<=350&&a[3]<=cible*1.1)S.push([i,d]);});
+ S.sort((x,y)=>x[1]-y[1]);let best=null;
+ for(const [i0] of S.slice(0,60)){const out=[i0],pris=new Set(out);let s=A[i0][3],km=0,cur=i0;
+  while(s<cible*.9){const c0=ptA(cur),r=pasSuivant(C,j=>dist(c0,ptA(j)),pris,cible-s,cur,[250,400],false);if(!r)break;out.push(r[0]);pris.add(r[0]);s+=A[r[0]][3];km+=r[1];cur=r[0];}
+  const e=out.reduce((t,j)=>t+A[j][3]*A[j][5]/100,0)/(km+40*out.length)*(s>=cible*.6?1:.01);
+  if(!best||e>best.e)best={ids:out,ins:s,km,e};}
+ return best?{ll:null,ids:best.ids,ins:best.ins,km:best.km,cible,msg:'',zone:true,rue:ruesDe(best.ids)[0]}:null;}
+/* la cible : au milieu de la partie visible de la carte ; on déplace la carte, puis « Me proposer un PAP dans cette zone » */
+function viseur(on){VIS=!!on;let x=$('visr');
+ if(!x){x=document.createElement('div');x.id='visr';x.hidden=true;
+  x.innerHTML=`<div class="vcx" aria-hidden="true"></div><div class="vbar"><div class="vtx">Déplacez la carte pour mettre la cible sur le quartier voulu.</div><button class="btnf go2" id="vgo">Me proposer un PAP dans cette zone</button><button class="vno" id="vno">Annuler</button></div>`;app.appendChild(x);
+  $('vno').onclick=()=>viseur(false);
+  $('vgo').onclick=()=>{const c=centreVisible(),ll=[c.lat,c.lng];if(!dansCirco(ll)){toast('La cible est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}
+   const l=meilleurPAP(ll);if(!l){toast('Aucune adresse prioritaire libre près de la cible. Déplacez la carte.');return;}viseur(false);preparer(null,'',null,null,null,{lot:l});};}
+ x.hidden=!VIS;
+ if(VIS){if(!wide)setDet('peek');const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(centreVisible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,380);}}
