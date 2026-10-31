@@ -100,9 +100,9 @@ function ecranParis(){
 /* ---------------- ecran 2 : la circonscription et ses quatre missions */
 let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=null,adrL=null,nomsL=null,bvlL=null,stnL=null,lieuxL={},papL=null,lotL=null,selL=null,AM=[],ZC={},bulles=null;
 let mode='pap',ONG='pap',vueMetroJour='now';
-const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:true};
-const CHIPS={pap:[['prio','Prioritaires','--accent'],['zones','Bureaux','--quiet'],['faites','Faites','--ok'],['metro','Métro','--ink']],
- tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Magasins','--sup'],['tMe','Métro','--ink'],['tPi',"Pieds d'immeuble",'--pied']]};
+/* v16 (31/10/2026) : plus de filtres sur le porte-à-porte ; les pieds d'immeuble ont leur onglet (plus dans le tractage) */
+const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:false};
+const CHIPS={pap:[],tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Magasins','--sup'],['tMe','Métro','--ink']]};
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
 const AID=i=>D.adresses[i][2];
@@ -142,9 +142,9 @@ const gaActifs=()=>REF.ga.filter(g=>!g.archive&&(!D||!g.circos||!g.circos.length
 const arrTxt=n=>n?(n===1?'1er':n+'e')+' arrondissement':'arrondissement à indiquer';
 function lireStock(n){
  SEL=LS.get('sel'+n,null);if(!SEL)SEL=LS.get('pap'+n,[])||[];SEL=SEL.filter(i=>D.adresses[i]);
- equipe=LS.get('equipe','');nbm=LS.get('nbm',2);crit=LS.get('crit',{v:2,score:70,ins:6,ni:0});if(crit.ni==null)crit.ni=0;
- /* 20/10/2026 : le score devient un rang dans la circo ; un curseur réglé sur l'ancienne échelle repart à 70 */
- if(crit.v!==2){crit.v=2;crit.score=70;LS.set('crit',crit);}
+ equipe=LS.get('equipe','');nbm=LS.get('nbm',2);
+ /* v16 (31/10/2026) : plus de curseurs ; une adresse prioritaire a une priorité de 70 et plus et 6 inscrits et plus */
+ crit={v:3,score:70,ins:6,ni:0};
  ACTIONS=LS.get('actions'+n,null);if(!ACTIONS){ACTIONS=migrerV4(n);LS.set('actions'+n,ACTIONS);}
  ACTIONS.forEach(a=>{if(CAMP_V1[a.campagne])a.campagne=CAMP_V1[a.campagne];});
  deriver();if(JPRET)jOuvert(n);}
@@ -154,21 +154,26 @@ function migrerV4(n){const out=[],cr=LS.get('cr'+n,[])||[];const lt={'marché':'
   else if(x.type==='boitage')out.push(Object.assign(base,{type:'boitage',etapes:(x.adresses||[]).map(d=>({lieu:{t:'adresse',id:d.adr_id},portes:0,toquees:0,ouvertes:0,st:d.statut==='boite'?'boite':d.statut==='ferme'?'ferme':'',acc:'',boites:0,le}))}));
   else out.push(Object.assign(base,{type:x.type,etapes:[{lieu:{t:lt[x.lieu_type]||'marche',id:x.lieu_nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le}]}));});
  out.forEach(a=>{a.nom=nomDefaut(a);const g=gaActifs()[0];if(g)a.ga=[g.id];});return out;}
-function clearCirco(){[fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL,bulles,...Object.values(lieuxL)].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});}
+function clearCirco(){[fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL,bulles,...Object.values(lieuxL)].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});
+ /* v16 : bureaux du Suivi, secteurs et équipes des pieds d'immeuble (p9_v16.js) */
+ try{[bzL,piL,pfL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});bzL=piL=pfL=null;}catch(e){}}
 async function chargerJSON(url,onp){const r=await fetch(url);if(!r.ok)throw new Error(r.status);const tot=+r.headers.get('content-length')||0;
  if(!r.body||!tot||!onp||!window.TextDecoder)return r.json();const rd=r.body.getReader();const parts=[];let got=0,last=-1;
  for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;const p=Math.min(99,Math.round(100*got/tot));if(p!==last){last=p;onp(p);}}
  const buf=new Uint8Array(got);let o=0;parts.forEach(x=>{buf.set(x,o);o+=x.length;});return JSON.parse(new TextDecoder().decode(buf));}
 /* magasins absents du relevé Google (Apur, commerces 2023), Action et Gifi (v15, 25/10/2026) : un fichier pour tout Paris,
    on garde ceux de la circo (pas ses abords : carte épurée) ; sans affluence */
-let MAGS=null;
+/* v16 : endroit du stand de chaque secteur de pied d'immeuble (d/stands.json, src/prep_stands.py), lu une fois */
+let MAGS=null,STANDS=null;
+function ajouterStands(){if(!STANDS||!STANDS.stands)return;(D.pieds||[]).forEach(s=>{const p=STANDS.stands[s.id];if(p)s.poste=p;});}
 function ajouterMagasins(){if(D._mag||!MAGS||!MAGS.magasins)return;D._mag=1;const b=D.bounds;D.supers=D.supers||[];
  MAGS.magasins.forEach(s=>{if(s.lat<b[0][0]||s.lat>b[1][0]||s.lon<b[0][1]||s.lon>b[1][1]||!dansCirco([s.lat,s.lon]))return;D.supers.push(Object.assign({},s,{dedans:true}));});}
 async function ouvrir(n,ensuite){
  if(!(n>=1&&n<=18)||!peutCirco(n))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;
-  if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();construire();chargerBati(n);chargerParcours(n);}}
+  if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();
+  if(!STANDS)STANDS=await fetch('d/stands.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterStands();construire();chargerBati(n);chargerParcours(n);}}
  catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
  [parisL,eauL,arrL,labL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});sheet.classList.remove('paris');
  [fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL].forEach(l=>{if(l)l.addTo(map);});
@@ -303,7 +308,8 @@ function filtrer(){if(!D)return;adrL.clearLayers();
  styler();}
 function lieux(){if(!D)return;const z=map.getZoom();
  const t=mode==='tractage';
- const on={metro:(t&&chips.tMe)||(mode==='pap'&&chips.metro&&z>=14.75),marches:(t&&chips.tMa)||(mode==='pap'&&z>=15.5),grands:t&&chips.tSu,pieds:t&&chips.tPi};
+ const p=mode==='pap'&&ONG==='pap';
+ const on={metro:(t&&chips.tMe)||(p&&chips.metro&&z>=14.75),marches:(t&&chips.tMa)||(p&&z>=15.5),grands:t&&chips.tSu,pieds:false};
  Object.entries(lieuxL).forEach(([k,l])=>{if(on[k]&&!map.hasLayer(l))l.addTo(map);if(!on[k]&&map.hasLayer(l))map.removeLayer(l);});}
 function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)return;const z=map.getZoom(),b=map.getBounds().pad(.1);
  if(z>=(mode==='boitage'?14.75:15)){let n=0;for(const x of D.fond.noms){if(n>160)break;if(z<16&&x[4]<500&&mode!=='boitage')continue;if(!b.contains([x[1],x[0]]))continue;n++;
@@ -313,23 +319,25 @@ function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)
  if(mode==='tractage'&&chips.tMe&&z>=14.5)D.metro.forEach(s=>{if(!b.contains([s.lat,s.lon]))return;stnL.addLayer(L.marker([s.lat,s.lon],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="stn" style="transform:translate(12px,-50%)">${esc(s.nom)}</div>`})}));});}
 /* au zoom, les points ne changent de taille qu'au passage d'un palier : on ne les restyle qu'à ce moment */
 map.on('zoomend',()=>{if(D&&adrL&&map.hasLayer(adrL)){if(zBucket(map.getZoom())!==dernZ)stylerAdr();lieux();}});
-let mvT=0;map.on('moveend',()=>{if(!D||!adrL||!map.hasLayer(adrL))return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();},150);});
+let mvT=0;map.on('moveend',()=>{if(!D||!adrL)return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();},150);});
 
 /* missions */
-/* trois onglets depuis le 25/10/2026 : Porte-à-porte, Liste (adresses à valider, même carte que le porte-à-porte) et Tractage */
-function setMode(m,first){if(m==='boitage')m='pap';if(m!=='pap'&&m!=='liste'&&m!=='tractage')m='tractage';ONG=m;m=m==='liste'?'pap':m;mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
+/* quatre onglets depuis la v16 (31/10/2026) : Porte-à-porte, Pieds d'immeuble, Tractage et Suivi (qui remplace la Liste).
+   La carte reste en mode « pap » pour les trois onglets autres que le tractage ; majCouches dit ce qu'elle montre. */
+function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(!['pap','pieds','tractage','suivi'].includes(m))m='tractage';ONG=m;m=m==='tractage'?'tractage':'pap';mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
  $('tabbar').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
- ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();
- if(!wide){if(ONG==='liste')setDet('full');else if(det==='full')setDet('peek');}
- show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');if(ONG!=='liste')map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
-$('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);});
+ ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();if(typeof majCouches==='function')majCouches();
+ if(!wide&&det==='full')setDet('peek');
+ show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
+/* toucher l'onglet où l'on est ramène à son accueil (v16) */
+$('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);show(vueBase());}});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
  const sw=k==='prio'?`<i style="background:linear-gradient(90deg,var(--p1),var(--p4))"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
  return `<button class="chip glass" data-k="${k}" aria-pressed="${chips[k]}">${sw}${t}</button>`;}).join('');
  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;chips[k]=!chips[k];b.setAttribute('aria-pressed',chips[k]);
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
   const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
-const vueBase=()=>ONG==='liste'?vueListe():mode==='tractage'?vueTractage():vueAccueil();
+const vueBase=()=>ONG==='suivi'?vueSuivi():ONG==='pieds'?vuePieds():mode==='tractage'?vueTractage():vueAccueil();
 const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.filter(a=>a.type!=='equipe').length})</button>`;
