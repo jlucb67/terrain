@@ -163,9 +163,11 @@ async function chargerJSON(url,onp){const r=await fetch(url);if(!r.ok)throw new 
  const buf=new Uint8Array(got);let o=0;parts.forEach(x=>{buf.set(x,o);o+=x.length;});return JSON.parse(new TextDecoder().decode(buf));}
 /* magasins absents du relevé Google (Apur, commerces 2023), Action et Gifi (v15, 25/10/2026) : un fichier pour tout Paris,
    on garde ceux de la circo (pas ses abords : carte épurée) ; sans affluence */
-/* v16 : endroit du stand de chaque secteur de pied d'immeuble (d/stands.json, src/prep_stands.py), lu une fois */
-let MAGS=null,STANDS=null;
-function ajouterStands(){if(!STANDS||!STANDS.stands)return;(D.pieds||[]).forEach(s=>{const p=STANDS.stands[s.id];if(p)s.poste=p;});}
+/* v17 (31/10/2026, JL : « les zones de pied d'immeuble doivent aller avec là où il y a les PAP ») : les pieds d'immeuble sont
+   des zones tirées des adresses prioritaires, chacune avec l'endroit de son stand (d/pieds_pap.json, src/prep_zones_pieds.py),
+   lu une fois ; elles remplacent les secteurs de circo_KK.json (quartiers prioritaires, logement social) */
+let MAGS=null,ZPP=null;
+function ajouterStands(){if(!ZPP||!ZPP.circos)return;D.pieds=(ZPP.circos[pad2(D.k)]||[]).map(z=>Object.assign({qpv:[],crit:{},hab:0,ls:0,places:[],af:null,metro:null},z));}
 function ajouterMagasins(){if(D._mag||!MAGS||!MAGS.magasins)return;D._mag=1;const b=D.bounds;D.supers=D.supers||[];
  MAGS.magasins.forEach(s=>{if(s.lat<b[0][0]||s.lat>b[1][0]||s.lon<b[0][1]||s.lon>b[1][1]||!dansCirco([s.lat,s.lon]))return;D.supers.push(Object.assign({},s,{dedans:true}));});}
 async function ouvrir(n,ensuite){
@@ -173,7 +175,7 @@ async function ouvrir(n,ensuite){
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;
   if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();
-  if(!STANDS)STANDS=await fetch('d/stands.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterStands();construire();chargerBati(n);chargerParcours(n);}}
+  if(!ZPP)ZPP=await fetch('d/pieds_pap.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterStands();construire();chargerBati(n);chargerParcours(n);}}
  catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
  [parisL,eauL,arrL,labL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});sheet.classList.remove('paris');
  [fondL,zonesL,contourL,adrL,nomsL,bvlL,stnL,papL,lotL,selL].forEach(l=>{if(l)l.addTo(map);});
