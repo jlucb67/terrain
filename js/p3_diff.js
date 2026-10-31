@@ -59,11 +59,12 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
  out.pi.forEach(o=>{if(o.v>=0)o.v=(o.pr+1)*o.v;});
  const tri=TRI==='prio'?(x,y)=>y.pr-x.pr||y.v-x.v:(x,y)=>y.v-x.v||y.pr-x.pr;
  Object.values(out).forEach(l=>l.sort(tri));out.su.sort((x,y)=>petitPrix(y.s)-petitPrix(x.s));return out;}
-const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"],['pi',"Pieds d'immeuble","secteurs"]];
+/* v16 (31/10/2026) : les pieds d'immeuble ont leur onglet ; ils ne sont plus dans le tractage */
+const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
  const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';
- return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}${o.k==='su'&&petitPrix(o.s)?' <span class="lim pp">petits prix</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
+ return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
   <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
@@ -128,7 +129,6 @@ function picSemaine(af){let b=null;af.forEach((r,j)=>r.forEach((v,h)=>{if(v!=nul
 /* ---------------- magasins : affluence heure par heure, jour par jour (relevé Google ; inconnue pour ceux de l'Apur) */
 function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=nomSup(s);let jd=mom().d;
  detail({id:'mg',html:()=>{let h=headHTML(esc(s.ens||s.nom),esc(s.adr),true)+prPhrase([s.lat,s.lon],'su',null,s);
-  if(petitPrix(s))h+=`<div class="sub" style="margin-top:8px">Magasin à petits prix : priorité 100 d'office.</div>`;
   h+=equipeHTML(nom,[1,2,3,4,5,6,0]);
   if(s.af){const v=s.af[JAF(jd)],ou=v.some(x=>x>0);
    h+=`<h2>Affluence</h2>${jourSegHTML(jd)}`+(ou?`<div class="chart">${chartH(v,jd===mom().d?mom().h:-1,'Affluence par heure')}</div><div class="peak">Le plus de monde : ${pointes(v)}</div>`:`<div class="empty">Fermé ce jour-là.</div>`);}
@@ -156,7 +156,7 @@ function ouvrirStation(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s
   return h;},after:()=>{body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});lierEquipe(s.nom,'station');lierHisto(s.nom,'station');}});}
 
 /* ---------------- pieds d'immeuble : secteurs de quartiers prioritaires, de logement social ou d'adresses prioritaires */
-function ouvrirPied(s){sel(null);if(det==='peek')setDet('half');try{map.flyToBounds(s._g.getBounds(),{...pad(),maxZoom:17,duration:.4});}catch(e){voir([s.lat,s.lon],16.5);}let jd=mom().d;
+function ouvrirPiedV15(s){sel(null);if(det==='peek')setDet('half');try{map.flyToBounds(s._g.getBounds(),{...pad(),maxZoom:17,duration:.4});}catch(e){voir([s.lat,s.lon],16.5);}let jd=mom().d;
  detail({id:'pi',html:()=>{let h=headHTML(esc(s.nom),s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
   const tg=[];if(s.qpv.length)tg.push('Quartier prioritaire');if(s.crit.ls)tg.push('Logement social');if(s.crit.prio)tg.push('Adresses prioritaires');
   h+=`<div class="tags">${tg.map(t=>`<span>${t}</span>`).join('')}</div>`;
