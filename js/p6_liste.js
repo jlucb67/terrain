@@ -32,7 +32,7 @@ function vueListe(){return {id:'base',
   body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes();});
   $('lres').onclick=clicRes;lierQA();suite();}};}
 /* toutes les adresses de la circo, par rue puis par numéro (JL, 25/10/2026), ou par priorité, ou par inscrits ; la recherche filtre */
-const resHTML=()=>rechercheHTML();
+const resHTML=()=>LQ?rechercheHTML():'';
 function compteListe(){let pr=0,f=0;D.adresses.forEach(a=>{if(isPr(a))pr++;if(statutA(a[2])==='fait')f++;});return `${pl(D.adresses.length,'adresse')} · ${n0(pr)} prioritaires · <span class="g">${pl(f,'faite')}</span>`;}
 function majRes(keep){const r=$('lres');if(!r)return;const y=body.scrollTop;r.innerHTML=resHTML();body.scrollTop=keep?y:0;const c=$('lsub');if(c)c.innerHTML=compteListe();suite();}
 var lObs=null;
@@ -230,7 +230,7 @@ function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,c
  else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150),v=A[i][3]*A[i][5];const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
  /* un lot ne change que si une de ses adresses est retirée : retirer une adresse qu'il n'a pas prise ne change pas ses choix */
  while(res.length<6){let best=null;
-  for(const i of SEM){if(!ok[i]||A[i][3]>cible*1.5)continue;let r=memo[i];
+  for(const i of SEM){if(!ok[i]||A[i][3]>cible*1.1)continue;let r=memo[i];
    if(!r||r.ids.some(j=>!ok[j])){r=lot(i);r.e=r.ins<cible*.6?-1:r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100,0)/(r.km+40*r.ids.length);memo[i]=r;}
    if(r.e>=0&&(!best||r.e>best.e))best=r;}
   if(!best)break;best=Object.assign({},best,{ids:best.ids.slice()});res.push(best);best.ids.forEach(j=>ok[j]=0);
@@ -240,28 +240,10 @@ function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,c
   z.nums=Object.entries(r).map(([v,ids])=>{const ns=ids.map(i=>D.adresses[i][2].slice(0,Math.max(0,D.adresses[i][2].length-v.length)).trim()||D.adresses[i][2]);return (ns.length>1?ns.slice(0,-1).join(', ')+' et '+ns[ns.length-1]:ns[0])+' '+v;}).join(' · ');});
  CONS=res;CONS_K=cle;if(CSEL>=res.length)CSEL=0;return res;}
 function consLot(r){const z=conseilles()[r-1];return z?{ll:null,ids:z.ids.slice(),ins:z.ins,km:z.km,cible:taille,msg:'',rang:r,rue:z.rue}:null;}
-function consHTML(){const C=conseilles();
- let h=`<div class="csh"><h1>PAP conseillés</h1></div>`;
- h+=`<div class="sub">${wide?'Les plus efficaces d\'abord : le plus d\'inscrits prioritaires pas encore vus, le moins de marche. Mis à jour à chaque validation.':'Les plus efficaces d\'abord'}</div>`;
- h+=tailleHTML('cTa','Taille');
- if(!C.length)return h+`<div class="empty">Aucune adresse prioritaire libre. Baissez les curseurs.</div>`;
- if(wide)return h+`<div style="margin-top:10px">`+C.map((z,k)=>`<div class="dk${k===CSEL?' on':''}" data-ck="${k}"><span class="rk">${k+1}</span><div><b>${esc(z.rue)}</b><small>${z.ins} inscrits · ${pl(z.ids.length,'adresse')}${z.ids.length>1?` · ${m10(z.km)} m de marche`:''}</small></div>${pillH(k===CSEL?'b':'p',`data-cs="${k}"`,'Choisir')}</div>`).join('')+`</div>`;
- return h+`<div class="car" id="car">${C.map((z,k)=>`<div class="cc${k===CSEL?' on':''}" data-ck="${k}"><div class="t"><span class="rk">${k+1}</span><b>${esc(z.rue)}</b></div><small>${esc(z.nums)}</small><div class="st"><span><b>${z.ins}</b>inscrits</span><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span>${z.ids.length>1?`<span><b>${m10(z.km)} m</b>de marche</span>`:''}</div><button class="go" data-cs="${k}">Choisir ce PAP</button></div>`).join('')}</div><div class="dots" id="cdots">${C.map((z,k)=>`<i${k===CSEL?' class="on"':''}></i>`).join('')}</div>`;}
-function lierCons(){const cb=$('cons');if(!cb)return;
- lierTaille('cTa',()=>{CSEL=0;majCons();});
- cb.onclick=ev=>{const s=ev.target.closest('[data-cs]');if(s){const k=+s.dataset.cs;preparer(null,'',null,null,null,{r:k+1});return;}
-  const c=ev.target.closest('[data-ck]');if(c)choisirCons(+c.dataset.ck,false,true);};
- const car=$('car');if(car){let t=0;car.onscroll=()=>{clearTimeout(t);t=setTimeout(()=>{const w=car.firstElementChild?car.firstElementChild.offsetWidth+10:1,k=Math.max(0,Math.min(car.children.length-1,Math.round(car.scrollLeft/w)));if(k!==CSEL)choisirCons(k,false,false);},90);};}}
-function majCons(){const cb=$('cons');if(!cb)return;cb.innerHTML=consHTML();lierCons();dessinerCons();}
-/* choisir un PAP conseillé : il s'allume sur la carte et dans la liste ; touché sur la carte, la liste vient à lui */
-function choisirCons(k,carte,voirC){CSEL=k;const car=$('car');
- body.querySelectorAll('[data-ck]').forEach(x=>x.classList.toggle('on',+x.dataset.ck===k));
- body.querySelectorAll('.dk .pill').forEach(x=>{const on=+x.dataset.cs===k;x.classList.toggle('b',on);x.classList.toggle('p',!on);});
- const dt=$('cdots');if(dt)[...dt.children].forEach((x,j)=>x.classList.toggle('on',j===k));
- if(carte&&car&&car.children[k])car.scrollTo({left:car.children[k].offsetLeft-18,behavior:'smooth'});
- dessinerCons();const z=(CONS||[])[k];if(z&&(carte||voirC))map.flyToBounds(L.latLngBounds(z.ids.map(ptA)).pad(.6),{...pad(),maxZoom:17,duration:.5});}
+/* v16 (31/10/2026) : l'accueil du porte-à-porte montre les 3 premiers (p9_v16.js) ; sur la carte, un cercle numéroté par PAP
+   proposé, qui ouvre sa fiche */
 function dessinerCons(){if(!D||typeof L==='undefined')return;if(!consL)consL=L.layerGroup().addTo(map);consL.clearLayers();const v=stack[stack.length-1];
- if(ONG!=='pap'||mode!=='pap'||!v||v.id!=='base')return;const C=conseilles(),ac=tok('--accent');
- C.forEach((z,k)=>{const P=z.ids.map(ptA),c=[P.reduce((s,p)=>s+p[0],0)/P.length,P.reduce((s,p)=>s+p[1],0)/P.length],r=Math.max(...P.map(p=>dist(c,p)))+28,on=k===CSEL;
-  L.circle(c,{renderer:rP,radius:r,color:ac,weight:on?1.6:1,opacity:on?.9:.45,fillColor:ac,fillOpacity:on?.16:.08,interactive:false}).addTo(consL);
-  L.marker(c,{pane:'pap',zIndexOffset:on?1000:0,icon:L.divIcon({className:'',html:`<div class="cbad${on?' on':''}">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>choisirCons(k,true)).addTo(consL);});}
+ if(ONG!=='pap'||mode!=='pap'||!v||v.id!=='base')return;const C=conseilles().slice(0,3),ac=tok('--accent');
+ C.forEach((z,k)=>{const P=z.ids.map(ptA),c=[P.reduce((s,p)=>s+p[0],0)/P.length,P.reduce((s,p)=>s+p[1],0)/P.length],r=Math.max(...P.map(p=>dist(c,p)))+28,on=k===0;
+  L.circle(c,{renderer:rP,radius:r,color:ac,weight:on?1.6:1,opacity:on?.9:.5,fillColor:ac,fillOpacity:on?.16:.08,interactive:false}).addTo(consL);
+  L.marker(c,{pane:'pap',zIndexOffset:on?1000:0,icon:L.divIcon({className:'',html:`<div class="cbad${on?' on':''}">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>preparer(null,'',null,null,null,{r:k+1})).addTo(consL);});}
