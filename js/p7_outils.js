@@ -23,10 +23,10 @@ function enregistrerHisto(L){let n=0;const G={};
 
 /* ---- saisie à la main : une date, un GA, faite ou pas pu entrer, on coche les adresses */
 let ANC=null;
-function vueAncien(){if(!ANC||ANC.k!==D.k)ANC={k:D.k,q:hier(),ga:gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',st:'faite',t:'',c:new Set()};const S=ANC;
- const lst=()=>{const n=normA(S.t.trim());if(n.length<2)return [];const r=[];
-  for(let i=0;i<D.adresses.length&&r.length<80;i++)if(normA(D.adresses[i][2]).includes(n))r.push(i);
-  return r.sort((x,y)=>(ADRP[x].voie||'').localeCompare(ADRP[y].voie||'')||ADRP[x].num-ADRP[y].num);};
+function vueAncien(){if(!ANC||ANC.k!==D.k)ANC={k:D.k,q:hier(),ga:gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',st:'faite',t:'',c:new Set(),n:200};const S=ANC;
+ /* v21 (JL, 01/11/2026 : « de base mettre toutes les adresses, qu'on les voie pour les cocher ou non ») : toutes les adresses,
+    par rue puis par numéro (même ordre que le Suivi), 200 à la fois ; la recherche filtre */
+ const lst=()=>{const n=normA(S.t.trim()),o=ordreAdrRue();return n.length<2?o:o.filter(i=>normA(D.adresses[i][2]).includes(n));};
  const row=i=>{const a=D.adresses[i],f=statutA(a[2])==='fait',p=(PASS[a[2]]||[])[0],c=S.c.has(i);
   return `<label class="hrow${f&&!c?' dis':''}"><input type="checkbox" data-hc="${i}"${c?' checked':''}><span><b>${esc(a[2])}</b><small>Bureau ${esc(a[8])} · ${pl(a[3],'inscrit')}${p?' · faite le '+fmtJ(p.q):''}</small></span></label>`;};
  const bouton=()=>{const n=S.c.size,ok=n&&S.q&&S.q<=auj10();return `<button class="btn primary" id="hSv"${ok?'':' disabled'}>${I.check} ${n?`Enregistrer ${pl(n,'adresse')} ${S.st==='faite'?(n>1?'faites':'faite'):'« pas pu entrer »'} le ${fmtJ(S.q+'T12:00')}`:'Cochez les adresses'}</button>`;};
@@ -39,13 +39,15 @@ function vueAncien(){if(!ANC||ANC.k!==D.k)ANC={k:D.k,q:hier(),ga:gaDefaut()[0]||
   h+=`<div id="hL">${listeHTML2()}</div><div class="btns" id="hB">${bouton()}</div>`;return h;},
  after:()=>{$('hD').onchange=e=>{S.q=e.target.value;$('hB').innerHTML=bouton();lierSv();};$('hG').onchange=e=>{S.ga=e.target.value;};
   body.querySelectorAll('[data-hs]').forEach(b=>b.onclick=()=>{S.st=b.dataset.hs;body.querySelectorAll('[data-hs]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('hB').innerHTML=bouton();lierSv();});
-  let t=0;$('hQ').oninput=e=>{S.t=e.target.value;clearTimeout(t);t=setTimeout(()=>{$('hL').innerHTML=listeHTML2();lierC();},150);};
+  const majL=()=>{$('hL').innerHTML=listeHTML2();lierC();lierM();},lierM=()=>{const m=$('hM');if(m)m.onclick=()=>{S.n+=200;majL();};};
+  let t=0;$('hQ').oninput=e=>{S.t=e.target.value;S.n=200;clearTimeout(t);t=setTimeout(majL,150);};
   const lierC=()=>body.querySelectorAll('[data-hc]').forEach(c=>c.onchange=()=>{const i=+c.dataset.hc;if(c.checked)S.c.add(i);else S.c.delete(i);c.closest('.hrow').classList.toggle('dis',!c.checked&&statutA(AID(i))==='fait');$('hB').innerHTML=bouton();lierSv();});
   const lierSv=()=>{const b=$('hSv');if(b)b.onclick=()=>{if(!S.c.size||!S.q||S.q>auj10())return;const n=enregistrerHisto([...S.c].map(i=>({i,q:S.q,ga:S.ga,st:S.st})));const q=S.q;S.c=new Set();back();toast(`${pl(n,'adresse')} ajoutée${n>1?'s':''} au ${fmtJ(q+'T12:00')}`);};};
-  lierC();lierSv();}};
- function listeHTML2(){const r=lst(),cs=[...S.c].filter(i=>!r.includes(i));
-  if(!r.length&&!cs.length)return `<div class="hint" style="margin-top:12px">Tapez le nom d'une rue, puis cochez les adresses faites ce jour-là.</div>`;
-  return (cs.length?`<h2>Cochées</h2>`+cs.map(row).join(''):'')+(r.length?(cs.length?'<h2>Résultats</h2>':'')+r.map(row).join(''):S.t.trim().length>1?`<div class="empty">Aucune adresse de la ${D.k}e circonscription ne correspond.</div>`:'');}}
+  lierC();lierM();lierSv();}};
+ function listeHTML2(){const r=lst(),rs=new Set(r),cs=[...S.c].filter(i=>!rs.has(i)),v=r.slice(0,S.n);let h='',rue=null;
+  v.forEach(i=>{const w=ADRP[i].voie;if(w!==rue){rue=w;h+=`<div class="side">${esc(w)}</div>`;}h+=row(i);});
+  return `<div class="hint" style="margin-top:10px">Cochez les adresses faites ce jour-là. Tapez une rue pour aller plus vite.</div>`+(cs.length?`<h2>Cochées</h2>`+cs.map(row).join(''):'')+
+   (r.length?(cs.length?'<h2>Adresses</h2>':'')+h+(r.length>S.n?`<button class="lnk2 c" id="hM">Afficher la suite · ${pl(r.length-S.n,'adresse')}</button>`:''):`<div class="empty">Aucune adresse de la ${D.k}e circonscription ne correspond.</div>`);}}
 
 /* ---- import d'un fichier : .xlsx (lu dans le téléphone, sans module en plus) ou .csv ; colonnes Adresse et Date,
    facultatif Résultat et GA ; ce qui n'est pas reconnu se corrige dans la ligne */
