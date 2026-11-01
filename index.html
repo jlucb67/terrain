@@ -701,6 +701,34 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
  #app.tabs .toast{left:calc(236px + 210px)}
  #app.tabs:not(.page) #fBig{display:none}
 }
+/* v22 (01/11/2026, JL : « en web, la page est pas bien utilisée pour sondage et suivi ») : sur ordinateur, Suivi et Sondage
+   prennent toute la place à droite de la barre (plus de carte ni de recherche autour) ; à partir de 1180 px, deux colonnes :
+   Suivi, chiffres et bureaux à gauche, toutes les adresses à droite ; Sondage, réglages et Copier à gauche, options à droite
+   (deux par rangée). La colonne de gauche reste en place quand on descend dans la liste. Téléphone : inchangé, sauf la
+   case « Référent et téléphone » du sondage, un peu plus large que « RDV » (partout), pour que le texte tienne. */
+.pg2.sond{display:flex;flex-direction:column}.pg2.sond .pcl{display:contents}
+.pg2.sond .pgh{order:0}.pg2.sond .pc1{order:1}.pg2.sond .pc2{order:2}.pg2.sond .pc3{order:3}
+.pgh{position:relative}
+.sl2{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+@media (min-width:900px){
+ #app.tabs.page .top{display:none}
+ #app.tabs.page .sheet{left:220px;right:0;top:0;bottom:0;width:auto;max-width:none;border:0;border-radius:0;box-shadow:none}
+ #app.tabs.page .body{max-width:none;padding:30px max(40px,calc((100% - 1180px) / 2)) 48px}
+ #app.tabs.page .body:not(:has(>.pg2)){padding-left:max(40px,calc((100% - 760px) / 2));padding-right:max(40px,calc((100% - 760px) / 2))}
+ #app.tabs.page .pg2{max-width:760px;margin:0 auto}
+ #app.tabs.page .csh h1,#app.tabs.page .pgh .head h1{font-size:26px}
+ #app.tabs.page #sMenu{position:absolute;right:0;top:46px;width:460px;z-index:5;margin:0}
+ #app.tabs.page .toast{left:calc(110px + 50vw)}
+}
+@media (min-width:1180px){
+ #app.tabs.page .pg2{max-width:none;display:grid;grid-template-columns:400px minmax(0,1fr);column-gap:48px;align-items:start}
+ #app.tabs.page .pg2.sond{grid-template-columns:340px minmax(0,1fr)}
+ #app.tabs.page .pg2 .pgh{grid-column:1/-1;margin-bottom:6px}
+ #app.tabs.page .pg2 .pcl{display:block;position:sticky;top:0;max-height:calc(100vh - 78px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:6px}
+ #app.tabs.page .pg2 .pc2>h2:first-child{margin-top:12px}
+ #app.tabs.page .pg2.sond #sL{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;margin-top:10px}
+ #app.tabs.page .pg2.sond #sL .sl{margin-top:0;align-content:start}
+}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tabbar .sbh .lg-v{display:none}:root:not([data-theme="light"]) .tabbar .sbh .lg-b{display:block}}
 :root[data-theme="dark"] .tabbar .sbh .lg-v{display:none}:root[data-theme="dark"] .tabbar .sbh .lg-b{display:block}
 
