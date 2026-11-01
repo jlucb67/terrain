@@ -129,7 +129,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
 /* ---- ce que la carte montre selon l'onglet : points des adresses (porte-à-porte, tractage), bureaux colorés par
    leur avancement (Suivi), secteurs colorés par leur priorité et tentes (pieds d'immeuble) */
 let bzL=null,piL=null,pfL=null;
-function majCouches(){if(!D||typeof L==='undefined')return;
+function majCouches(){if(!D||typeof L==='undefined')return;if(VIS&&ONG!=='pap')viseur(false);
  if(adrL){const on=ONG==='pap'||ONG==='tractage';if(on&&!map.hasLayer(adrL)){adrL.addTo(map);stylerAdr();}else if(!on&&map.hasLayer(adrL))map.removeLayer(adrL);}
  if(bzL){map.removeLayer(bzL);bzL=null;}if(piL){map.removeLayer(piL);piL=null;}if(pfL&&ONG!=='pieds'){map.removeLayer(pfL);pfL=null;}
  if(ONG==='suivi'){const B={};parBureau().forEach(o=>B[o.b]=o);
@@ -234,14 +234,19 @@ function meilleurPAP(ll){const A=D.adresses,cible=taille,S=[],C=[];
   const e=out.reduce((t,j)=>t+A[j][3]*A[j][5]/100,0)/(km+40*out.length)*(s>=cible*.6?1:.01);
   if(!best||e>best.e)best={ids:out,ins:s,km,e};}
  return best?{ll:null,ids:best.ids,ins:best.ins,km:best.km,cible,msg:'',zone:true,rue:ruesDe(best.ids)[0]}:null;}
-/* la cible : au milieu de la partie visible de la carte ; on déplace la carte, puis « Me proposer un PAP dans cette zone » */
-function viseur(on){VIS=!!on;let x=$('visr');
+/* la cible (v20, JL : « dur de cibler, on ne voit rien ») : la liste se range, la carte prend l'écran, la cible au milieu de
+   la partie visible ; en bas, un bouton fin « PAP ici » et une croix pour annuler ; une petite bulle en haut dit quoi faire */
+let VDET='half';
+function ptCible(){const x=$('visr');if(wide||!x)return centreVisible();const t=($('searchbox').getBoundingClientRect().bottom||76)+4,b=(x.querySelector('.vbar').getBoundingClientRect().top||app.clientHeight)-4;
+ return map.containerPointToLatLng([app.clientWidth/2,(t+b)/2]);}
+function viseur(on){const avant=VIS;VIS=!!on;let x=$('visr');
  if(!x){x=document.createElement('div');x.id='visr';x.hidden=true;
-  x.innerHTML=`<div class="vcx" aria-hidden="true"></div><div class="vbar"><div class="vtx">Déplacez la carte pour mettre la cible sur le quartier voulu.</div><button class="btnf go2" id="vgo">Me proposer un PAP dans cette zone</button><button class="vno" id="vno">Annuler</button></div>`;app.appendChild(x);
+  x.innerHTML=`<div class="vtip">Placez la cible sur le quartier voulu</div><div class="vcx" aria-hidden="true"></div><div class="vbar"><button class="vno" id="vno" aria-label="Annuler">${I.x}</button><button class="btnf go2" id="vgo">PAP ici</button></div>`;app.appendChild(x);
   $('vno').onclick=()=>viseur(false);
-  $('vgo').onclick=()=>{const c=centreVisible(),ll=[c.lat,c.lng];if(!dansCirco(ll)){toast('La cible est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}
+  $('vgo').onclick=()=>{const c=ptCible(),ll=[c.lat,c.lng];if(!dansCirco(ll)){toast('La cible est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}
    const l=meilleurPAP(ll);if(!l){toast('Aucune adresse prioritaire libre près de la cible. Déplacez la carte.');return;}viseur(false);preparer(null,'',null,null,null,{lot:l});};}
- x.hidden=!VIS;
- if(VIS){if(!wide)setDet('peek');const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(centreVisible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,380);}}
+ x.hidden=!VIS;app.classList.toggle('vis',VIS);
+ if(VIS){if(!avant)VDET=det;const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(ptCible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,60);}
+ else if(avant&&!wide)setDet(VDET||'half');}
 /* v19 : agrandir la carte (téléphone) : la liste descend, la carte prend l'écran ; une 2e touche la remet */
 $('fBig').onclick=()=>{setDet(det==='peek'?'half':'peek');setTimeout(()=>map.invalidateSize(),320);};
