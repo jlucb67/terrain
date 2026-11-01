@@ -154,29 +154,42 @@ const JL7=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],MO
 const lundiS=d=>{const x=new Date(d);x.setHours(12,0,0,0);x.setDate(x.getDate()+((1-x.getDay()+7)%7));return x;};
 const jourTxt=q=>{const x=toD(q+'T12:00');return JL7[x.getDay()]+' '+pad2(x.getDate())+'/'+pad2(x.getMonth()+1);};
 const dLong=x=>JL7[x.getDay()].toLowerCase()+' '+x.getDate()+(x.getDate()===1?'er':'')+' '+MOIS7[x.getMonth()];
-const ligneS=o=>[o.d?jourTxt(o.d):'',o.h,o.t,o.l,o.r,o.p].map(x=>String(x||'').trim()).filter(Boolean).join(' - ');
+/* v23 (JL, 01/11/2026 : « pas besoin de RDV ») : le lieu porte le numéro de la 1re adresse du PAP, ou le stand ; plus de champ RDV */
+const ligneS=o=>[o.d?jourTxt(o.d):'',o.h,o.t,o.l,o.p].map(x=>String(x||'').trim()).filter(Boolean).join(' - ');
 const prenomTel=u=>{const p=(u.nom||'').trim().split(/\s+/)[0]||'',c=String(u.contact||'').replace(/[\s.]/g,'');return (p+(/^\+?\d{9,}$/.test(c)?' '+c:'')).trim();};
+/* v23 (JL : « référent et téléphone : pouvoir en ajouter au fur et à mesure, seulement pour son GA, et supprimer ») : les membres
+   du GA et ceux ajoutés à la main, gardés sur cet appareil (refs_<GA>) ; un membre retiré est caché (refsX_<GA>) */
+const refsGA=ga=>{const H=new Set(LS.get('refsX_'+ga,[])),M=REF.users.filter(u=>u.actif!==false&&(u.ga||[]).includes(ga)).sort((x,y)=>(x.profil==='admin')-(y.profil==='admin')).map(prenomTel).filter(Boolean);
+ return [...new Set([...M,...LS.get('refs_'+ga,[])])].filter(x=>!H.has(x));};
+function retirerRef(ga,t){const A=LS.get('refs_'+ga,[]);if(A.includes(t))LS.set('refs_'+ga,A.filter(x=>x!==t));else LS.set('refsX_'+ga,[...new Set([...LS.get('refsX_'+ga,[]),t])]);}
+function ajouterRef(ga,t){LS.set('refsX_'+ga,LS.get('refsX_'+ga,[]).filter(x=>x!==t));const A=LS.get('refs_'+ga,[]);if(!A.includes(t))LS.set('refs_'+ga,A.concat([t]));}
+const PHRASE_V22=' Tracts : à compléter. Vous pouvez vous y inscrire si vous le désirez.';
 let SOND=null;
 function semaineS(deb){const x=toD(deb+'T12:00'),j=[];for(let k=0;k<7;k++){const y=new Date(x);y.setDate(x.getDate()+k);j.push(isoD(y).slice(0,10));}return j;}
 function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
- const ref=REF.users.find(u=>u.actif!==false&&(u.ga||[]).includes(ga)&&u.profil!=='admin')||REF.users.find(u=>(u.ga||[]).includes(ga));const p=ref?prenomTel(ref):'';
+ const p=refsGA(ga)[0]||'';
  ACTIONS.forEach(a=>{if(!(a.ga||[]).includes(ga))return;
   if(a.type==='equipe'&&a.etapes[0]){const l=a.etapes[0].lieu,j=(a.jours||[]);
    const t=l.t==='station'?'Diffusion':l.t==='marche'?l.id:l.t==='commerce'?'Diffusion':l.t==='parcours'?l.id.split(' · ')[0]:'Diffusion',lieu=l.t==='station'?'Métro '+l.id:l.t==='marche'?'':l.t==='parcours'?l.id.split(' · ').slice(1).join(' · '):l.id;
-   J.forEach(q=>{if(j.includes(toD(q+'T12:00').getDay()))L.push({d:q,h:'',t,l:lieu,r:'',p});});}
+   J.forEach(q=>{if(j.includes(toD(q+'T12:00').getDay()))L.push({d:q,h:'',t,l:lieu,p});});}
   /* v19 (JL, 01/11/2026 : « quand on met un PAP en cours, il doit se préremplir dans la partie sondage ») : les PAP en cours et les
      pieds d'immeuble en cours y sont, datés du jour prévu s'il tombe dans la semaine, sinon du premier jour (modifiable) */
   else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&a.encours))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
-   L.push({aid:a.id,d:dans?q:deb,h:/T\d/.test(a.prevue||'')?a.prevue.slice(11,13)+'h':'',t:a.type==='pap'?'Porte-à-porte':"Pied d'immeuble",l:a.type==='pap'?((a.nom||'').replace(/^PAP /,'')||(a.etapes[0]||{lieu:{id:''}}).lieu.id):(a.etapes[0]||{lieu:{id:''}}).lieu.id,r:'',p});}});
+   L.push({aid:a.id,d:dans?q:deb,h:/T\d/.test(a.prevue||'')?a.prevue.slice(11,13)+'h':'',t:a.type==='pap'?'Porte-à-porte':"Pied d'immeuble",l:lieuS(a),p});}});
  L.sort((x,y)=>x.d.localeCompare(y.d));
  const x=toD(deb+'T12:00'),y=toD(fin+'T12:00');
- return {q:`Bonjour, voici le calendrier des actions du ${dLong(x)} au ${dLong(y)}. Tracts : à compléter. Vous pouvez vous y inscrire si vous le désirez.`,L};}
+ return {q:`Bonjour, voici le calendrier des actions du ${dLong(x)} au ${dLong(y)}.`,L};}
+/* lieu du rendez-vous : la 1re adresse du PAP, avec son numéro ; pour un pied d'immeuble, l'endroit du stand */
+function lieuS(a){const id=(a.etapes[0]||{lieu:{id:''}}).lieu.id;if(a.type==='pap')return id||(a.nom||'').replace(/^PAP /,'');
+ const s=(D.pieds||[]).find(x=>x.nom===id);return s&&s.poste?s.poste.txt:id;}
 function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:isoD(lundiS(new Date())).slice(0,10)};const S=SOND;
- const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));let n=0;prerempliS(S.ga,S.deb).L.forEach(o=>{if(o.aid&&!vu.has(o.aid)){S.b.L.push(o);n++;}});if(n)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));}},garde=()=>LS.set(cle(),S.b);charge();
- const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o);
+ const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const N=prerempliS(S.ga,S.deb).L,vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));let n=0;N.forEach(o=>{if(o.aid&&!vu.has(o.aid)){S.b.L.push(o);n++;}});if(n)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));
+  /* brouillons d'avant la v23 : phrase des tracts retirée, rue remplacée par l'adresse avec son numéro, plus de RDV */
+  S.b.q=S.b.q.replace(PHRASE_V22,'');S.b.L.forEach(o=>{delete o.r;const z=o.aid&&N.find(x=>x.aid===o.aid);if(z&&z.l!==o.l&&z.l.endsWith(o.l))o.l=z.l;});}},garde=()=>LS.set(cle(),S.b);charge();
+ const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o),R=refsGA(S.ga);
   return `<div class="sl" data-k="${k}"><div class="sl1"><span class="n">${k+1}</span><label class="chs"><select data-f="d" aria-label="Jour">${J.map(q=>`<option value="${q}"${q===o.d?' selected':''}>${jourTxt(q)}</option>`).join('')}</select>${I.down}</label><input data-f="h" value="${esc(o.h)}" placeholder="Heure" aria-label="Heure"><button class="xb" data-sx="${k}" aria-label="Retirer la ligne ${k+1}">${I.x}</button></div>
    <input data-f="t" value="${esc(o.t)}" placeholder="Action : Porte-à-porte, Marché d'Aligre, Diffusion…" aria-label="Action"><input data-f="l" value="${esc(o.l)}" placeholder="Lieu : 5 rue Eugénie Eboué, Métro…" aria-label="Lieu">
-   <div class="sl2"><input data-f="r" value="${esc(o.r)}" placeholder="RDV (facultatif)" aria-label="Rendez-vous"><input data-f="p" value="${esc(o.p)}" list="sRef" placeholder="Référent et téléphone" aria-label="Référent"></div>
+   <label class="chs slr"><select data-f="p" aria-label="Référent"><option value="">Pas de référent</option>${R.concat(o.p&&!R.includes(o.p)?[o.p]:[]).map(t=>`<option value="${esc(t)}"${t===o.p?' selected':''}>${esc(t)}</option>`).join('')}</select>${I.down}</label>
    <div class="slp"><span class="tx2">${esc(t)}</span><span class="cn${t.length>100?' over':''}">${t.length} / 100</span></div></div>`;};
  return {id:base?'base':'sond',html:()=>{const B=S.b,x=toD(S.deb+'T12:00'),y=new Date(x);y.setDate(x.getDate()+6);
   /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, les réglages et le bouton Copier à gauche, les options
@@ -185,14 +198,18 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
   h+=`<div class="fl"><span>Groupe d'action</span><label class="chs"><select id="sG" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
   const dc=z=>z.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
   h+=`<div class="wk"><button id="sP" aria-label="Semaine précédente">‹</button><b>${cap(dc(x))} au ${dc(y)}</b><button id="sN" aria-label="Semaine suivante">›</button></div>`;
-  h+=`<div class="fl"><span>Question</span><textarea class="mq-ta" id="sQ" aria-label="Question">${esc(B.q)}</textarea><div class="cnt${B.q.length>300?' over':''}" id="sQc"><b>${B.q.length}</b> / 300 signes</div></div></div>`;
+  h+=`<div class="fl"><span>Question</span><textarea class="mq-ta" id="sQ" aria-label="Question">${esc(B.q)}</textarea><div class="cnt${B.q.length>300?' over':''}" id="sQc"><b>${B.q.length}</b> / 300 signes</div></div>`;
+  const R=refsGA(S.ga);
+  h+=`<div class="fl"><span>Référents du GA</span><div class="rfl">${R.length?R.map((t,k)=>`<span class="rfc">${esc(t)}<button data-rx="${k}" aria-label="Retirer ${esc(t)}">${I.x}</button></span>`).join(''):'<small class="sub">Aucun référent pour ce GA : ajoutez-en un.</small>'}</div>`+
+   `<div class="rfa"><input class="mq-in" id="rfN" placeholder="Prénom" autocomplete="off" aria-label="Prénom du référent"><input class="mq-in" id="rfT" placeholder="Téléphone" inputmode="tel" autocomplete="off" aria-label="Téléphone du référent"><button class="btn" id="rfA">${I.plus} Ajouter</button></div><small class="sub">Liste gardée sur cet appareil.</small></div></div>`;
   const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Repartir des actions prévues</button></div>`;
   h+=pc3+`</div><div class="pc2"><h2>Options : ${B.L.length} sur 12</h2>`+(B.L.length>12?`<div class="note">Telegram n'accepte que 12 options : retirez-en ${B.L.length-12}.</div>`:'');
   h+=B.L.length?`<div id="sL">${B.L.map(opt).join('')}</div>`:`<div class="empty">Aucune action prévue pour ce GA cette semaine. Ajoutez des lignes.</div>`;
-  h+=`<datalist id="sRef">${REF.users.filter(u=>u.actif!==false).map(u=>`<option value="${esc(prenomTel(u))}">${esc(u.nom)}</option>`).join('')}</datalist>`;
   h+=`<button class="lnk2 c" id="sA" style="margin-top:10px">+ Ajouter une ligne (manif, réunion…)</button></div></div>`;return h;},
  after:()=>{const B=S.b;$('sG').onchange=e=>{S.ga=e.target.value;charge();render(true);};
   const dec=n=>{const z=toD(S.deb+'T12:00');z.setDate(z.getDate()+n);S.deb=isoD(z).slice(0,10);charge();render();};$('sP').onclick=()=>dec(-7);$('sN').onclick=()=>dec(7);
+  body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>{const t=refsGA(S.ga)[+b.dataset.rx];if(!t)return;retirerRef(S.ga,t);render(true);toast(t+' retiré de la liste',{t:'Annuler',fn:()=>{ajouterRef(S.ga,t);render(true);}});});
+  $('rfA').onclick=()=>{const n=$('rfN').value.trim(),tel=$('rfT').value.replace(/[\s.]/g,'');if(!n){toast('Indiquez le prénom du référent.');$('rfN').focus();return;}const t=(n+(tel?' '+tel:'')).trim();ajouterRef(S.ga,t);render(true);toast(t+' ajouté à la liste');};
   $('sQ').oninput=e=>{B.q=e.target.value;garde();const c=$('sQc');c.innerHTML=`<b>${B.q.length}</b> / 300 signes`;c.classList.toggle('over',B.q.length>300);};
   body.querySelectorAll('.sl [data-f]').forEach(inp=>{const ev=inp.tagName==='SELECT'?'onchange':'oninput';inp[ev]=()=>{const r=inp.closest('.sl'),o=B.L[+r.dataset.k];o[inp.dataset.f]=inp.value;
    if(inp.dataset.f==='d'){B.L.sort((x,y)=>x.d.localeCompare(y.d));garde();render(true);return;}
