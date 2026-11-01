@@ -89,7 +89,7 @@ function ecranParis(){
  clearCirco();LS.set('circo',0);fermerMenu();$('menuP').hidden=false;$('searchbox').hidden=true;$('brand').hidden=false;$('fLeg').hidden=true;$('tabbar').hidden=true;app.classList.remove('tabs','page');sheet.classList.add('paris');
  if(!parisL){parisL=L.layerGroup();labL=L.layerGroup();
   P.circos.forEach(f=>{const l=L.geoJSON(f,{renderer:rA}).getLayers()[0];l.n=f.properties.n;l.p=f.properties.objectif_p;l.on('click',()=>choisir(l.n));parisL.addLayer(l);
-   const m=L.marker([f.properties.lab[1],f.properties.lab[0]],{pane:'noms',interactive:false,icon:L.divIcon({className:'',html:`<div class="cl${cls(f.properties.objectif_p)>=2?' hi':''}"><b>${f.properties.n===1?'1ère':f.properties.n+'ème'}</b><span>${Math.round(f.properties.objectif_p)} %</span></div>`,iconSize:[0,0]})});
+   const m=L.marker([f.properties.lab[1],f.properties.lab[0]],{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',html:`<div class="cl${cls(f.properties.objectif_p)>=2?' hi':''}"><b>${f.properties.n===1?'1re':f.properties.n+'e'}</b><span>${Math.round(f.properties.objectif_p)} %</span></div>`,iconSize:[0,0]})});
    m.p=f.properties.objectif_p;m.n=f.properties.n;m.on('add',()=>stLab(m));labL.addLayer(m);});
   eauL=L.geoJSON(P.eau,{renderer:rC,interactive:false,style:{stroke:false,fillOpacity:1}});
   arrL=L.geoJSON(P.arr,{renderer:rC,interactive:false,style:{weight:.8,opacity:1,dashArray:'1 3',lineCap:'round',fill:false}});}
@@ -175,6 +175,7 @@ async function ouvrir(n,ensuite){
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;
   if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();
+  if(!CQ)CQ=await fetch('d/cq.json').then(r=>r.ok?r.json():null).catch(()=>null);
   if(!ZPP)ZPP=await fetch('d/pieds_pap.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterStands();construire();chargerBati(n);chargerParcours(n);}}
  catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
  [parisL,eauL,arrL,labL].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});sheet.classList.remove('paris');
@@ -319,10 +320,10 @@ function colorerLieux(){if(!D||!PC.length)return;[[D.metro,'me'],[D.supers||[],'
  const c=prioCol(prioLieu([s.lat,s.lon],k,null,s).v);d.style.background=c;d.style.color=encreSur(c);d.style.borderColor='var(--solid)';}));}
 function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)return;const z=map.getZoom(),b=map.getBounds().pad(.1);
  if(z>=(mode==='boitage'?14.75:15)){let n=0;for(const x of D.fond.noms){if(n>160)break;if(z<16&&x[4]<500&&mode!=='boitage')continue;if(!b.contains([x[1],x[0]]))continue;n++;
-  nomsL.addLayer(L.marker([x[1],x[0]],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="nm" style="transform:translate(-50%,-50%) rotate(${x[2]}deg)">${esc(x[3])}</div>`})}));}}
+  nomsL.addLayer(L.marker([x[1],x[0]],{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="nm" style="transform:translate(-50%,-50%) rotate(${x[2]}deg)">${esc(x[3])}</div>`})}));}}
  if(mode==='pap'&&chips.zones&&z>=15.25){if(!D._bc)D._bc=D.bureaux.map(f=>L.geoJSON(f).getBounds().getCenter());D.bureaux.forEach((f,j)=>{const c=D._bc[j];if(!b.contains(c))return;
-  bvlL.addLayer(L.marker(c,{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="bvl" style="transform:translate(-50%,-50%)">${esc(f.properties.id)}</div>`})}));});}
- if(mode==='tractage'&&chips.tMe&&z>=14.5)D.metro.forEach(s=>{if(!b.contains([s.lat,s.lon]))return;stnL.addLayer(L.marker([s.lat,s.lon],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="stn" style="transform:translate(12px,-50%)">${esc(s.nom)}</div>`})}));});}
+  bvlL.addLayer(L.marker(c,{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="bvl" style="transform:translate(-50%,-50%)">${esc(f.properties.id)}</div>`})}));});}
+ if(mode==='tractage'&&chips.tMe&&z>=14.5)D.metro.forEach(s=>{if(!b.contains([s.lat,s.lon]))return;stnL.addLayer(L.marker([s.lat,s.lon],{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="stn" style="transform:translate(12px,-50%)">${esc(s.nom)}</div>`})}));});}
 /* au zoom, les points ne changent de taille qu'au passage d'un palier : on ne les restyle qu'à ce moment */
 map.on('zoomend',()=>{if(D&&adrL&&map.hasLayer(adrL)){if(zBucket(map.getZoom())!==dernZ)stylerAdr();lieux();}});
 let mvT=0;map.on('moveend',()=>{if(!D||!adrL)return;noms();clearTimeout(mvT);mvT=setTimeout(()=>{const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='boitage')majRues();},150);});
