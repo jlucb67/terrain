@@ -613,7 +613,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .btnf{width:100%;height:50px;border:0;border-radius:14px;background:var(--brand);color:var(--brand-ink);font:650 16px var(--f);margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px}
 .btnf svg{width:18px;height:18px}.btnf.go2{background:var(--cta);color:var(--cta-ink)}.btnf[disabled]{opacity:.45}
 .encours{margin-top:14px;padding:10px 12px;border-radius:12px;background:var(--tint);font:400 13.5px var(--f);color:var(--ink)}.encours b{color:var(--accent)}
-.ecc{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-radius:14px;padding:11px 12px;margin:0 0 10px;background:var(--brand);color:var(--brand-ink);font:inherit}
+.ecc{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-radius:14px;padding:11px 12px;margin:14px 0;background:var(--brand);color:var(--brand-ink);font:inherit}
 .ecc .dot{width:10px;height:10px;border-radius:50%;background:var(--brand-ink);box-shadow:0 0 0 4px rgba(255,255,196,.25)}
 .ecc b{display:block;font:650 15px var(--f)}.ecc small{display:block;font:400 12.5px var(--f);opacity:.85;margin-top:2px}
 .ecb{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:15px;background:var(--brand-ink);color:var(--brand);font:650 13px var(--f);white-space:nowrap}
@@ -729,6 +729,13 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
  #app.tabs.page .pg2.sond #sL{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;margin-top:10px}
  #app.tabs.page .pg2.sond #sL .sl{margin-top:0;align-content:start}
 }
+/* v23 (01/11/2026, JL) : un peu d'air autour du bandeau « En cours » ; sondage : référents du GA, choix du référent dans chaque ligne */
+.rfl{display:flex;flex-wrap:wrap;gap:6px}
+.rfc{display:inline-flex;align-items:center;gap:2px;min-height:36px;padding:0 2px 0 12px;border-radius:18px;background:var(--fill);color:var(--ink);font:500 13.5px var(--f)}
+.rfc button{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:18px;background:none;color:var(--quiet)}.rfc button svg{width:14px;height:14px}
+.rfa{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;margin-top:8px}.rfa .btn{width:auto;padding:0 14px}
+.rfa+.sub{display:block;margin-top:4px;font-size:12px}
+.chs.slr{display:flex;height:40px;border-radius:9px}.chs.slr select{flex:1;min-width:0}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tabbar .sbh .lg-v{display:none}:root:not([data-theme="light"]) .tabbar .sbh .lg-b{display:block}}
 :root[data-theme="dark"] .tabbar .sbh .lg-v{display:none}:root[data-theme="dark"] .tabbar .sbh .lg-b{display:block}
 
