@@ -58,7 +58,9 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
  /* pieds d'immeuble : le monde attendu (indicateur indirect) pondéré par la priorité du secteur */
  out.pi.forEach(o=>{if(o.v>=0)o.v=(o.pr+1)*o.v;});
  const tri=TRI==='prio'?(x,y)=>y.pr-x.pr||y.v-x.v:(x,y)=>y.v-x.v||y.pr-x.pr;
- Object.values(out).forEach(l=>l.sort(tri));out.su.sort((x,y)=>petitPrix(y.s)-petitPrix(x.s));return out;}
+ Object.values(out).forEach(l=>l.sort(tri));out.su.sort((x,y)=>petitPrix(y.s)-petitPrix(x.s));
+ /* v24 (revue) : les lieux fermés au moment choisi passent après les lieux ouverts (les magasins à petits prix restent en tête des ouverts) */
+ const ferme=o=>(o.k==='ma'&&o.v<=0)||(o.k==='su'&&o.s.af&&o.v<=0)?1:0;Object.values(out).forEach(l=>l.sort((x,y)=>ferme(x)-ferme(y)));return out;}
 /* v16 (31/10/2026) : les pieds d'immeuble ont leur onglet ; ils ne sont plus dans le tractage */
 const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
