@@ -86,6 +86,9 @@ async function jSupprimer(m,k){let a=null;try{a=JSON.parse(m.s);}catch(e){}
  if(r.ok)await gh('POST',`/issues/${m.no}/comments`,{body:`Supprimée par ${moi().nom} · ${jDH(isoD(new Date()))}`});return r;}
 const jSale=a=>{const m=JM[a.id];return !m||m.s!==jSer(a);};
 function jEnAttente(){if(!D)return 0;return ACTIONS.filter(jSale).length+Object.keys(JM).filter(id=>!ACTIONS.some(a=>a.id===id)).length;}
+/* v24 (revue) : hors connexion, une pastille reste à l'écran avec le nombre de saisies en attente */
+function majOffl(){const o=$('offl');if(!o)return;const off=navigator.onLine===false,n=off||jRefAEnv?jEnAttente():0;o.hidden=!off;if(off)o.querySelector('span').textContent='Hors ligne'+(n?` · ${n} en attente`:' · vos saisies restent ici');}
+addEventListener('online',majOffl);addEventListener('offline',majOffl);setInterval(majOffl,8000);
 function jPlanifier(){if(!JPRET)return;clearTimeout(jT);jT=setTimeout(jPousser,3000);}
 async function jPousser(){if(!JPRET||!CLE||!D)return 0;if(jOcc){jPlanifier();return 0;}jOcc=true;const k=D.k,A=ACTIONS;let err=null,n=0;
  try{for(const id of Object.keys(JM)){if(A.some(a=>a.id===id))continue;const m=JM[id];
@@ -165,7 +168,10 @@ function ecranConnexion(apres,msg){const o=$('login'),f=$('lgF'),t=$('lgT');o.hi
  const err=m=>{const e=$('lgE');if(e){e.textContent=m||'';e.hidden=!m;}};
  const fini=()=>{appliquerTheme();o.hidden=true;apres();};
  const vueConnexion=m=>{t.textContent='Connexion';
-  f.innerHTML=`<div class="sub">Une seule fois sur ce téléphone.</div><label class="fld" for="lgL">Identifiant<input id="lgL" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label><label class="fld" for="lgP">Mot de passe<input id="lgP" type="password" autocomplete="current-password"></label><div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="lgGo">Se connecter</button></div><button class="lnk2" id="lgM" hidden>Première mise en place</button>`;
+  f.innerHTML=`<div class="sub">Une seule fois sur cet appareil.</div><label class="fld" for="lgL">Identifiant<input id="lgL" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label><label class="fld" for="lgP">Mot de passe<span class="kw2"><input id="lgP" type="password" autocomplete="current-password"><button type="button" class="ib" id="lgV" aria-label="Afficher le mot de passe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label><div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="lgGo">Se connecter</button></div><button class="lnk2" id="lgM" hidden>Première mise en place</button>`;
+  f.insertAdjacentHTML('beforeend',`<span class="lg-aide">Mot de passe oublié : demandez-le au référent de votre circonscription.</span><button class="lnk2" id="lgI">Inscrire mon groupe d'action</button>`);
+  $('lgV').onclick=()=>{const p=$('lgP'),v=p.type==='password';p.type=v?'text':'password';$('lgV').setAttribute('aria-pressed',v);$('lgV').setAttribute('aria-label',v?'Cacher le mot de passe':'Afficher le mot de passe');};
+  $('lgI').onclick=()=>vueInscrireGA();
   err(m);const go=$('lgGo');
   lireAcces().then(r=>{if(r.ok){acces=r.a;if(!Object.keys(acces.comptes||{}).length){const b=$('lgM');if(b){b.hidden=false;b.onclick=vueMiseEnPlace;}}}});
   $('lgP').onkeydown=e=>{if(e.key==='Enter')go.click();};
@@ -179,6 +185,22 @@ function ecranConnexion(apres,msg){const o=$('login'),f=$('lgF'),t=$('lgT');o.hi
     const u=REF.users.find(v=>v.id===x.id);if(!u||!u.actif){CLE=anc;err('Accès suspendu : voyez avec un administrateur.');return;}
     LS.set('cle',CLE);LS.set('cleU',x.ku||'');MOI=x.id;LS.set('moi',MOI);LS.set('session',{id:x.id,login:normLogin(l),le:isoD(new Date())});fini();}
    finally{go.disabled=false;go.textContent='Se connecter';}};};
+ /* v24 (JL : « Inscrire mon GA ») : sans serveur, l'appli n'enregistre rien elle-même ; elle prépare un message que l'animateur
+    envoie au référent de sa circonscription (Telegram, SMS, mail) ; le référent le colle dans Administration, Groupes d'action */
+ const vueInscrireGA=()=>{t.textContent='Inscrire mon groupe d\'action';const opt=(n,s)=>`<option value="">À choisir</option>`+[...Array(n)].map((_,i)=>`<option value="${i+1}">${s(i+1)}</option>`).join('');
+  f.innerHTML=`<div class="sub">Remplissez ces lignes : l'appli prépare un message à envoyer au référent de votre circonscription, qui crée votre accès.</div>`+
+   `<label class="fld" for="iN">Nom du groupe d'action<input id="iN" autocomplete="off"></label>`+
+   `<div class="two-f"><label class="fld" for="iC">Circonscription<select id="iC">${opt(18,k=>k===1?'1re':k+'e')}</select></label><label class="fld" for="iA">Arrondissement<select id="iA">${opt(20,k=>k===1?'1er':k+'e')}</select></label></div>`+
+   `<label class="fld" for="iP">Animateur ou animatrice (prénom et nom)<input id="iP" autocomplete="name"></label><label class="fld" for="iT">Téléphone ou e-mail<input id="iT" autocomplete="off"></label>`+
+   `<div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="iGo">Préparer le message</button></div><div id="iM"></div><button class="lnk2" id="iR">Retour à la connexion</button>`;
+  $('iR').onclick=()=>vueConnexion();
+  $('iGo').onclick=()=>{const n=$('iN').value.trim(),c=$('iC').value,a=$('iA').value,p=$('iP').value.trim(),tl=$('iT').value.trim();
+   if(!n||!c||!p||!tl){err('Remplissez le nom du GA, la circonscription, l\'animateur et le contact.');return;}err('');
+   const msg=`Demande d'inscription d'un groupe d'action (appli Terrain 2027)\nGroupe d'action : ${n}\nCirconscription : ${c}\nArrondissement : ${a||'à préciser'}\nAnimateur : ${p}\nContact : ${tl}`;
+   $('iM').innerHTML=`<div class="gai" id="iTx"></div><div class="btns">${navigator.share?'<button class="btn primary" id="iS">Envoyer (Telegram, SMS…)</button>':''}<button class="btn line" id="iK">Copier le message</button></div><div class="lg-aide">Envoyez-le au référent de la ${c==='1'?'1re':c+'e'} circonscription.</div>`;
+   $('iTx').textContent=msg;
+   const s=$('iS');if(s)s.onclick=()=>{navigator.share({text:msg}).catch(()=>{});};
+   $('iK').onclick=async()=>{let ok=false;try{await navigator.clipboard.writeText(msg);ok=true;}catch(e){}$('iK').textContent=ok?'Message copié':'Copie impossible : sélectionnez le texte';};};};
  /* mise en place : les deux cles une seule fois, puis le compte de l'administrateur ; tout est chiffre dans acces.json */
  const vueMiseEnPlace=()=>{t.textContent='Première mise en place';
   f.innerHTML=`<div class="sub">Une seule fois, par un administrateur. Les clés restent chiffrées par votre mot de passe.</div><label class="fld" for="mKA">Clé administrateurs<input id="mKA" type="password" autocomplete="off"></label><label class="fld" for="mKU">Clé utilisateurs<input id="mKU" type="password" autocomplete="off"></label><div class="lg-err" id="lgE" hidden></div><div class="btns"><button class="btn primary" id="mV">Vérifier les clés</button></div><div id="mS"></div><button class="lnk2" id="mR">Retour à la connexion</button>`;
