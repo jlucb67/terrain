@@ -4,7 +4,7 @@
    reçoit un passage de plus (« +1 passage »). Les PAP prévus s'y valident adresse par adresse, ou d'un coup (« Tout
    valider ») ; un PAP dont toutes les adresses sont validées passe en « faite ». Pas de date à saisir : un passage est daté
    par sa semaine. Tout passe par les mêmes actions que la carte (journal partagé). */
-var LQ='',LQT='',LN=200,LOUV=null,LTRI=LS.get('ltri','rue'),LFAITES=false;
+var LQ='',LQT='',LN=200,LOUV=null,LTRI=LS.get('ltri','prio'),LFAITES=false;
 const LPAS=200;
 /* semaine d'un passage : lundi de la semaine */
 const lundiDe=s=>{const d=toD(s)||new Date(),x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return isoD(x).slice(0,10);};
@@ -20,7 +20,9 @@ const m10=m=>m>0?Math.max(10,Math.round(m/10)*10):0;
 const vibrer=()=>{try{navigator.vibrate&&navigator.vibrate(10);}catch(x){}};
 const avH=(c,x)=>`<span class="av ${c}">${x}</span>`;
 /* bouton qui change d'état : v Valider, p +1 passage, f Faite, k Pas pu entrer, kf Pas pu entrer (noté) */
-const pillH=(k,at,lab)=>`<button class="pill ${k}" ${at}>${k==='f'||k==='kf'?I.check:''}${lab||{v:'Valider',p:'+1 passage',f:'Faite',k:'Pas pu entrer',kf:'Pas pu entrer'}[k]}</button>`;
+/* v24 (revue) : dans les listes, « Faite » n'est plus un bouton (le toucher retirait le passage) ; on retire un passage depuis la
+   fiche de l'adresse ; dans la fiche d'une action, on corrige toujours d'une touche */
+const pillH=(k,at,lab)=>k==='f'&&(!at||/data-lv/.test(at))?`<span class="pill f nt">${I.check}${lab||'Faite'}</span>`:`<button class="pill ${k}" ${at}>${k==='f'||k==='kf'?I.check:''}${lab||{v:'Valider',p:'+1 passage',f:'Faite',k:'Pas pu entrer',kf:'Pas pu entrer'}[k]}</button>`;
 /* qui a validé : la dernière saisie sur cette adresse */
 function parQui(a,id){const s=(a&&a.saisies||[]).slice().reverse().find(x=>x.quoi==='adresse '+id||x.quoi.startsWith('adresse '+id));if(!s)return '';return s.par===moi().id?'toi':userNom(s.par);}
 /* après un changement : la liste si elle est affichée, sinon la vue en cours */
@@ -155,11 +157,12 @@ function puceEtatHTML(i){const a=D.adresses[i],id=a[2],s=statutA(id),ps=PASS[id]
  return `<div class="pcs">${h}</div>`;}
 function semaineHTML(i){const id=AID(i),ps=PASS[id]||[],f=FER[id],semP=ps.length&&cetteSem(ps[0].q),semF=!semP&&f&&cetteSem(f.q)&&statutA(id)==='ferme';
  let sub='',right;
- if(semP){const a=actPar(ps[0].aid),q=parQui(a,id);sub=deListe(a)||!a?`Validée${q?' par '+esc(q):''}`:'Faite : '+esc(a.nom);right=pillH('f','id="adp"');}
+ if(semP){const a=actPar(ps[0].aid),q=parQui(a,id);sub=deListe(a)||!a?`Validée${q?' par '+esc(q):''}`:'Faite : '+esc(a.nom);right=pillH('f','');}
  else if(semF){sub='Noté : pas pu entrer';right=pillH('kf','id="adk"');}
  else right=pillH(ps.length?'p':'v','id="adp"')+pillH('k','id="adk"');
- return `<div class="sem"><div><b>Cette semaine</b>${sub?`<small>${sub}</small>`:''}</div><div class="ps2">${right}</div></div>`;}
-function lierSemaine(i){const id=AID(i),ap=$('adp'),ak=$('adk');
+ return `<div class="sem"><div><b>Cette semaine</b>${sub?`<small>${sub}</small>`:''}</div><div class="ps2">${right}</div></div>`+(semP?`<button class="lnk2" id="adr">Retirer le passage de cette semaine</button>`:'');}
+function lierSemaine(i){const id=AID(i),ap=$('adp'),ak=$('adk'),ar=$('adr');
+ if(ar)ar.onclick=()=>{if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Annuler',fn:()=>{ajouterPassage(i);rafr();}});};
  if(ap)ap.onclick=()=>{const ps=PASS[id]||[];if(ps.length&&cetteSem(ps[0].q)){if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Annuler',fn:()=>{ajouterPassage(i);rafr();}});return;}
   ajouterPassage(i);vibrer();render(true);toast(id+(ps.length?' : un passage de plus':' : faite'),{t:'Annuler',fn:()=>{retirerPassage(i);rafr();}});};
  if(ak)ak.onclick=()=>{const f=FER[id];if(f&&cetteSem(f.q)&&statutA(id)==='ferme'){retirerFerme(i);vibrer();render(true);return;}
@@ -182,14 +185,15 @@ const nomEq=a=>{const l=a.etapes[0].lieu;return l.t==='station'?'Métro '+l.id:l
 function llLieu(l){let s=null;if(l.t==='station')s=D.metro.find(x=>x.nom===l.id);else if(l.t==='marche')s=D.marches.find(x=>x.nom===l.id);else if(l.t==='commerce')s=(D.supers||[]).find(x=>nomSup(x)===l.id);else if(l.t==='parcours'){const p=parcDe(l.id);return p?(p.trace?p.trace[0]:arretsDe(p)[0].ll):null;}return s?[s.lat,s.lon]:null;}
 function ouvrirLieuEq(t,id){if(t==='parcours'){ouvrirParcours(id);return;}if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
 function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
- let h=`<div class="eqr"><b>Une équipe y va</b><button class="tog" id="eqT" role="switch" aria-checked="${!!a}" aria-label="Une équipe y va"></button></div>`;
+ let h=`<div class="btns"><button class="btn primary" id="dFait">${I.check} C'est fait : noter la diff</button></div>`;
+ h+=`<div class="eqr"><b>Une équipe y va chaque semaine</b><button class="tog" id="eqT" role="switch" aria-checked="${!!a}" aria-label="Une équipe y va chaque semaine"></button></div>`;
  if(a){h+=`<div class="lbl" style="margin-top:2px">Équipe</div><div class="chw">${G.map(g=>`<button class="ch${a.ga.includes(g.id)?' on':''}" data-eg="${g.id}" aria-pressed="${a.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div>`;
   h+=`<div class="lbl">Jour</div><div class="chw">${jours.map(d=>`<button class="ch${(a.jours||[]).includes(d)?' on':''}" data-ej="${d}" aria-pressed="${(a.jours||[]).includes(d)}">${cap(JOURS[d])}</button>`).join('')}</div>`;}
  const aut=ACTIONS.filter(x=>x.type==='equipe'&&x!==a&&x.etapes[0]);
- if(aut.length)h+=`<div class="h3">Une équipe y va aussi</div>`+aut.map(x=>{const l=x.etapes[0].lieu;
+ if(aut.length)h+=`<div class="h3">Équipes prévues ailleurs</div>`+aut.map(x=>{const l=x.etapes[0].lieu;
   return `<div class="lr">${l.t==='station'?avH('mt','M'):l.t==='marche'?avH('ma',I.basket):l.t==='parcours'?avH('af',I.route):avH('su',I.cart)}<button class="tx" data-eo="${esc(l.t)}|${esc(l.id)}"><b>${esc(nomEq(x))}</b><small>${esc(eqTxt(x))}</small></button><span></span></div>`;}).join('');
  return h;}
-function lierEquipe(nom,t){const tg=$('eqT');if(!tg)return;
+function lierEquipe(nom,t){const df=$('dFait');if(df)df.onclick=()=>detail(vueDiff(nom,{marche:'marché',commerce:'supermarché',station:'station'}[t]||'marché'));const tg=$('eqT');if(!tg)return;
  tg.onclick=()=>{const a=eqDe(nom);
   if(a){const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();render(true);toast('Plus d\'équipe : '+nom,{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});return;}
   const g=gaDefaut()[0]||((gaActifs()[0]||{}).id);
@@ -214,28 +218,49 @@ function majEq(){if(!D||typeof L==='undefined')return;if(!eqL)eqL=L.layerGroup()
 var CONS=null,CONS_K='',CSEL=0,VERS=0,consL=null,CLOTS=null;
 function xyCirco(){if(D._xy)return D._xy;const la0=D.adresses.reduce((s,a)=>s+a[1],0)/D.adresses.length,kx=111320*Math.cos(la0*Math.PI/180),ky=110540,lo0=D.adresses[0][0];
  D._xy=D.adresses.map(a=>[(a[0]-lo0)*kx,(a[1]-la0)*ky]);return D._xy;}
-function conseilles(){const cible=taille,cle=[VERS,crit.score,crit.ins,crit.ni,cible,D.k].join('|');if(CONS&&CONS_K===cle)return CONS;
+/* v24 (JL, 01/11/2026 : « un PAP proposé par quartier, pour avoir des choix un peu partout ») : les conseils de quartier de la
+   Ville de Paris (d/cq.json, 117) ; chaque adresse reçoit son conseil de quartier une fois par circo ; puis un PAP proposé par
+   conseil de quartier, pris dans ce quartier seulement, le plus efficace d'abord. Sans le fichier : l'ancienne règle (6 au plus). */
+var CQ=null;
+function cqAdr(){if(!D)return null;if(D._cqa!==undefined)return D._cqa;D._cqa=null;if(!CQ||!CQ.q)return null;
+ const A=D.adresses,n=A.length,b=D.bounds,Q=[];
+ CQ.q.forEach(q=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;q.g.forEach(r=>r.forEach(([x,y])=>{if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}));
+  if(x1<b[0][1]-.005||x0>b[1][1]+.005||y1<b[0][0]-.005||y0>b[1][0]+.005)return;Q.push({n:q.n,g:q.g,bb:[x0,y0,x1,y1]});});
+ const dans=(x,y,r)=>{let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const xi=r[i][0],yi=r[i][1],xj=r[j][0],yj=r[j][1];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}return c;};
+ const out=new Int16Array(n).fill(-1),sans=[];
+ for(let i=0;i<n;i++){const x=A[i][0],y=A[i][1];for(let k=0;k<Q.length;k++){const bb=Q[k].bb;if(x<bb[0]||x>bb[2]||y<bb[1]||y>bb[3])continue;if(Q[k].g.some(r=>dans(x,y,r))){out[i]=k;break;}}if(out[i]<0)sans.push(i);}
+ /* adresses sur un bord (contours simplifiés) : le quartier de l'adresse voisine la plus proche */
+ sans.forEach(i=>{let bk=-1,bd=1e9;for(let j=0;j<n;j++){if(out[j]<0)continue;const d=(A[j][0]-A[i][0])**2+(A[j][1]-A[i][1])**2;if(d<bd){bd=d;bk=out[j];}}out[i]=bk;});
+ D._cqn=Q.map(q=>q.n);D._cqa=out;return out;}
+function conseilles(){const cible=taille,QA=cqAdr(),cle=[VERS,crit.score,crit.ins,crit.ni,cible,D.k,QA?'q':''].join('|');if(CONS&&CONS_K===cle)return CONS;
  const A=D.adresses,P=xyCirco(),n=A.length,ok=new Uint8Array(n),CEL=400,grid=new Map(),cl=(x,y)=>Math.floor(x/CEL)+','+Math.floor(y/CEL);
  for(let i=0;i<n;i++){const a=A[i];if(isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]]){ok[i]=1;const k=cl(P[i][0],P[i][1]);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i);}}
- const d=(i,j)=>Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1]);
- const pres=i=>{const cx=Math.floor(P[i][0]/CEL),cy=Math.floor(P[i][1]/CEL),o=[];for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){const g=grid.get(x+','+y);if(g)for(const j of g)if(ok[j])o.push(j);}return o;};
+ const d=(i,j)=>Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1]),mq=(i,j)=>!QA||QA[i]===QA[j];
+ const pres=i=>{const cx=Math.floor(P[i][0]/CEL),cy=Math.floor(P[i][1]/CEL),o=[];for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){const g=grid.get(x+','+y);if(g)for(const j of g)if(ok[j]&&mq(i,j))o.push(j);}return o;};
  const lot=i0=>{const out=[i0],pris=new Set(out);let s=A[i0][3],km=0,cur=i0;
   while(s<cible*.9){const reste=cible-s,c0=cur;const r=pasSuivant(pres(cur),j=>d(c0,j),pris,reste,cur,[250,400],false);
    if(!r)break;const bi=r[0];out.push(bi);pris.add(bi);s+=A[bi][3];km+=r[1];cur=bi;}
   return {ids:out,ins:s,km};};
- const res=[],memo=new Array(n);
- /* adresses de départ : toutes pour un petit PAP ; au-delà de 150 inscrits, la meilleure de chaque carré de 150 m (calcul
-    plus court ; un grand PAP couvre de toute façon plusieurs carrés) */
+ const res=[],memo=new Array(n),eff=r=>r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100,0)/(r.km+40*r.ids.length);
+ /* adresses de départ : toutes pour un petit PAP ; au-delà de 150 inscrits, la meilleure de chaque carré de 150 m (et de chaque
+    quartier), pour un calcul plus court ; un grand PAP couvre de toute façon plusieurs carrés */
  let SEM=[];if(cible<=150){for(let i=0;i<n;i++)if(ok[i])SEM.push(i);}
- else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150),v=A[i][3]*A[i][5];const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
- /* un lot ne change que si une de ses adresses est retirée : retirer une adresse qu'il n'a pas prise ne change pas ses choix */
- while(res.length<6){let best=null;
-  for(const i of SEM){if(!ok[i]||A[i][3]>cible*1.1)continue;let r=memo[i];
-   if(!r||r.ids.some(j=>!ok[j])){r=lot(i);r.e=r.ins<cible*.6?-1:r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100,0)/(r.km+40*r.ids.length);memo[i]=r;}
-   if(r.e>=0&&(!best||r.e>best.e))best=r;}
-  if(!best)break;best=Object.assign({},best,{ids:best.ids.slice()});res.push(best);best.ids.forEach(j=>ok[j]=0);
-  /* deux PAP conseillés ne se touchent pas : on écarte aussi les adresses à moins de 60 m */
-  best.ids.forEach(j=>pres(j).forEach(k=>{if(d(j,k)<60)ok[k]=0;}));}
+ else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150)+','+(QA?QA[i]:0),v=A[i][3]*A[i][5];const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
+ const calc=i=>{let r=memo[i];if(!r||r.ids.some(j=>!ok[j])){r=lot(i);r.v=eff(r);memo[i]=r;}return r;};
+ if(QA){/* un par conseil de quartier : le plus efficace qui atteint 60 % de la taille voulue, sinon 30 % */
+  /* un bout de quartier qui déborde à peine dans la circo (moins de 200 inscrits prioritaires) n'a pas de PAP à lui */
+  const nq=D._cqn.length,pq=new Float64Array(nq);for(let i=0;i<n;i++)if(isPr(A[i])&&QA[i]>=0)pq[QA[i]]+=A[i][3];
+  for(let q=0;q<nq;q++){if(pq[q]<200)continue;let best=null,b2=null;
+   for(const i of SEM){if(QA[i]!==q||!ok[i]||A[i][3]>cible*1.1)continue;const r=calc(i);
+    if(r.ins>=cible*.6){if(!best||r.v>best.v)best=r;}else if(r.ins>=cible*.3&&(!b2||r.v>b2.v))b2=r;}
+   const z=best||b2;if(z)res.push(Object.assign({},z,{ids:z.ids.slice(),e:z.v,cq:D._cqn[q]}));}
+  res.sort((x,y)=>y.e-x.e);}
+ else{/* sans les quartiers : un lot ne change que si une de ses adresses est retirée */
+  while(res.length<6){let best=null;
+   for(const i of SEM){if(!ok[i]||A[i][3]>cible*1.1)continue;const r=calc(i);r.e=r.ins<cible*.6?-1:r.v;if(r.e>=0&&(!best||r.e>best.e))best=r;}
+   if(!best)break;best=Object.assign({},best,{ids:best.ids.slice()});res.push(best);best.ids.forEach(j=>ok[j]=0);
+   /* deux PAP conseillés ne se touchent pas : on écarte aussi les adresses à moins de 60 m */
+   best.ids.forEach(j=>pres(j).forEach(k=>{if(d(j,k)<60)ok[k]=0;}));}}
  res.forEach(z=>{const r={};z.ids.forEach(i=>{const v=ADRP[i].voie;(r[v]=r[v]||[]).push(i);});z.rue=Object.keys(r).sort((x,y)=>r[y].length-r[x].length)[0];
   z.nums=Object.entries(r).map(([v,ids])=>{const ns=ids.map(i=>D.adresses[i][2].slice(0,Math.max(0,D.adresses[i][2].length-v.length)).trim()||D.adresses[i][2]);return (ns.length>1?ns.slice(0,-1).join(', ')+' et '+ns[ns.length-1]:ns[0])+' '+v;}).join(' · ');});
  CONS=res;CONS_K=cle;if(CSEL>=res.length)CSEL=0;return res;}
@@ -243,7 +268,9 @@ function consLot(r){const z=conseilles()[r-1];return z?{ll:null,ids:z.ids.slice(
 /* v16 (31/10/2026) : l'accueil du porte-à-porte montre les 3 premiers (p9_v16.js) ; sur la carte, un cercle numéroté par PAP
    proposé, qui ouvre sa fiche */
 function dessinerCons(){if(!D||typeof L==='undefined')return;if(!consL)consL=L.layerGroup().addTo(map);consL.clearLayers();const v=stack[stack.length-1];
- if(ONG!=='pap'||mode!=='pap'||!v||v.id!=='base')return;const C=conseilles().slice(0,3),ac=tok('--accent');
+ if(ONG!=='pap'||mode!=='pap'||!v||v.id!=='base')return;const C=conseilles(),ac=tok('--accent'),vus=[];
  C.forEach((z,k)=>{const P=z.ids.map(ptA),c=[P.reduce((s,p)=>s+p[0],0)/P.length,P.reduce((s,p)=>s+p[1],0)/P.length],r=Math.max(...P.map(p=>dist(c,p)))+28,on=k===0;
+  /* v24 : deux numéros trop proches ne se cachent plus (le second monte de 60 m) */
+  const cb=c.slice();while(vus.some(q=>dist(q,cb)<75))cb[0]+=60/111320;vus.push(cb.slice());
   L.circle(c,{renderer:rP,radius:r,color:ac,weight:on?1.6:1,opacity:on?.9:.5,fillColor:ac,fillOpacity:on?.16:.08,interactive:false}).addTo(consL);
-  L.marker(c,{pane:'pap',zIndexOffset:on?1000:0,icon:L.divIcon({className:'',html:`<div class="cbad${on?' on':''}">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>preparer(null,'',null,null,null,{r:k+1})).addTo(consL);});}
+  L.marker(cb,{pane:'pap',zIndexOffset:on?1000:0,icon:L.divIcon({className:'',html:`<div class="cbad${on?' on':''}">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>preparer(null,'',null,null,null,{r:k+1})).addTo(consL);});}
