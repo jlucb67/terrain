@@ -644,9 +644,12 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .vcx{position:absolute;z-index:998;left:50%;top:40%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;border:2.5px solid var(--cta);box-shadow:0 0 0 2px rgba(255,255,255,.9),0 2px 10px rgba(0,0,0,.25);pointer-events:none}
 .vcx::before,.vcx::after{content:"";position:absolute;left:50%;top:50%;background:var(--cta)}
 .vcx::before{width:2.5px;height:18px;margin:-9px 0 0 -1.25px}.vcx::after{width:18px;height:2.5px;margin:-1.25px 0 0 -9px}
-.vbar{position:absolute;z-index:1003;left:12px;right:64px;bottom:calc(var(--sh,150px) + var(--tb) + 12px);display:grid;gap:6px;padding:10px;border-radius:16px;background:var(--solid);box-shadow:var(--shadow)}
-.vbar .vtx{font:400 12.5px/1.35 var(--f);color:var(--quiet)}.vbar .btnf{margin:0}
-.vno{height:38px;border:1px solid var(--line2);border-radius:12px;background:var(--solid);color:var(--ink);font:600 13px var(--f)}
+.vbar{position:absolute;z-index:1003;left:12px;right:12px;bottom:calc(var(--tb) + 10px);display:flex;gap:8px;align-items:center;padding:8px;border-radius:16px;background:var(--solid);box-shadow:var(--shadow)}
+.vtip{position:absolute;z-index:1003;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 66px);max-width:calc(100% - 24px);background:var(--ink);color:var(--solid);font:500 12.5px/1.3 var(--f);padding:7px 13px;border-radius:14px;white-space:nowrap;box-shadow:var(--shadow);pointer-events:none}
+.vbar .btnf{flex:1;margin:0;min-height:48px}
+.vno{flex:none;width:48px;height:48px;display:grid;place-items:center;border:1px solid var(--line2);border-radius:12px;background:var(--solid);color:var(--ink)}.vno svg{width:18px;height:18px}
+#app.vis .fabs{bottom:calc(var(--tb) + 78px)}
+@media (max-width:899px){#app.vis .sheet{display:none}}
 .chf{display:inline-flex;align-items:center;gap:6px;height:34px;margin-top:8px;padding:0 12px;border-radius:17px;border:1px solid var(--line2);background:var(--solid);color:var(--ink);font:500 12.5px var(--f)}
 .chf svg{width:14px;height:14px}.chf[aria-pressed="true"]{background:var(--chip-on);border-color:var(--accent);color:var(--accent)}
 /* v18 : onglets du tractage */
@@ -671,8 +674,9 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .tabbar{grid-template-columns:repeat(5,1fr)}
 .tabbar .sbh,.tabbar .sbplus{display:none}
 .tabbar button span{font-size:10px}
-#app.tabs .grab{display:none}
-#app.tabs .body{padding-top:14px}
+#app.tabs.page .grab{display:none}
+#app.tabs .grab{height:26px}#app.tabs .grab::before{width:44px;height:5px;border-radius:3px;background:var(--quiet);opacity:.45}
+#app.tabs .body{padding-top:4px}#app.tabs.page .body{padding-top:14px}
 #app.page .fabs,#app.page #visr{display:none}
 #fBig{display:none}#app.tabs:not(.page) #fBig{display:grid}
 .dmenu{margin:6px 0 4px;padding:6px 10px 2px;border:1px solid var(--line2);border-radius:14px;background:var(--solid);box-shadow:var(--shadow)}
