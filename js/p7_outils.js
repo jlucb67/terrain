@@ -179,16 +179,18 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
    <div class="sl2"><input data-f="r" value="${esc(o.r)}" placeholder="RDV (facultatif)" aria-label="Rendez-vous"><input data-f="p" value="${esc(o.p)}" list="sRef" placeholder="Référent et téléphone" aria-label="Référent"></div>
    <div class="slp"><span class="tx2">${esc(t)}</span><span class="cn${t.length>100?' over':''}">${t.length} / 100</span></div></div>`;};
  return {id:base?'base':'sond',html:()=>{const B=S.b,x=toD(S.deb+'T12:00'),y=new Date(x);y.setDate(x.getDate()+6);
-  let h=headHTML('Sondage Telegram','Calendrier de la semaine d\'un GA',!base);
+  /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, les réglages et le bouton Copier à gauche, les options
+     à droite ; au téléphone, même ordre qu'avant (pc1, pc2, pc3) */
+  let h=`<div class="pg2 sond"><div class="pgh">`+headHTML('Sondage Telegram','Calendrier de la semaine d\'un GA',!base)+`</div><div class="pcl"><div class="pc1">`;
   h+=`<div class="fl"><span>Groupe d'action</span><label class="chs"><select id="sG" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
   const dc=z=>z.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
   h+=`<div class="wk"><button id="sP" aria-label="Semaine précédente">‹</button><b>${cap(dc(x))} au ${dc(y)}</b><button id="sN" aria-label="Semaine suivante">›</button></div>`;
-  h+=`<div class="fl"><span>Question</span><textarea class="mq-ta" id="sQ" aria-label="Question">${esc(B.q)}</textarea><div class="cnt${B.q.length>300?' over':''}" id="sQc"><b>${B.q.length}</b> / 300 signes</div></div>`;
-  h+=`<h2>Options : ${B.L.length} sur 12</h2>`+(B.L.length>12?`<div class="note">Telegram n'accepte que 12 options : retirez-en ${B.L.length-12}.</div>`:'');
+  h+=`<div class="fl"><span>Question</span><textarea class="mq-ta" id="sQ" aria-label="Question">${esc(B.q)}</textarea><div class="cnt${B.q.length>300?' over':''}" id="sQc"><b>${B.q.length}</b> / 300 signes</div></div></div>`;
+  const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Repartir des actions prévues</button></div>`;
+  h+=pc3+`</div><div class="pc2"><h2>Options : ${B.L.length} sur 12</h2>`+(B.L.length>12?`<div class="note">Telegram n'accepte que 12 options : retirez-en ${B.L.length-12}.</div>`:'');
   h+=B.L.length?`<div id="sL">${B.L.map(opt).join('')}</div>`:`<div class="empty">Aucune action prévue pour ce GA cette semaine. Ajoutez des lignes.</div>`;
   h+=`<datalist id="sRef">${REF.users.filter(u=>u.actif!==false).map(u=>`<option value="${esc(prenomTel(u))}">${esc(u.nom)}</option>`).join('')}</datalist>`;
-  h+=`<button class="lnk2 c" id="sA" style="margin-top:10px">+ Ajouter une ligne (manif, réunion…)</button>`;
-  h+=`<div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Repartir des actions prévues</button>`;return h;},
+  h+=`<button class="lnk2 c" id="sA" style="margin-top:10px">+ Ajouter une ligne (manif, réunion…)</button></div></div>`;return h;},
  after:()=>{const B=S.b;$('sG').onchange=e=>{S.ga=e.target.value;charge();render(true);};
   const dec=n=>{const z=toD(S.deb+'T12:00');z.setDate(z.getDate()+n);S.deb=isoD(z).slice(0,10);charge();render();};$('sP').onclick=()=>dec(-7);$('sN').onclick=()=>dec(7);
   $('sQ').oninput=e=>{B.q=e.target.value;garde();const c=$('sQc');c.innerHTML=`<b>${B.q.length}</b> / 300 signes`;c.classList.toggle('over',B.q.length>300);};
