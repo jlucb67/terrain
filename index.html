@@ -664,6 +664,42 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
  .toast{left:calc(16px + 190px);bottom:calc(16px + var(--tb) + 12px);width:356px}
 }
 @media (prefers-reduced-motion:reduce){.sheet,.fabs{transition:none}}
+/* v19 (01/11/2026, JL : « repenser l'appli à la Instagram ») : chaque onglet est une page. Téléphone : 5 onglets en bas ;
+   pour Porte-à-porte, Pieds d'immeuble et Tractage, la carte en haut et la liste dessous (plus de tiroir à tirer), un bouton
+   pour agrandir la carte ; Suivi et Sondage en pleine page. Ordinateur : barre à gauche (logo, onglets, Plus), la liste,
+   puis la carte. */
+.tabbar{grid-template-columns:repeat(5,1fr)}
+.tabbar .sbh,.tabbar .sbplus{display:none}
+.tabbar button span{font-size:10px}
+#app.tabs .grab{display:none}
+#app.tabs .body{padding-top:14px}
+#app.page .fabs,#app.page #visr{display:none}
+#fBig{display:none}#app.tabs:not(.page) #fBig{display:grid}
+.dmenu{margin:6px 0 4px;padding:6px 10px 2px;border:1px solid var(--line2);border-radius:14px;background:var(--solid);box-shadow:var(--shadow)}
+.dmenu .qa{margin:6px 0}.dmenu .lnk{margin-top:6px}
+.ib.dots{width:40px;height:40px;border-radius:20px}.ib.dots:hover,.ib.dots[aria-expanded="true"]{background:var(--fill)}
+@media (min-width:900px){
+ #app.tabs{--tb:0px}
+ .tabbar{left:0;right:auto;top:0;bottom:0;width:220px;height:auto;display:flex;flex-direction:column;gap:2px;padding:14px 10px 18px;border:0;border-right:1px solid var(--line2);border-radius:0;box-shadow:none}
+ .tabbar .sbh{display:flex;align-items:center;gap:10px;height:64px;padding:0 12px;margin-bottom:18px}
+ .tabbar .sbh img{height:20px;width:auto}.tabbar .sbh .lg-b{display:none}
+ .tabbar .sbh span{font:600 10.5px/1 var(--f);letter-spacing:.12em;color:var(--quiet)}
+ .tabbar button{display:flex;align-items:center;justify-items:start;gap:14px;height:50px;padding:0 12px;border-radius:12px;font:500 15px var(--f);opacity:.85;color:var(--ink)}
+ .tabbar button span{font-size:15px}
+ .tabbar button:hover{background:var(--fill);opacity:1}
+ .tabbar button[aria-selected="true"]{font-weight:700;opacity:1;color:var(--ink);background:var(--fill)}
+ .tabbar button svg{width:24px;height:24px}
+ .tabbar .sbplus{display:flex;margin-top:auto}
+ #app.tabs .top{left:236px;width:420px}
+ #app.tabs .sheet{left:236px;width:420px;top:76px;bottom:16px;border-radius:16px;border-bottom:1px solid var(--line2)}
+ #app.tabs.page .sheet{width:auto;right:16px;max-width:none}
+ #app.tabs.page .body{max-width:760px}
+ #app.tabs .toast{left:calc(236px + 210px)}
+ #app.tabs:not(.page) #fBig{display:none}
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tabbar .sbh .lg-v{display:none}:root:not([data-theme="light"]) .tabbar .sbh .lg-b{display:block}}
+:root[data-theme="dark"] .tabbar .sbh .lg-v{display:none}:root[data-theme="dark"] .tabbar .sbh .lg-b{display:block}
+
 </style>
 
 <div id="app">
@@ -685,6 +721,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
  <div class="fabs glass" id="fabs">
   <button class="fab" id="fCtr" aria-label="Recentrer la carte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15"/><circle cx="12" cy="12" r="2.2"/></svg></button>
   <button class="fab" id="fLeg" aria-label="Légende" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4.5-8 4.5-8-4.5z"/><path d="M4 13l8 4.5 8-4.5"/></svg></button>
+  <button class="fab" id="fBig" aria-label="Agrandir la carte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/></svg></button>
   <button class="fab" id="fMe" aria-label="Me localiser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4L4 11l7 2 2 7z"/></svg></button>
  </div>
  <section class="sheet paris" id="sheet" aria-label="Informations">
@@ -692,10 +729,13 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
   <div class="body" id="body"></div>
  </section>
  <nav class="tabbar" id="tabbar" role="tablist" aria-label="Missions" hidden>
+  <div class="sbh"><img class="lg-v" src="img/logo_v.svg" alt="La France insoumise"><img class="lg-b" src="img/logo_b.svg" alt="La France insoumise"><span>TERRAIN 2027</span></div>
   <button role="tab" data-m="pap" aria-selected="true"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V5.5A1.5 1.5 0 017.5 4h9A1.5 1.5 0 0118 5.5V20"/><path d="M4 20h16"/><circle cx="14.5" cy="12.5" r=".9" fill="currentColor"/></svg></i><span>Porte-à-porte</span></button>
   <button role="tab" data-m="pieds" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 20.5V8l5-3v15.5M9.5 20.5V10.5h6v10M15.5 20.5V13h4v7.5M3 20.5h18"/></svg></i><span>Pieds d'immeuble</span></button>
   <button role="tab" data-m="tractage" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/></svg></i><span>Tractage</span></button>
   <button role="tab" data-m="suivi" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V13M10 20V8M15 20v-5M20 20V5M3.5 20.5h17"/></svg></i><span>Suivi</span></button>
+  <button role="tab" data-m="sondage" aria-selected="false"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4L3 11.5l6.5 2.2L18 7l-6.3 8.3L18.5 20z"/></svg></i><span>Sondage</span></button>
+  <button class="sbplus" id="sbPlus" aria-label="Plus" aria-haspopup="menu"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg></i><span>Plus</span></button>
  </nav>
  <div class="mback" id="mback" hidden></div>
  <div class="menu" id="menu" role="menu" hidden></div>
