@@ -44,17 +44,17 @@ const PEEK=170;
 /* porte-à-porte, accueil : le tiroir bas montre en entier une carte des PAP conseillés */
 const pk=()=>{try{return ONG==='pap'&&stack.length===1&&stack[0].id==='base'?300:PEEK;}catch(e){return PEEK;}};
 const TB=()=>$('tabbar').hidden||wide?0:$('tabbar').offsetHeight;
-function hOf(d){const H=app.clientHeight-TB();if(app.classList.contains('tabs')&&(d==='half'||d==='fit'))return Math.round(H*.58);return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
+function hOf(d){const H=app.clientHeight-TB();if(app.classList.contains('tabs')){if(d==='half'||d==='fit')return Math.round(H*.58);if(d==='peek')return 112;}return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
 function setDet(d){try{if(app.classList.contains('page'))d='full';}catch(e){}det=d;if(wide){app.style.setProperty('--sh','0px');return;}const h=hOf(d);app.style.setProperty('--sh',h+'px');sheet.style.height=h+'px';}
 matchMedia('(min-width:900px)').addEventListener('change',e=>{wide=e.matches;sheet.style.height='';setDet(det);});
 addEventListener('resize',()=>setDet(det));
 (()=>{let y0=0,h0=0,t0=0,on=false;
- const start=e=>{if(wide||app.classList.contains('tabs'))return;on=true;y0=e.clientY;h0=sheet.getBoundingClientRect().height;t0=performance.now();sheet.classList.add('drag');try{e.target.setPointerCapture(e.pointerId);}catch(_){}};
+ const start=e=>{if(wide||app.classList.contains('page'))return;on=true;y0=e.clientY;h0=sheet.getBoundingClientRect().height;t0=performance.now();sheet.classList.add('drag');try{e.target.setPointerCapture(e.pointerId);}catch(_){}};
  const move=e=>{if(!on)return;const h=Math.max(90,Math.min(hOf('full'),h0-(e.clientY-y0)));sheet.style.height=h+'px';app.style.setProperty('--sh',h+'px');};
  const end=e=>{if(!on)return;on=false;sheet.classList.remove('drag');const h=sheet.getBoundingClientRect().height,v=(e.clientY-y0)/Math.max(1,performance.now()-t0);
   const ds=det==='fit'?['peek','fit','full']:['peek','half','full'];let best=ds.reduce((a,d)=>Math.abs(hOf(d)-h)<Math.abs(hOf(a)-h)?d:a,'peek');
   if(Math.abs(v)>.6){const i=ds.indexOf(det);best=ds[Math.max(0,Math.min(2,i+(v<0?1:-1)))];}
-  if(Math.abs(e.clientY-y0)<6){best=det==='full'?ds[1]:det==='peek'?ds[1]:'full';}
+  if(Math.abs(e.clientY-y0)<6){best=app.classList.contains('tabs')?(det==='half'?'peek':'half'):det==='full'?ds[1]:det==='peek'?ds[1]:'full';}
   setDet(best);};
  const g=$('grab');g.addEventListener('pointerdown',start);g.addEventListener('pointermove',move);g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
  body.addEventListener('pointerdown',e=>{if(e.target.closest('.head')&&!e.target.closest('button'))start(e);});
