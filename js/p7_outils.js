@@ -36,7 +36,7 @@ function vueAncien(){if(!ANC||ANC.k!==D.k)ANC={k:D.k,q:hier(),ga:gaDefaut()[0]||
   h+=`<div class="fl"><span>Groupe d'action</span><label class="chs"><select id="hG" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
   h+=`<div class="fl"><span>Résultat</span><div class="seg" role="group" aria-label="Résultat">${[['faite','Faite'],['ferme','Pas pu entrer']].map(([k,t])=>`<button data-hs="${k}" aria-pressed="${S.st===k}">${t}</button>`).join('')}</div></div>`;
   h+=`<label class="srch2" style="margin-top:14px">${I.loupe}<input id="hQ" type="search" enterkeyhint="search" placeholder="Chercher une rue ou une adresse" value="${esc(S.t)}" autocomplete="off" aria-label="Chercher une rue ou une adresse"></label>`;
-  h+=`<div id="hL">${listeHTML2()}</div><div class="btns" id="hB">${bouton()}</div>`;return h;},
+  h+=`<div id="hL">${listeHTML2()}</div><div class="btns hsv" id="hB">${bouton()}</div>`;return h;},
  after:()=>{$('hD').onchange=e=>{S.q=e.target.value;$('hB').innerHTML=bouton();lierSv();};$('hG').onchange=e=>{S.ga=e.target.value;};
   body.querySelectorAll('[data-hs]').forEach(b=>b.onclick=()=>{S.st=b.dataset.hs;body.querySelectorAll('[data-hs]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('hB').innerHTML=bouton();lierSv();});
   const majL=()=>{$('hL').innerHTML=listeHTML2();lierC();lierM();},lierM=()=>{const m=$('hM');if(m)m.onclick=()=>{S.n+=200;majL();};};
@@ -187,7 +187,7 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
   /* brouillons d'avant la v23 : phrase des tracts retirée, rue remplacée par l'adresse avec son numéro, plus de RDV */
   S.b.q=S.b.q.replace(PHRASE_V22,'');S.b.L.forEach(o=>{delete o.r;const z=o.aid&&N.find(x=>x.aid===o.aid);if(z&&z.l!==o.l&&z.l.endsWith(o.l))o.l=z.l;});}},garde=()=>LS.set(cle(),S.b);charge();
  const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o),R=refsGA(S.ga);
-  return `<div class="sl" data-k="${k}"><div class="sl1"><span class="n">${k+1}</span><label class="chs"><select data-f="d" aria-label="Jour">${J.map(q=>`<option value="${q}"${q===o.d?' selected':''}>${jourTxt(q)}</option>`).join('')}</select>${I.down}</label><input data-f="h" value="${esc(o.h)}" placeholder="Heure" aria-label="Heure"><button class="xb" data-sx="${k}" aria-label="Retirer la ligne ${k+1}">${I.x}</button></div>
+  return `<div class="sl" data-k="${k}"><div class="sl1"><span class="n">${k+1}</span><label class="chs"><select data-f="d" aria-label="Jour">${o.d?'':'<option value="" selected>Jour à choisir</option>'}${J.map(q=>`<option value="${q}"${q===o.d?' selected':''}>${jourTxt(q)}</option>`).join('')}</select>${I.down}</label><input data-f="h" value="${esc(o.h)}" placeholder="Heure" aria-label="Heure"><button class="xb" data-sx="${k}" aria-label="Retirer la ligne ${k+1}">${I.x}</button></div>
    <input data-f="t" value="${esc(o.t)}" placeholder="Action : Porte-à-porte, Marché d'Aligre, Diffusion…" aria-label="Action"><input data-f="l" value="${esc(o.l)}" placeholder="Lieu : 5 rue Eugénie Eboué, Métro…" aria-label="Lieu">
    <label class="chs slr"><select data-f="p" aria-label="Référent"><option value="">Pas de référent</option>${R.concat(o.p&&!R.includes(o.p)?[o.p]:[]).map(t=>`<option value="${esc(t)}"${t===o.p?' selected':''}>${esc(t)}</option>`).join('')}</select>${I.down}</label>
    <div class="slp"><span class="tx2">${esc(t)}</span><span class="cn${t.length>100?' over':''}">${t.length} / 100</span></div></div>`;};
@@ -202,7 +202,7 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
   const R=refsGA(S.ga);
   h+=`<div class="fl"><span>Référents du GA</span><div class="rfl">${R.length?R.map((t,k)=>`<span class="rfc">${esc(t)}<button data-rx="${k}" aria-label="Retirer ${esc(t)}">${I.x}</button></span>`).join(''):'<small class="sub">Aucun référent pour ce GA : ajoutez-en un.</small>'}</div>`+
    `<div class="rfa"><input class="mq-in" id="rfN" placeholder="Prénom" autocomplete="off" aria-label="Prénom du référent"><input class="mq-in" id="rfT" placeholder="Téléphone" inputmode="tel" autocomplete="off" aria-label="Téléphone du référent"><button class="btn" id="rfA">${I.plus} Ajouter</button></div><small class="sub">Liste gardée sur cet appareil.</small></div></div>`;
-  const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Repartir des actions prévues</button></div>`;
+  const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Remettre les actions prévues (efface vos lignes)</button></div>`;
   h+=pc3+`</div><div class="pc2"><h2>Options : ${B.L.length} sur 12</h2>`+(B.L.length>12?`<div class="note">Telegram n'accepte que 12 options : retirez-en ${B.L.length-12}.</div>`:'');
   h+=B.L.length?`<div id="sL">${B.L.map(opt).join('')}</div>`:`<div class="empty">Aucune action prévue pour ce GA cette semaine. Ajoutez des lignes.</div>`;
   h+=`<button class="lnk2 c" id="sA" style="margin-top:10px">+ Ajouter une ligne (manif, réunion…)</button></div></div>`;return h;},
@@ -215,7 +215,7 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
    if(inp.dataset.f==='d'){B.L.sort((x,y)=>x.d.localeCompare(y.d));garde();render(true);return;}
    garde();const t=ligneS(o);r.querySelector('.tx2').textContent=t;const c=r.querySelector('.cn');c.textContent=t.length+' / 100';c.classList.toggle('over',t.length>100);};});
   body.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const k=+b.dataset.sx,o=B.L.splice(k,1)[0];garde();render(true);toast('Ligne retirée',{t:'Annuler',fn:()=>{B.L.splice(k,0,o);garde();render(true);}});});
-  $('sA').onclick=()=>{B.L.push({d:S.deb,h:'',t:'',l:'',r:'',p:''});garde();render(true);const l=body.querySelectorAll('.sl');if(l.length){const z=l[l.length-1];z.scrollIntoView({block:'center'});z.querySelector('[data-f="t"]').focus();}};
+  $('sA').onclick=()=>{B.L.push({d:'',h:'',t:'',l:'',p:''});garde();render(true);const l=body.querySelectorAll('.sl');if(l.length){const z=l[l.length-1];z.scrollIntoView({block:'center'});z.querySelector('[data-f="t"]').focus();}};
   $('sR').onclick=()=>{const av=S.b;LS.set(cle(),null);charge();render(true);toast('Lignes reprises des actions prévues',{t:'Annuler',fn:()=>{S.b=av;garde();render(true);}});};
   const c=$('sC');if(c)c.onclick=()=>detail(vueCopierS(B));}};}
 async function copier(t){try{await navigator.clipboard.writeText(t);return true;}catch(e){const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand('copy');}catch(x){}a.remove();return ok;}}
@@ -224,5 +224,5 @@ function vueCopierS(B){const fait=new Set();
   h+=`<ol class="steps2"><li>Dans le groupe Telegram : trombone, puis <b>Sondage</b>.</li><li>Collez la question, puis chaque ligne dans une option.</li><li>Réglages : vote <b>public</b>, <b>plusieurs réponses</b> possibles.</li></ol>`;
   const L=[B.q].concat(B.L.map(ligneS));
   h+=L.map((t,k)=>`<div class="opt"><span class="n">${k?k:'Q'}</span><div><p>${esc(t)}</p>${t.length>(k?100:300)?`<small><span class="w">${t.length} signes : Telegram en accepte ${k?100:300}</span></small>`:''}</div><button class="cp${fait.has(k)?' on':''}" data-cp="${k}">${fait.has(k)?I.check+' Copié':I7.copy+' Copier'}</button></div>`).join('');
-  h+=`<div class="sub" style="margin-top:12px">L'appli ne publie pas elle-même dans Telegram : il faudrait un robot avec une clé sur un serveur.</div>`;return h;},
+  return h;},
  after:()=>{body.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{const k=+b.dataset.cp,t=k?ligneS(B.L[k-1]):B.q;if(await copier(t)){fait.add(k);render(true);toast(k?'Ligne '+k+' copiée':'Question copiée');}else toast('Copie impossible : sélectionnez le texte à la main.');});}};}
