@@ -3,7 +3,7 @@
 const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff devant un magasin',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe qui y va'};
 const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Magasin',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe'};
 const actPar=id=>ACTIONS.find(a=>a.id===id);
-const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();};
+const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();if(typeof majOffl==='function')majOffl();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
  if(l&&l.par===u&&l.quoi===quoi&&ageJ(l.le)*1440<10){l.le=now;return;}a.saisies.push({par:u,le:now,quoi});}
 /* GA d'une nouvelle action : le dernier choisi sur ce téléphone s'il mène des actions dans cette circo, sinon le seul GA de la circo s'il n'y en a qu'un */
@@ -101,10 +101,9 @@ function ouvrirAdresse(i,fils){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='p
   h+=`<div class="btns"><button class="btn primary" id="ici">${I.target} Choisir un PAP autour de cette adresse</button></div>`;
   h+=`<button class="lnk2 c" id="tg">${inS?'Retirer de ma sélection':'Ajouter à ma sélection'}</button>`;
   h+=passagesHTML(a[2]);
-  let m='';if(p.zone)m+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
-  m+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','score dans la circo'],[a[4],'jeunes de 18 à 25 ans']]);
+  let m='';
+  m+=kpis([[a[3],'inscrits'],[Math.round(a[5])+'<small> /100</small>','priorité'],[a[4],'jeunes de 18 à 25 ans']]);
   if(a[14]>=1)m+=`<div class="sub" style="margin-top:8px">Environ ${pl(a[14],'non-inscrit')} à cette adresse${FIAB[a[15]]?`, estimation de fiabilité ${FIAB[a[15]]}`:''}.</div>`;
-  if(a[7]>0)m+=`<div class="sub" style="margin-top:8px">${n0(a[7])}<sup>e</sup> adresse la plus prioritaire de Paris.</div>`;
   const dans=ACTIONS.filter(t=>t.type==='pap'&&!deListe(t)&&t.etapes.some(e=>e.lieu.id===a[2]));
   if(dans.length)m+=`<h2>Dans ${dans.length>1?'les PAP':'le PAP'}</h2>`+dans.slice(0,4).map(rowAction).join('');
   m+=quartierHTML(a);
