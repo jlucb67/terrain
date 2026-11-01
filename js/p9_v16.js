@@ -55,18 +55,18 @@ const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
 function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles().slice(0,3),EC=enCours().filter(a=>a.encours);   /* les PAP prévus d'avant la v16 : dans le Suivi */
   const mien=EC.filter(a=>a.cree_par===moi().id),autres=EC.filter(a=>a.cree_par!==moi().id);
-  let h=mien.concat(autres).slice(0,3).map(carteEC).join('');
+  let h=`<div class="csh"><h1>Porte-à-porte</h1></div>`+mien.concat(autres).slice(0,3).map(carteEC).join('');
   if(EC.length>3)h+=`<div class="sub" style="margin:-4px 0 10px">et ${pl(EC.length-3,'autre action')} en cours : voir le Suivi</div>`;
-  h+=`<h2>À faire en priorité</h2>`;
+  h+=`<div class="btns"><button class="btn line" id="autre">${I.target} Choisir un endroit sur la carte</button></div>`;
   h+=`<div class="tsw"><span>Choisir la taille par</span>${segH('data-tm',[['ins','Nombre d\'inscrits'],['eq','Personnes et temps']],TMODE)}</div>`;
   if(TMODE==='eq'){h+=`<div class="qq"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
    h+=`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`;}
   else h+=`<div class="tsz"><span>Taille<small>environ ${n0(portesDe(taille))} portes</small></span><div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)}<small>inscrits</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div></div>`;
+  h+=`<h2>Suggestions de PAP</h2>`;
   if(!C.length)h+=`<div class="empty">Aucune adresse prioritaire libre pour cette taille. Essayez une autre taille.</div>`;
   h+=C.map((z,k)=>{const pr=prioMoyIds(z.ids);
    return `<button class="pk" data-cs="${k}"><div class="t"><span class="rk2">${k+1}</span><b>${esc(ruesDe(z.ids)[0]||z.rue)}</b><span class="prs" style="${prioStyle(pr)}">Priorité ${pr}</span><span class="cv">${I.next}</span></div>`+
     `<small>${esc(z.nums)}</small><div class="st"><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span><span><b>${n0(portesDe(z.ins))}</b>portes environ</span><span><b>${n0(z.ins)}</b>inscrits</span></div></button>`;}).join('');
-  h+=`<div class="btns"><button class="btn line" id="autre">${I.target} Choisir un endroit sur la carte</button></div>`;
   h+=selBar();
   return h;},
  after:()=>{lierEC();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
@@ -106,7 +106,8 @@ let BZTOUT=false;
 const BZCOL=[[0,'transparent'],[10,'#D9C8F0'],[25,'#A784DC'],[50,'#7537C2'],[101,'#4C0297']];
 const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3][1]:BZCOL[4][1];
 function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot),EC=enCours();
-  let h=`<div class="csh"><h1>Suivi</h1></div>`+bandeHTML(x)+chiffresHTML(x);
+  /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
+  let h=`<div class="csh"><h1>Suivi</h1></div>`+bandeHTML(x)+chiffresHTML(x)+qaHTML()+lienCR();
   if(EC.length)h+=`<h2>En cours · ${EC.length}</h2>`+EC.map(carteEC).join('');
   h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite. Sur la carte : plus c'est foncé, plus c'est avancé.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
@@ -114,7 +115,6 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   if(B.length>6)h+=`<button class="lnk9" id="bzT">${BZTOUT?'Moins de bureaux':`Voir les ${B.length} bureaux`}</button>`;
   h+=`<div class="legb">${[['moins de 10 %',1],['10 à 25 %',2],['25 à 50 %',3],['50 % et plus',4]].map(([t,k])=>`<span><i style="background:${BZCOL[k][1]}"></i>${t}</span>`).join('')}</div>`;
   h+=`<h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div>`;
-  h+=qaHTML()+lienCR();
   return h;},
  after:()=>{lierEC();majCouches();
   const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes(true);},150);};
@@ -145,7 +145,7 @@ const ecPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&a.en
 function infoPied(s){const r=prioLieu([s.lat,s.lon],'pi',s.geo);return {s,v:r.t?r.v:0,fait:passPied(s.nom)[0],ec:ecPied(s)};}
 function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPied).sort((x,y)=>y.v-x.v),nf=S.filter(o=>o.fait).length;
   let h=S.filter(o=>o.ec).map(o=>carteEC(o.ec)).join('');
-  h+=`<div class="csh"><h1>Pieds d'immeuble</h1></div><div class="sub">On pose la tente, on tracte, on répond aux gens ; les autres partent en PAP autour.</div>`;
+  h+=`<div class="csh"><h1>Pieds d'immeuble</h1></div>`;
   if(!S.length)return h+`<div class="empty">Aucun secteur de pied d'immeuble dans cette circonscription.</div>`;
   h+=S.map((o,k)=>{const c=prioCol(o.v);return `<button class="sect" data-ps="${D.pieds.indexOf(o.s)}"><span class="pv" style="background:${c};color:${encreSur(c)}">${o.v}</span><span><b>${esc(o.s.nom)}</b>`+
    `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">En cours</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
