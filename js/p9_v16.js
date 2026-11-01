@@ -159,7 +159,8 @@ function ouvrirPied(s){if(!s)return;if(ONG!=='pieds')setMode('pieds');sel(null);
 /* équipes de 2 qui partent de la tente, chacune dans sa direction, de proche en proche, avec de quoi tenir le temps choisi */
 function equipes(ll,E,cible){if(!E)return [];const A=D.adresses,cosl=Math.cos(ll[0]*Math.PI/180),libre=new Set();
  A.forEach((a,i)=>{if(isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]]&&dist(ll,[a[1],a[0]])<=800)libre.add(i);});
- const ang=p=>Math.atan2(p[0]-ll[0],(p[1]-ll[1])*cosl),ecart=(p,th)=>{let x=Math.abs(ang(p)-th);return x>Math.PI?2*Math.PI-x:x;};
+ /* v23 : écart d'angle ramené entre 0 et 180° (au-delà d'un tour, une adresse comptait à tort dans le secteur d'une équipe) */
+ const ang=p=>Math.atan2(p[0]-ll[0],(p[1]-ll[1])*cosl),ecart=(p,th)=>{let x=Math.abs(ang(p)-th)%(2*Math.PI);return x>Math.PI?2*Math.PI-x:x;};
  let best=0,bv=-1;for(let d=0;d<24;d++){const th=-Math.PI+d*Math.PI/12;let v=0;libre.forEach(i=>{const p=ptA(i);if(ecart(p,th)<Math.PI/E)v+=A[i][3]/(80+dist(ll,p));});if(v>bv){bv=v;best=th;}}
  const T=[];for(let k=0;k<E;k++){const th=best+2*Math.PI*k/E,ids=[];let s=0,cur=ll;
   while(s<cible*.85){let bi=null,bd=1e12;libre.forEach(i=>{const p=ptA(i),dans=ecart(p,th)<=Math.PI/E;if(!ids.length&&!dans)return;if(s+A[i][3]>cible*1.25)return;
@@ -248,7 +249,14 @@ function viseur(on){const avant=VIS;VIS=!!on;let x=$('visr');
   $('vgo').onclick=()=>{const c=ptCible(),ll=[c.lat,c.lng];if(!dansCirco(ll)){toast('La cible est hors de la '+D.k+'e circonscription. Déplacez la carte.');return;}
    const l=meilleurPAP(ll);if(!l){toast('Aucune adresse prioritaire libre près de la cible. Déplacez la carte.');return;}viseur(false);preparer(null,'',null,null,null,{lot:l});};}
  x.hidden=!VIS;app.classList.toggle('vis',VIS);
- if(VIS){if(!avant)VDET=det;const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(ptCible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,60);}
+ if(VIS){if(!avant)VDET=det;const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(ptCible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,60);
+  /* v23 : si la cible tombe hors de la circo (carte déplacée ou dézoomée), la carte vient d'elle-même sur la circo */
+  setTimeout(()=>{if(!VIS)return;map.invalidateSize();const c=ptCible();if(dansCirco([c.lat,c.lng]))return;const z=coeurCirco(),a=map.latLngToContainerPoint(c),b=map.latLngToContainerPoint(z);map.panBy([b.x-a.x,b.y-a.y],{duration:.3});},90);}
  else if(avant&&!wide)setDet(VDET||'half');}
 /* v19 : agrandir la carte (téléphone) : la liste descend, la carte prend l'écran ; une 2e touche la remet */
-$('fBig').onclick=()=>{setDet(det==='peek'?'half':'peek');setTimeout(()=>map.invalidateSize(),320);};
+/* v23 : si la carte agrandie montre du vide autour du fond de la circo, elle se recadre sur la circo */
+$('fBig').onclick=()=>{setDet(det==='peek'?'half':'peek');setTimeout(()=>{map.invalidateSize();recadrerSiVide();},320);};
+const fondB=()=>{const b=D.bounds;return L.latLngBounds([b[0][0]-.004,b[0][1]-.004],[b[1][0]+.004,b[1][1]+.004]);};
+function recadrerSiVide(){if(!D)return;if(!fondB().contains(map.getBounds()))map.flyToBounds(D.bounds,{...pad(),duration:.35});}
+/* un point sûr de la circo : l'adresse la plus proche du milieu de son cadre */
+function coeurCirco(){const m=L.latLngBounds(D.bounds).getCenter(),k=Math.cos(m.lat*Math.PI/180);let bi=0,bd=1e9;D.adresses.forEach((a,i)=>{const d=(a[1]-m.lat)**2+((a[0]-m.lng)*k)**2;if(d<bd){bd=d;bi=i;}});return L.latLng(D.adresses[bi][1],D.adresses[bi][0]);}
