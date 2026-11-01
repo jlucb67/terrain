@@ -68,18 +68,25 @@ function rowTract(o){const ll=[o.s.lat,o.s.lon];
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
   <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
-function vueTractage(){return {id:'base',html:()=>{const m=mom(),L_=lieuxTract(m);
+/* v18 (01/11/2026, JL : « des mini-onglets à l'intérieur du tractage pour choisir entre métro, magasin, déambulation ») :
+   une sorte de lieu à la fois, sur la carte et dans la liste ; les marchés gardent leur onglet */
+let TT=LS.get('ttab','su');
+const TTAB=[['su','Magasins'],['me','Métro'],['ma','Marchés'],['pa','Déambulation']];
+function appliquerTT(){chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';if(TT==='pa')EXP.pc=true;if(D){lieux();noms();majBulles();majMoment();}}
+function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';const m=mom(),L_=lieuxTract(m);
   let h=headHTML('Tractage','');
+  h+=`<div class="seg tt" role="group" aria-label="Sorte de lieu">${TTAB.map(([k,t])=>`<button data-tt="${k}" aria-pressed="${TT===k}">${t}</button>`).join('')}</div>`;
   h+=momHTML(m);
   h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
-  h+=parcHTML();
-  let vide=true;
-  SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
+  if(TT==='pa')h+=parcHTML()||`<div class="empty">Pas de déambulation proposée dans cette circonscription.</div>`;
+  let vide=TT!=='pa';
+  if(TT!=='pa')SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
    h+=`<div class="tsec"><h2>${t}</h2>${l.length>4?`<button class="more" data-ex="${k}">${EXP[k]?'Moins':`Voir les ${l.length}`}</button>`:''}</div>`+l.slice(0,n).map(rowTract).join('');});
-  if(vide)h+=`<div class="empty">Choisissez au moins une sorte de lieu dans les filtres, en haut de la carte.</div>`;
+  if(vide)h+=`<div class="empty">Aucun lieu de cette sorte dans la circonscription.</div>`;
   h+=lienCR();
   return h;},
- after:()=>{body.querySelectorAll('[data-mj]').forEach(b=>b.onclick=()=>{const v=b.dataset.mj;MOM=v==='now'?null:{d:+v,h:mom().h};majMoment();render(true);});
+ after:()=>{appliquerTT();body.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>{TT=b.dataset.tt;LS.set('ttab',TT);if(TT==='pa')EXP.pc=true;effParc();render(true);});
+  body.querySelectorAll('[data-mj]').forEach(b=>b.onclick=()=>{const v=b.dataset.mj;MOM=v==='now'?null:{d:+v,h:mom().h};majMoment();render(true);});
   body.querySelectorAll('[data-mh]').forEach(b=>b.onclick=()=>{const x=mom();MOM={d:x.d,h:(x.h+(+b.dataset.mh)+24)%24};majMoment();render(true);});
   body.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>{TRI=b.dataset.tri;render(true);});
   body.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{EXP[b.dataset.ex]=!EXP[b.dataset.ex];render(true);});
@@ -139,7 +146,7 @@ function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s
 /* ---------------- stations */
 const typeJour=d=>JTYPE(d.getDay());
 const entreesH=(s,h,d)=>entreesM(s,{d:(d||new Date()).getDay(),h});
-function majBulles(){if(!bulles)return;bulles.clearLayers();if(mode!=='tractage'||!chips.tMe){if(map.hasLayer(bulles))map.removeLayer(bulles);return;}
+function majBulles(){colorerLieux();if(!bulles)return;bulles.clearLayers();if(mode!=='tractage'||!chips.tMe){if(map.hasLayer(bulles))map.removeLayer(bulles);return;}
  const m=mom(),vals=D.metro.map(s=>entreesM(s,m)),mx=Math.max(...D.metro.map(s=>Math.max(...HEURES.map(h=>entreesM(s,{d:m.d,h})))),1),ac=tok('--accent');
  D.metro.forEach((s,k)=>{const r=4+22*Math.sqrt(vals[k]/mx);L.circleMarker([s.lat,s.lon],{renderer:rA,radius:r,color:ac,weight:1.2,opacity:.9,fillColor:ac,fillOpacity:.16}).on('click',()=>ouvrirStation(s)).addTo(bulles);});
  if(!map.hasLayer(bulles))bulles.addTo(map);}
