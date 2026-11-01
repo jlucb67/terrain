@@ -107,7 +107,8 @@ const BZCOL=[[0,'transparent'],[10,'#D9C8F0'],[25,'#A784DC'],[50,'#7537C2'],[101
 const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3][1]:BZCOL[4][1];
 function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot),EC=enCours();
   /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
-  let h=`<div class="csh"><h1>Suivi</h1></div>`+bandeHTML(x)+chiffresHTML(x)+qaHTML()+(estAdmin()?`<button class="lnk" id="qSond">${I.tract} Préparer le sondage Telegram de la semaine</button>`:'')+lienCR();
+  /* v19 (JL : « dans le Suivi, l'import doit être discret, en mode trois petits points ») */
+  let h=`<div class="csh"><h1>Suivi</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div>`+bandeHTML(x)+chiffresHTML(x);
   if(EC.length)h+=`<h2>En cours · ${EC.length}</h2>`+EC.map(carteEC).join('');
   h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite. Sur la carte : plus c'est foncé, plus c'est avancé.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
@@ -123,7 +124,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   $('lres').onclick=clicRes;lierQA();suite();
   body.querySelectorAll('[data-bv]').forEach(b=>b.onclick=()=>ouvrirBureau(b.dataset.bv,true));
   const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};
-  const qs=$('qSond');if(qs)qs.onclick=()=>{setDet('full');detail(vueSondage());};}};}
+  $('sPlus').onclick=()=>{const m=$('sMenu');m.hidden=!m.hidden;$('sPlus').setAttribute('aria-expanded',!m.hidden);};}};}
 
 /* ---- ce que la carte montre selon l'onglet : points des adresses (porte-à-porte, tractage), bureaux colorés par
    leur avancement (Suivi), secteurs colorés par leur priorité et tentes (pieds d'immeuble) */
@@ -242,3 +243,5 @@ function viseur(on){VIS=!!on;let x=$('visr');
    const l=meilleurPAP(ll);if(!l){toast('Aucune adresse prioritaire libre près de la cible. Déplacez la carte.');return;}viseur(false);preparer(null,'',null,null,null,{lot:l});};}
  x.hidden=!VIS;
  if(VIS){if(!wide)setDet('peek');const v=x.querySelector('.vcx'),pl=()=>{const p=map.latLngToContainerPoint(centreVisible());v.style.left=p.x+'px';v.style.top=p.y+'px';};pl();setTimeout(pl,380);}}
+/* v19 : agrandir la carte (téléphone) : la liste descend, la carte prend l'écran ; une 2e touche la remet */
+$('fBig').onclick=()=>{setDet(det==='peek'?'half':'peek');setTimeout(()=>map.invalidateSize(),320);};
