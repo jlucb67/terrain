@@ -102,7 +102,7 @@ let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=
 let mode='pap',ONG='pap',vueMetroJour='now';
 /* v16 (31/10/2026) : plus de filtres sur le porte-à-porte ; les pieds d'immeuble ont leur onglet (plus dans le tractage) */
 const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:false};
-const CHIPS={pap:[],tractage:[['tMa','Marchés','#2E7D4F'],['tSu','Magasins','--sup'],['tMe','Métro','--ink']]};
+const CHIPS={pap:[],tractage:[]};   /* v18 : le tractage choisit sa sorte de lieu par des onglets dans le panneau (p3_diff.js) */
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
 const AID=i=>D.adresses[i][2];
@@ -248,8 +248,8 @@ function construire(){
  contourL=L.layerGroup([L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:4.5,opacity:.95,fill:false}}),L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:1.4,opacity:1,fill:false}})]);
  AM=D.adresses.map((a,i)=>{const m=L.circleMarker([a[1],a[0]],{renderer:rA,radius:3});m.i=i;m.on('click',()=>{if(mode==='pap')ouvrirAdresse(i);else if(mode==='boitage')ouvrirAdresseB(i);});return m;});
  adrL=L.layerGroup();nomsL=L.layerGroup();bvlL=L.layerGroup();stnL=L.layerGroup();papL=L.layerGroup();lotL=L.layerGroup();selL=L.layerGroup();
- const mk=(ll,cls,html,sz,fn,lab)=>{const m=L.marker(ll,{pane:'lieux',icon:L.divIcon({className:'',html:lab?`<div class="mkl"><div class="mk ${cls}" style="width:${sz}px;height:${sz}px">${html}</div><span>${esc(lab)}</span></div>`:`<div class="mk ${cls}" style="width:${sz}px;height:${sz}px">${html}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:true});m.on('click',fn);return m;};
- lieuxL={metro:L.layerGroup(D.metro.map(s=>mk([s.lat,s.lon],'mk-m','M',14,()=>ouvrirStation(s)))),
+ const mk=(ll,cls,html,sz,fn,lab,st)=>{const m=L.marker(ll,{pane:'lieux',icon:L.divIcon({className:'',html:lab?`<div class="mkl"><div class="mk ${cls}" style="width:${sz}px;height:${sz}px;${st||''}">${html}</div><span>${esc(lab)}</span></div>`:`<div class="mk ${cls}" style="width:${sz}px;height:${sz}px;${st||''}">${html}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:true});m.on('click',fn);return m;};
+ lieuxL={metro:L.layerGroup(D.metro.map(s=>(s._m=mk([s.lat,s.lon],'mk-m','M',14,()=>ouvrirStation(s))))),
   marches:L.layerGroup(D.marches.map(s=>{const m=mk([s.lat,s.lon],'mk-ma',I.basket,20,()=>ouvrirMarche(s),s.nom.replace(/^Marché /,''));s._m=m;return m;})),
   grands:L.layerGroup((D.supers||[]).map(s=>{const m=mk([s.lat,s.lon],'mk-c g',I.cart,20,()=>ouvrirMagasin(s));s._m=m;return m;})),
   pieds:L.layerGroup((D.pieds||[]).map(s=>{const g=L.geoJSON(s.geo,{renderer:rA,style:{color:tok('--pied'),weight:1.6,opacity:.9,dashArray:'4 3',fillColor:tok('--pied'),fillOpacity:.1}}).on('click',()=>ouvrirPied(s));s._g=g;
@@ -312,7 +312,11 @@ function lieux(){if(!D)return;const z=map.getZoom();
  const t=mode==='tractage';
  const p=mode==='pap'&&ONG==='pap';
  const on={metro:(t&&chips.tMe)||(p&&chips.metro&&z>=14.75),marches:(t&&chips.tMa)||(p&&z>=15.5),grands:t&&chips.tSu,pieds:false};
- Object.entries(lieuxL).forEach(([k,l])=>{if(on[k]&&!map.hasLayer(l))l.addTo(map);if(!on[k]&&map.hasLayer(l))map.removeLayer(l);});}
+ Object.entries(lieuxL).forEach(([k,l])=>{if(on[k]&&!map.hasLayer(l))l.addTo(map);if(!on[k]&&map.hasLayer(l))map.removeLayer(l);});colorerLieux();}
+/* v18 (01/11/2026, JL : « ajouter les couleurs de priorité aux magasins et au métro sur la carte ») : chaque magasin et chaque
+   station prend la couleur de sa priorité (moyenne des adresses de sa zone de chalandise, prioLieu, p3_diff.js) */
+function colorerLieux(){if(!D||!PC.length)return;[[D.metro,'me'],[D.supers||[],'su']].forEach(([l,k])=>l.forEach(s=>{const e=s._m&&s._m.getElement&&s._m.getElement(),d=e&&e.querySelector('.mk');if(!d)return;
+ const c=prioCol(prioLieu([s.lat,s.lon],k,null,s).v);d.style.background=c;d.style.color=encreSur(c);d.style.borderColor='var(--solid)';}));}
 function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)return;const z=map.getZoom(),b=map.getBounds().pad(.1);
  if(z>=(mode==='boitage'?14.75:15)){let n=0;for(const x of D.fond.noms){if(n>160)break;if(z<16&&x[4]<500&&mode!=='boitage')continue;if(!b.contains([x[1],x[0]]))continue;n++;
   nomsL.addLayer(L.marker([x[1],x[0]],{pane:'noms',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="nm" style="transform:translate(-50%,-50%) rotate(${x[2]}deg)">${esc(x[3])}</div>`})}));}}
