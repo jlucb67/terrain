@@ -268,7 +268,7 @@ function dansCirco(ll){const g=D.contour.type==='Polygon'?[D.contour.coordinates
  const x=ll[1],y=ll[0];return g.some(poly=>{const r=poly[0];let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const [xi,yi]=r[i],[xj,yj]=r[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}return c;});}
 /* centre de la partie visible de la carte, entre la recherche et le tiroir */
 function centreVisible(){const W=app.clientWidth,H=app.clientHeight;
- if(wide)return map.containerPointToLatLng([396+(W-396)/2,H/2]);
+ if(wide){const g=app.classList.contains('tabs')?656:396;return map.containerPointToLatLng([g+(W-g)/2,H/2]);}
  const top=($('searchbox').getBoundingClientRect().bottom||100)+4,bas=Math.min(H,sheet.getBoundingClientRect().top||H);
  return map.containerPointToLatLng([W/2,(top+Math.max(top+40,bas))/2]);}
 const isPr=a=>a[5]>=crit.score&&a[3]>=crit.ins&&(!(crit.ni>0)||a[14]>=crit.ni);
