@@ -112,17 +112,15 @@ function ouvrirAdresse(i,fils){const a=D.adresses[i],p=BZ[a[9]]||{};if(mode!=='p
   h+=`<details class="more"><summary>Plus sur cette adresse</summary>${m}</details>`;
   return h;},after:()=>{$('tg').onclick=()=>{basculer(i);render(true);};$('ici').onclick=()=>preparer([a[1],a[0]],'Autour de '+a[2],i);const b=$('bv');if(b)b.onclick=()=>ouvrirBureau(p.id,true);
    lierSemaine(i);body.querySelectorAll('[data-act]').forEach(x=>x.onclick=()=>detail(vueAction(x.dataset.act)));}});}
-function ouvrirBureau(id,fils){const p=BZ[id];if(!p)return;sel(null);if(det==='peek')setDet('half');
- const f=D.bureaux.find(x=>x.properties.id===id);voir(L.geoJSON(f).getBounds().getCenter(),Math.max(map.getZoom(),15.5));
- detail({id:'bv',fils,html:()=>{let h=headHTML('Bureau '+esc(id),p.liste===1?'Bureau à faire voter':p.liste===2?'Bureau à convaincre':'',true);
-  h+=`<div class="meta">${zTag(p.zone)}<div class="zdef">${cap(ZD[p.zone])}</div></div>`;
-  h+=kpis([[pc(100*p.mel/p.exp),'Mélenchon 2022'],[n0(p.v27),'voix à obtenir en 2027'],['+'+n0(p.gain),'voix à gagner']]);
-  h+=`<h2>D'où viennent les voix à gagner</h2><div class="bars">${[['Abstentionnistes de 2022',p.L1],['Jeunes électeurs',p.L2],['Électeurs d\'autres candidats',p.L3],['Nouveaux inscrits',p.L4]].map(([t,v])=>`<div class="bar"><span>${t}</span><b>${n0(v)}</b><div class="tr"><i style="width:${Math.min(100,100*v/Math.max(1,p.L1+p.L2+p.L3+p.L4))}%"></i></div></div>`).join('')}</div>`;
-  h+=`<div class="sub" style="margin-top:10px">Participation 2022 : ${pc(100*p.vot/p.ins)} · ${n0(p.abst)} abstentionnistes</div>`;
-  const best=D.adresses.map((a,i)=>[a,i]).filter(([a])=>a[9]===id&&isPr(a)).sort((x,y)=>y[0][5]-x[0][5]).slice(0,8).map(x=>x[1]);
-  if(best.length)h+=`<h2>Adresses prioritaires du bureau</h2>`+best.map(i=>rowAdr(i)).join('');
-  return h;},after:()=>lierRows(true)});}
-
+/* bureau de vote (v18, JL : « quand on clique sur un bureau, doivent apparaître toutes les adresses, par ordre de priorité ;
+   le détail du bureau n'est pas nécessaire ») : ses adresses, la plus prioritaire d'abord, à valider d'une touche */
+function ouvrirBureau(id,fils){sel(null);if(det==='peek')setDet('half');
+ const f=D.bureaux.find(x=>x.properties.id===id);if(f)voir(L.geoJSON(f).getBounds().getCenter(),Math.max(map.getZoom(),15.5));
+ detail({id:'bv',fils,html:()=>{const A=D.adresses,ids=A.map((a,i)=>i).filter(i=>A[i][8]===id||A[i][9]===id).sort((x,y)=>A[y][5]-A[x][5]||A[y][3]-A[x][3]);
+  const nf=ids.filter(i=>statutA(A[i][2])==='fait').length,np=ids.filter(i=>isPr(A[i])).length;
+  let h=headHTML('Bureau '+esc(id),`${pl(ids.length,'adresse')} · ${n0(insDe(ids))} inscrits · ${pl(np,'prioritaire')} · ${pl(nf,'faite')}`,true);
+  h+=ids.length?`<div id="bres">${ids.map(ligneA).join('')}</div>`:`<div class="empty">Aucune adresse dans ce bureau.</div>`;
+  return h;},after:()=>{const r=$('bres');if(r)r.onclick=ev=>{const t=ev.target.closest('[data-lv],[data-lt]');if(!t)return;if(t.dataset.lv!=null)basculerAdr(+t.dataset.lv);else ouvrirAdresse(+t.dataset.lt,true);};}});}
 /* ---------------- lot d'adresses autour d'un point : taille respectee, adresses proches */
 /* pas suivant d'un PAP (JL, 25/10/2026 : « privilégier les adresses à côté quand elles sont toutes globalement bien ») :
    l'adresse libre la plus proche, de préférence dans la même rue (une adresse d'une autre rue compte 1,5 fois plus loin).
