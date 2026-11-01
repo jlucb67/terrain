@@ -107,7 +107,7 @@ const BZCOL=[[0,'transparent'],[10,'#D9C8F0'],[25,'#A784DC'],[50,'#7537C2'],[101
 const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3][1]:BZCOL[4][1];
 function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot),EC=enCours();
   /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
-  let h=`<div class="csh"><h1>Suivi</h1></div>`+bandeHTML(x)+chiffresHTML(x)+qaHTML()+lienCR();
+  let h=`<div class="csh"><h1>Suivi</h1></div>`+bandeHTML(x)+chiffresHTML(x)+qaHTML()+(estAdmin()?`<button class="lnk" id="qSond">${I.tract} Préparer le sondage Telegram de la semaine</button>`:'')+lienCR();
   if(EC.length)h+=`<h2>En cours · ${EC.length}</h2>`+EC.map(carteEC).join('');
   h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite. Sur la carte : plus c'est foncé, plus c'est avancé.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
@@ -122,7 +122,8 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   $('lfa').onclick=()=>{LFAITES=!LFAITES;LN=LPAS;$('lfa').setAttribute('aria-pressed',LFAITES);majRes(true);};
   $('lres').onclick=clicRes;lierQA();suite();
   body.querySelectorAll('[data-bv]').forEach(b=>b.onclick=()=>ouvrirBureau(b.dataset.bv,true));
-  const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};}};}
+  const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};
+  const qs=$('qSond');if(qs)qs.onclick=()=>{setDet('full');detail(vueSondage());};}};}
 
 /* ---- ce que la carte montre selon l'onglet : points des adresses (porte-à-porte, tractage), bureaux colorés par
    leur avancement (Suivi), secteurs colorés par leur priorité et tentes (pieds d'immeuble) */
