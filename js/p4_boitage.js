@@ -151,7 +151,7 @@ function vueDonnees(){return {id:'donnees',html:()=>{let h=headHTML('Données','
 /* menu : actions, circonscription, legende, affichage, administration (administrateurs), deconnexion */
 function ouvrirMenu(){const m=$('menu'),u=moi(),t=themeDe(),enCirco=!!(D&&!$('searchbox').hidden);$('res').hidden=true;
  const nA=jEnAttente();m.innerHTML=`<div class="mh"><b>${esc(u.nom)}</b><span>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${esc(circosTxt(u))}</span>${nA?`<span class="att">${pl(nA,'action')} en attente d'envoi au journal</span>`:''}</div>`+
-  (enCirco&&estAdmin()?`<button class="mi" role="menuitem" data-mi="sondage">${I.tract}<span>Sondage Telegram de la semaine</span></button>`:'')+(enCirco?`<button class="mi" role="menuitem" data-mi="actions">${I.list}<span>Toutes les actions</span></button><button class="mi" role="menuitem" data-mi="paris">${I.carte}<span>Changer de circonscription</span></button><button class="mi" role="menuitem" data-mi="legende">${I.couches}<span>Légende</span></button><div class="sep"></div>`:'')+
+  (enCirco?`<button class="mi" role="menuitem" data-mi="sondage">${I.tract}<span>Sondage Telegram de la semaine</span></button>`:'')+(enCirco?`<button class="mi" role="menuitem" data-mi="actions">${I.list}<span>Toutes les actions</span></button><button class="mi" role="menuitem" data-mi="paris">${I.carte}<span>Changer de circonscription</span></button><button class="mi" role="menuitem" data-mi="legende">${I.couches}<span>Légende</span></button><div class="sep"></div>`:'')+
   `<div class="mi th"><span>Affichage</span><div class="seg sm" role="group" aria-label="Affichage">${[['auto','Téléphone'],['clair','Clair'],['sombre','Sombre']].map(([k,x])=>`<button data-th="${k}" aria-pressed="${t===k}">${x}</button>`).join('')}</div></div><div class="sep"></div>`+
   (estAdmin()?`<button class="mi adm" role="menuitem" data-mi="admin">${I.admin}<span>Administration</span></button>`:'')+
   `<button class="mi" role="menuitem" data-mi="deco">${I.sortie}<span>Se déconnecter</span></button>`;
@@ -159,13 +159,13 @@ function ouvrirMenu(){const m=$('menu'),u=moi(),t=themeDe(),enCirco=!!(D&&!$('se
  m.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{LS.set('theme_'+MOI,b.dataset.th);appliquerTheme();m.querySelectorAll('[data-th]').forEach(x=>x.setAttribute('aria-pressed',x===b));});
  m.querySelectorAll('[data-mi]').forEach(b=>b.onclick=()=>{const k=b.dataset.mi;fermerMenu();
   if(k==='actions'){if(det==='peek')setDet('half');detail(vueActions({type:'tous'}));}
-  else if(k==='sondage'){setDet('full');detail(vueSondage());}
+  else if(k==='sondage'){setMode('sondage');}
   else if(k==='paris'){$('q').value='';ecranParis();}
   else if(k==='legende'){if(det==='peek')setDet('half');detail(vueLegende());}
   else if(k==='admin'){const go=()=>{setDet('half');detail(vueConsole());};if(enCirco)go();else ouvrir(+LS.get('dernCirco',6)||6,go);}
   else if(k==='deco')deconnecter();});}
 function fermerMenu(){$('menu').hidden=true;$('mback').hidden=true;}
-$('moi').onclick=ouvrirMenu;$('menuP').onclick=ouvrirMenu;$('mback').onclick=fermerMenu;
+$('moi').onclick=ouvrirMenu;$('sbPlus').onclick=ouvrirMenu;$('menuP').onclick=ouvrirMenu;$('mback').onclick=fermerMenu;
 addEventListener('keydown',e=>{if(e.key==='Escape')fermerMenu();});
 
 /* ---------------- legende */
