@@ -148,7 +148,8 @@ function vueExport(){return {id:'exp',html:()=>{const F=EXPF,R=lignesExport(F),n
    ne publie pas dans Telegram (il faudrait un robot avec une clé sur un serveur) : on copie la question et les lignes.
    Limites de Telegram : question 300 signes, 12 options, 100 signes par option. Brouillon gardé sur ce téléphone. */
 const JL7=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'],MOIS7=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-const jeudiDe=d=>{const x=new Date(d);x.setHours(12,0,0,0);x.setDate(x.getDate()+((4-x.getDay()+7)%7));return x;};
+/* semaine du sondage : du lundi au dimanche (JL, 01/11/2026 ; jeudi au mercredi jusqu'à la v18) ; on ouvre sur le lundi qui vient */
+const lundiS=d=>{const x=new Date(d);x.setHours(12,0,0,0);x.setDate(x.getDate()+((1-x.getDay()+7)%7));return x;};
 const jourTxt=q=>{const x=toD(q+'T12:00');return JL7[x.getDay()]+' '+pad2(x.getDate())+'/'+pad2(x.getMonth()+1);};
 const dLong=x=>JL7[x.getDay()].toLowerCase()+' '+x.getDate()+(x.getDate()===1?'er':'')+' '+MOIS7[x.getMonth()];
 const ligneS=o=>[o.d?jourTxt(o.d):'',o.h,o.t,o.l,o.r,o.p].map(x=>String(x||'').trim()).filter(Boolean).join(' - ');
@@ -161,19 +162,22 @@ function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
   if(a.type==='equipe'&&a.etapes[0]){const l=a.etapes[0].lieu,j=(a.jours||[]);
    const t=l.t==='station'?'Diffusion':l.t==='marche'?l.id:l.t==='commerce'?'Diffusion':l.t==='parcours'?l.id.split(' · ')[0]:'Diffusion',lieu=l.t==='station'?'Métro '+l.id:l.t==='marche'?'':l.t==='parcours'?l.id.split(' · ').slice(1).join(' · '):l.id;
    J.forEach(q=>{if(j.includes(toD(q+'T12:00').getDay()))L.push({d:q,h:'',t,l:lieu,r:'',p});});}
-  else if(a.type==='pap'&&a.prevue&&a.prevue.slice(0,10)>=deb&&a.prevue.slice(0,10)<=fin&&a.statut==='a_faire')L.push({d:a.prevue.slice(0,10),h:/T\d/.test(a.prevue)?a.prevue.slice(11,13)+'h':'',t:'Porte-à-porte',l:(a.etapes[0]||{lieu:{id:''}}).lieu.id,r:'',p});});
+  /* v19 (JL, 01/11/2026 : « quand on met un PAP en cours, il doit se préremplir dans la partie sondage ») : les PAP en cours et les
+     pieds d'immeuble en cours y sont, datés du jour prévu s'il tombe dans la semaine, sinon du premier jour (modifiable) */
+  else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&a.encours))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
+   L.push({aid:a.id,d:dans?q:deb,h:/T\d/.test(a.prevue||'')?a.prevue.slice(11,13)+'h':'',t:a.type==='pap'?'Porte-à-porte':"Pied d'immeuble",l:a.type==='pap'?((a.nom||'').replace(/^PAP /,'')||(a.etapes[0]||{lieu:{id:''}}).lieu.id):(a.etapes[0]||{lieu:{id:''}}).lieu.id,r:'',p});}});
  L.sort((x,y)=>x.d.localeCompare(y.d));
  const x=toD(deb+'T12:00'),y=toD(fin+'T12:00');
  return {q:`Bonjour, voici le calendrier des actions du ${dLong(x)} au ${dLong(y)}. Tracts : à compléter. Vous pouvez vous y inscrire si vous le désirez.`,L};}
-function vueSondage(){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:isoD(jeudiDe(new Date())).slice(0,10)};const S=SOND;
- const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{S.b=LS.get(cle(),null)||prerempliS(S.ga,S.deb);},garde=()=>LS.set(cle(),S.b);charge();
+function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:isoD(lundiS(new Date())).slice(0,10)};const S=SOND;
+ const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));let n=0;prerempliS(S.ga,S.deb).L.forEach(o=>{if(o.aid&&!vu.has(o.aid)){S.b.L.push(o);n++;}});if(n)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));}},garde=()=>LS.set(cle(),S.b);charge();
  const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o);
   return `<div class="sl" data-k="${k}"><div class="sl1"><span class="n">${k+1}</span><label class="chs"><select data-f="d" aria-label="Jour">${J.map(q=>`<option value="${q}"${q===o.d?' selected':''}>${jourTxt(q)}</option>`).join('')}</select>${I.down}</label><input data-f="h" value="${esc(o.h)}" placeholder="Heure" aria-label="Heure"><button class="xb" data-sx="${k}" aria-label="Retirer la ligne ${k+1}">${I.x}</button></div>
    <input data-f="t" value="${esc(o.t)}" placeholder="Action : Porte-à-porte, Marché d'Aligre, Diffusion…" aria-label="Action"><input data-f="l" value="${esc(o.l)}" placeholder="Lieu : 5 rue Eugénie Eboué, Métro…" aria-label="Lieu">
    <div class="sl2"><input data-f="r" value="${esc(o.r)}" placeholder="RDV (facultatif)" aria-label="Rendez-vous"><input data-f="p" value="${esc(o.p)}" list="sRef" placeholder="Référent et téléphone" aria-label="Référent"></div>
    <div class="slp"><span class="tx2">${esc(t)}</span><span class="cn${t.length>100?' over':''}">${t.length} / 100</span></div></div>`;};
- return {id:'sond',html:()=>{const B=S.b,x=toD(S.deb+'T12:00'),y=new Date(x);y.setDate(x.getDate()+6);
-  let h=headHTML('Sondage Telegram','Calendrier de la semaine d\'un GA',true);
+ return {id:base?'base':'sond',html:()=>{const B=S.b,x=toD(S.deb+'T12:00'),y=new Date(x);y.setDate(x.getDate()+6);
+  let h=headHTML('Sondage Telegram','Calendrier de la semaine d\'un GA',!base);
   h+=`<div class="fl"><span>Groupe d'action</span><label class="chs"><select id="sG" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
   const dc=z=>z.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
   h+=`<div class="wk"><button id="sP" aria-label="Semaine précédente">‹</button><b>${cap(dc(x))} au ${dc(y)}</b><button id="sN" aria-label="Semaine suivante">›</button></div>`;
