@@ -86,7 +86,7 @@ function stParis(){const b=tok('--cborder'),ac=tok('--accent');
  eauL.setStyle({fillColor:tok('--water')});arrL.setStyle({color:tok('--arr')});}
 function choisir(n){choix=n;stParis();show(vueParis());setDet('fit');map.flyToBounds(P.bounds,{...pad(56),duration:.35});}
 function ecranParis(){
- clearCirco();LS.set('circo',0);fermerMenu();$('menuP').hidden=false;$('searchbox').hidden=true;$('brand').hidden=false;$('fLeg').hidden=true;$('tabbar').hidden=true;app.classList.remove('tabs');sheet.classList.add('paris');
+ clearCirco();LS.set('circo',0);fermerMenu();$('menuP').hidden=false;$('searchbox').hidden=true;$('brand').hidden=false;$('fLeg').hidden=true;$('tabbar').hidden=true;app.classList.remove('tabs','page');sheet.classList.add('paris');
  if(!parisL){parisL=L.layerGroup();labL=L.layerGroup();
   P.circos.forEach(f=>{const l=L.geoJSON(f,{renderer:rA}).getLayers()[0];l.n=f.properties.n;l.p=f.properties.objectif_p;l.on('click',()=>choisir(l.n));parisL.addLayer(l);
    const m=L.marker([f.properties.lab[1],f.properties.lab[0]],{pane:'noms',interactive:false,icon:L.divIcon({className:'',html:`<div class="cl${cls(f.properties.objectif_p)>=2?' hi':''}"><b>${f.properties.n===1?'1ère':f.properties.n+'ème'}</b><span>${Math.round(f.properties.objectif_p)} %</span></div>`,iconSize:[0,0]})});
@@ -330,20 +330,20 @@ let mvT=0;map.on('moveend',()=>{if(!D||!adrL)return;noms();clearTimeout(mvT);mvT
 /* missions */
 /* quatre onglets depuis la v16 (31/10/2026) : Porte-à-porte, Pieds d'immeuble, Tractage et Suivi (qui remplace la Liste).
    La carte reste en mode « pap » pour les trois onglets autres que le tractage ; majCouches dit ce qu'elle montre. */
-function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(!['pap','pieds','tractage','suivi'].includes(m))m='tractage';ONG=m;m=m==='tractage'?'tractage':'pap';mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
- $('tabbar').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));
+function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(!['pap','pieds','tractage','suivi','sondage'].includes(m))m='tractage';ONG=m;m=m==='tractage'?'tractage':'pap';mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
+ $('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));app.classList.toggle('page',ONG==='suivi'||ONG==='sondage');
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
  ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();if(typeof majCouches==='function')majCouches();
- if(!wide&&det==='full')setDet('peek');
- show(vueBase());if(!first){if(det==='peek'&&ONG!=='pap')setDet('half');map.flyToBounds(D.bounds,{...pad(),duration:.4});}}
+ if(!wide)setDet(ONG==='suivi'||ONG==='sondage'?'full':'half');
+ show(vueBase());if(!first&&ONG!=='suivi'&&ONG!=='sondage'){setTimeout(()=>{map.invalidateSize();map.flyToBounds(D.bounds,{...pad(),duration:.4});},60);}}
 /* toucher l'onglet où l'on est ramène à son accueil (v16) */
-$('tabbar').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);show(vueBase());}});
+$('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);show(vueBase());}});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
  const sw=k==='prio'?`<i style="background:linear-gradient(90deg,var(--p1),var(--p4))"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
  return `<button class="chip glass" data-k="${k}" aria-pressed="${chips[k]}">${sw}${t}</button>`;}).join('');
  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;chips[k]=!chips[k];b.setAttribute('aria-pressed',chips[k]);
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
   const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
-const vueBase=()=>ONG==='suivi'?vueSuivi():ONG==='pieds'?vuePieds():mode==='tractage'?vueTractage():vueAccueil();
+const vueBase=()=>ONG==='sondage'?vueSondage(true):ONG==='suivi'?vueSuivi():ONG==='pieds'?vuePieds():mode==='tractage'?vueTractage():vueAccueil();
 const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.filter(a=>a.type!=='equipe').length})</button>`;
