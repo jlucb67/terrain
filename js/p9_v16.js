@@ -108,14 +108,16 @@ const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3
 function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot),EC=enCours();
   /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
   /* v19 (JL : « dans le Suivi, l'import doit être discret, en mode trois petits points ») */
-  let h=`<div class="csh"><h1>Suivi</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div>`+bandeHTML(x)+chiffresHTML(x);
+  /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, deux colonnes, les chiffres et les bureaux à gauche,
+     toutes les adresses à droite (classes pg2, pgh, pcl, pc2) ; au téléphone, rien ne change */
+  let h=`<div class="pg2 suiv"><div class="pgh"><div class="csh"><h1>Suivi</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div></div><div class="pcl">`+bandeHTML(x)+chiffresHTML(x);
   if(EC.length)h+=`<h2>En cours · ${EC.length}</h2>`+EC.map(carteEC).join('');
-  h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite. Sur la carte : plus c'est foncé, plus c'est avancé.</div>`;
+  h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
   h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
   if(B.length>6)h+=`<button class="lnk9" id="bzT">${BZTOUT?'Moins de bureaux':`Voir les ${B.length} bureaux`}</button>`;
   h+=`<div class="legb">${[['moins de 10 %',1],['10 à 25 %',2],['25 à 50 %',3],['50 % et plus',4]].map(([t,k])=>`<span><i style="background:${BZCOL[k][1]}"></i>${t}</span>`).join('')}</div>`;
-  h+=`<h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div>`;
+  h+=`</div><div class="pc2"><h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div></div></div>`;
   return h;},
  after:()=>{lierEC();majCouches();
   const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes(true);},150);};
