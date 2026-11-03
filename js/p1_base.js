@@ -319,7 +319,11 @@ function lieux(){if(!D)return;const z=map.getZoom();
 function colorerLieux(){if(!D||!PC.length)return;[[D.metro,'me'],[D.supers||[],'su']].forEach(([l,k])=>l.forEach(s=>{const e=s._m&&s._m.getElement&&s._m.getElement(),d=e&&e.querySelector('.mk');if(!d)return;
  const c=prioCol(prioLieu([s.lat,s.lon],k,null,s).v);d.style.background=c;d.style.color=encreSur(c);d.style.borderColor='var(--solid)';}));}
 function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)return;const z=map.getZoom(),b=map.getBounds().pad(.1);
- if(z>=(mode==='boitage'?14.75:15)){let n=0;for(const x of D.fond.noms){if(n>160)break;if(z<16&&x[4]<500&&mode!=='boitage')continue;if(!b.contains([x[1],x[0]]))continue;n++;
+ /* v25 (JL : « il y a trop de fois écrit la même rue ») : une rue est écrite une fois par portion d'écran (les longues portions
+    d'abord, chaque chaussée d'un boulevard comptait à part), et deux noms ne se posent plus l'un sur l'autre */
+ if(z>=(mode==='boitage'?14.75:15)){let n=0;const pris=[],par={},dm=z>=17?230:320,C=D.fond.noms.filter(x=>(z>=16||x[4]>=500||mode==='boitage')&&b.contains([x[1],x[0]])).sort((p,q)=>q[4]-p[4]);
+  for(const x of C){if(n>120)break;const p=map.latLngToContainerPoint([x[1],x[0]]),l=par[x[3]]||(par[x[3]]=[]);
+   if(l.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<dm)||pris.some(q=>Math.abs(q.x-p.x)<70&&Math.abs(q.y-p.y)<22))continue;l.push(p);pris.push(p);n++;
   nomsL.addLayer(L.marker([x[1],x[0]],{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="nm" style="transform:translate(-50%,-50%) rotate(${x[2]}deg)">${esc(x[3])}</div>`})}));}}
  if(mode==='pap'&&chips.zones&&z>=15.25){if(!D._bc)D._bc=D.bureaux.map(f=>L.geoJSON(f).getBounds().getCenter());D.bureaux.forEach((f,j)=>{const c=D._bc[j];if(!b.contains(c))return;
   bvlL.addLayer(L.marker(c,{pane:'noms',interactive:false,keyboard:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<div class="bvl" style="transform:translate(-50%,-50%)">${esc(f.properties.id)}</div>`})}));});}
