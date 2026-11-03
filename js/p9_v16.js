@@ -188,7 +188,10 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   let h=headHTML(esc(s.nom),s.qpv&&s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
   h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
   h+=`<div class="sub" style="margin-top:10px;color:var(--ink);font-size:14px">Stand : <b>${esc(standTxt(s))}</b></div>`;
-  if(s.poste&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
+  /* v26 : le stand vérifié sur photo ; sans endroit vérifié, au pied des immeubles */
+  if(s.poste&&s.poste.verif)h+=`<div class="hint">Endroit vérifié sur photo : une tente de 3 m et le passage des piétons y tiennent.</div>`;
+  else if(s.poste&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
+  else if(!s.poste)h+=`<div class="hint">Pas encore d'endroit vérifié pour la tente : installez-vous au pied des immeubles, au cœur de la zone.</div>`;
   if(ec){const G=ec.groupe?duGroupe(ec.groupe).filter(a=>a.type==='pap'&&a.statut==='a_faire'):[];T=G.map(a=>({ids:a.etapes.map(idxE).filter(i=>i!=null)}));T.forEach(e=>{e.ins=e.ids.reduce((t,i)=>t+D.adresses[i][3],0);e.rue=ruesDe(e.ids)[0];});
    h+=`<div class="encours"><b>En cours</b> ${depuis(ec.encours)} · ${esc(pourQui(ec))}</div>`;
    h+=`<h2>Qui fait quoi</h2><div class="eqx"><span class="av2 eqS">${I.pied}</span><div><b>Stand</b><small>${esc(standTxt(s))}</small></div></div>`;
