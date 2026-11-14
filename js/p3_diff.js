@@ -3,7 +3,7 @@ const diffsDe=nom=>ACTIONS.filter(a=>a.type.startsWith('diff')&&a.etapes[0]&&a.e
 const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
 function histoHTML(nom){const l=diffsDe(nom);if(!l.length)return '';
  const v=l.filter(a=>!deListe(a));if(!v.length)return '';
- return `<h2>Diffs faites ici</h2>`+v.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.faite_le)}</b><small>${n0(a.tracts)} tracts${a.nb?` · ${pl(a.nb,'militant')}`:''} · ${esc(a.ga.map(gaNom).join(', '))}</small></button><button class="addb" data-hk="${a.id}">Modifier</button></div>`).join('');}
+ return `<h2>Diffs faites ici</h2>`+v.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.faite_le)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}</small></button><button class="addb" data-hk="${a.id}">Modifier</button></div>`).join('');}
 const lierHisto=(nom,type)=>body.querySelectorAll('[data-hk]').forEach(b=>b.onclick=()=>detail(vueDiff(nom,type,b.dataset.hk)));
 
 /* ---------------- tractage (20/10/2026) : un moment (jour et heure, par défaut maintenant), quatre sortes de lieux,
@@ -179,45 +179,36 @@ function ouvrirPiedV15(s){sel(null);if(det==='peek')setDet('half');try{map.flyTo
   after:()=>{const pv=$('pdv');if(pv)pv.onclick=()=>basculerPied(D.pieds.indexOf(s));lierHisto(s.nom,'pied');body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});
    body.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{const p=s.places[+b.dataset.pl];voir([p.lat,p.lon],18);});}});}
 
-/* compte rendu de diff : une action faite en direct ; saisie au clavier, date, campagne et GA */
+/* compte rendu de diff : une action faite en direct. v27 (14/11/2026, JL : « pas besoin du nombre de tracts, juste mettre jour et
+   heure de passage » ; « pas besoin de plusieurs campagnes ») : le jour, l'heure et le GA, rien d'autre */
 function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('brd'+D.k,null);const rep=!e&&brd&&brd.nom===nom&&(Date.now()-brd.ts)<72e5?brd:null;
  const d0=nouvelleAction(TYPE_DIFF[type]||'diff_marche');
- let tr=e?e.tracts:rep?rep.tr:0,q=e?e.faite_le:rep?rep.q:isoD(new Date()),nb=e?(e.nb||1):rep?rep.nb:nbm,camp=e?e.campagne:(LS.get('dcamp',null)||d0.campagne),ga=e?e.ga.slice():(LS.get('dga',null)||d0.ga).filter(g=>gaActifs().some(x=>x.id===g)),mat=e?e.materiel:'';
- const garde=()=>{if(!e)LS.set('brd'+D.k,{nom,tr,q,nb,ts:Date.now()});};
+ let q=e?e.faite_le:rep?rep.q:isoD(new Date()),ga=e?e.ga.slice():(LS.get('dga',null)||d0.ga).filter(g=>gaActifs().some(x=>x.id===g));
+ const garde=()=>{if(!e)LS.set('brd'+D.k,{nom,q,ts:Date.now()});};
  return {id:'fini',aid:e?e.id:null,html:()=>{
   let h=headHTML(e?'Modifier la diff':'Diff faite',esc(nom),true);
   if(rep&&!e)h+=`<div class="note">Saisie reprise là où vous l'aviez laissée.</div>`;
-  h+=`<div class="trc"><label for="trv">Tracts distribués</label><input id="trv" inputmode="numeric" pattern="[0-9]*" value="${tr}"></div><div class="trb">${[-10,10,50,100].map(d=>`<button data-d="${d}" aria-label="${d>0?'Ajouter':'Retirer'} ${Math.abs(d)} tracts">${d>0?'+':'−'}${Math.abs(d)}</button>`).join('')}</div>`;
-  h+=quandHTML(q,'Début de la diff');
+  h+=quandHTML(q,'Jour et heure du passage');
   const hors=type==='marché'&&!seanceLe(nom,q),lock=interdit(q);
   if(hors)h+=`<div class="note">Le ${esc(nom.replace(/^Marché /,'marché '))} n'a pas lieu le ${JOURS[toD(q).getDay()]}. Vérifiez la date.</div>`;
   if(lock)h+=`<div class="note">Distribution interdite à cette date : veille ou jour de scrutin (code électoral, article L. 49).</div>`;
-  h+=nbHTML(nb);
-  h+=`<div class="fl"><span>Campagne</span><div class="ch2">${REF.campagnes.filter(c=>!c.archive||c.id===camp).map(c=>`<button data-cp="${c.id}" aria-pressed="${camp===c.id}">${esc(c.nom)}</button>`).join('')}</div></div>`;
   h+=`<div class="fl"><span>Groupes d'action</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
-  h+=matHTML(mat,camp);
-  const ok=tr>0&&camp&&ga.length&&!lock;
-  h+=`<div class="btns stick"><button class="btn cta" id="env" ${ok?'':'disabled'}>${I.check} ${hors?'Enregistrer quand même':e?'Enregistrer':'Enregistrer le compte rendu'}</button>${ok||lock?'':`<div class="hint" id="hTr">${tr>0?'Choisissez une campagne et au moins un GA.':'Indiquez le nombre de tracts distribués.'}</div>`}</div>`;
+  const ok=ga.length&&!lock;
+  h+=`<div class="btns stick"><button class="btn cta" id="env" ${ok?'':'disabled'}>${I.check} ${hors?'Enregistrer quand même':e?'Enregistrer':'Enregistrer le passage'}</button>${ok||lock?'':`<div class="hint">Choisissez au moins un GA.</div>`}</div>`;
   if(e&&peutSupprimer(e))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer ce compte rendu</button></div>`;
   if(e)h+=histoSaisies(e);
   return h;},
  after:()=>{lierQuand(()=>q,v=>{q=v;garde();});
-  const tv=$('trv');tv.onfocus=()=>{try{tv.select();}catch(x){}};tv.oninput=()=>{const v=parseInt(tv.value.replace(/\D/g,''),10);tr=isNaN(v)?0:v;garde();const b=$('env');if(b)b.disabled=!(tr>0&&camp&&ga.length&&!interdit(q));const hh=$('hTr');if(hh)hh.hidden=tr>0&&camp&&ga.length;};
-  body.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{tr=Math.max(0,tr+(+b.dataset.d));garde();render(true);});
-  lierCpt(()=>nb,(x,v)=>{nb=Math.max(1,v);if(!e){nbm=nb;LS.set('nbm',nb);}garde();});
-  body.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{camp=b.dataset.cp;render(true);});
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
-  lierMat(v=>mat=v);
   const dl=$('del');if(dl)dl.onclick=()=>{const k=ACTIONS.indexOf(e);ACTIONS.splice(k,1);sauverA();back();toast('Compte rendu supprimé',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,e);sauverA();render(true);}});};
-  $('env').onclick=()=>{if(!(tr>0))return;const lieuId=nom;
-   if(e){Object.assign(e,{tracts:tr,faite_le:q,nb,campagne:camp,ga:ga.slice(),materiel:mat});saisie(e,'compte rendu modifié');sauverA();back();toast('Diff du '+fmtJ(q)+' enregistrée');return;}
-   const x=nouvelleAction(TYPE_DIFF[type]||'diff_marche',{statut:'faite',faite_le:q,nb,tracts:tr,campagne:camp,ga:ga.slice(),materiel:mat,etapes:[{lieu:{t:LT[type]||'marche',id:lieuId},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:q}]});
-   x.nom=`${TYPES_C[x.type]} ${nom.replace(/^Marché /,'')}`;ACTIONS.push(x);saisie(x,'diff faite');sauverA();LS.set('brd'+D.k,null);LS.set('dcamp',camp);LS.set('dga',ga);
-   stack=[vueBase(),{id:'ok',html:()=>`<div class="ok"><div class="ck">${I.check}</div><h1>Compte rendu enregistré</h1><div class="sub">${esc(nom)} · ${n0(tr)} tracts · ${fmtJH(q)}</div><div class="sub">Envoyé au journal partagé, ou au retour du réseau si le téléphone est hors connexion.</div></div><div class="btns"><button class="btn line" id="sh">Partager le compte rendu</button><button class="btn primary" id="nv">Revenir à la liste</button></div>`,
+  $('env').onclick=()=>{if(!ga.length)return;const lieuId=nom;
+   if(e){Object.assign(e,{faite_le:q,ga:ga.slice()});saisie(e,'compte rendu modifié');sauverA();back();toast('Passage du '+fmtJ(q)+' enregistré');return;}
+   const x=nouvelleAction(TYPE_DIFF[type]||'diff_marche',{statut:'faite',faite_le:q,nb:0,tracts:0,campagne:campDefaut(),ga:ga.slice(),materiel:'',etapes:[{lieu:{t:LT[type]||'marche',id:lieuId},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:q}]});
+   x.nom=`${TYPES_C[x.type]} ${nom.replace(/^Marché /,'')}`;ACTIONS.push(x);saisie(x,'diff faite');sauverA();LS.set('brd'+D.k,null);LS.set('dga',ga);
+   stack=[vueBase(),{id:'ok',html:()=>`<div class="ok"><div class="ck">${I.check}</div><h1>Passage enregistré</h1><div class="sub">${esc(nom)} · ${fmtJH(q)}</div><div class="sub">Envoyé au journal partagé, ou au retour du réseau si le téléphone est hors connexion.</div></div><div class="btns"><button class="btn line" id="sh">Partager le compte rendu</button><button class="btn primary" id="nv">Revenir à la liste</button></div>`,
     after:()=>{$('sh').onclick=()=>partager(txtAction(x));$('nv').onclick=()=>show(vueBase());}}];render();};}};}
 function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML(esc(a.nom),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
- h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>Faite le</span><b>${fmtJH(a.faite_le)}</b></div></div>`;
- h+=`<div class="pap-sum"><span>${esc(e.lieu.id)}</span><span><b>${n0(a.tracts)}</b> tracts</span>${a.nb?`<span><b>${a.nb}</b> militant${a.nb>1?'s':''}</span>`:''}${a.materiel?`<span>${esc(matNom(a.materiel))}</span>`:''}</div>`;
+ h+=`<div class="meta2"><div><span>Lieu</span><b>${esc(e.lieu.id)}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>Passage</span><b>${fmtJH(a.faite_le)}</b></div></div>`;
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
 function lierActionDiff(a){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_pied:'pied'};$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
