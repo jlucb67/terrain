@@ -185,7 +185,7 @@ const nomEq=a=>{const l=a.etapes[0].lieu;return l.t==='station'?'Métro '+l.id:l
 function llLieu(l){let s=null;if(l.t==='station')s=D.metro.find(x=>x.nom===l.id);else if(l.t==='marche')s=D.marches.find(x=>x.nom===l.id);else if(l.t==='commerce')s=(D.supers||[]).find(x=>nomSup(x)===l.id);else if(l.t==='parcours'){const p=parcDe(l.id);return p?(p.trace?p.trace[0]:arretsDe(p)[0].ll):null;}return s?[s.lat,s.lon]:null;}
 function ouvrirLieuEq(t,id){if(t==='parcours'){ouvrirParcours(id);return;}if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
 function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
- let h=`<div class="btns"><button class="btn primary" id="dFait">${I.check} C'est fait : noter la diff</button></div>`;
+ let h=`<div class="btns"><button class="btn primary" id="dFait">${I.check} Noter ou prévoir une diff</button></div>`;   /* v28 : une date plus tard = une diff prévue */
  h+=`<div class="eqr"><b>Une équipe y va chaque semaine</b><button class="tog" id="eqT" role="switch" aria-checked="${!!a}" aria-label="Une équipe y va chaque semaine"></button></div>`;
  if(a){h+=`<div class="lbl" style="margin-top:2px">Équipe</div><div class="chw">${G.map(g=>`<button class="ch${a.ga.includes(g.id)?' on':''}" data-eg="${g.id}" aria-pressed="${a.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div>`;
   h+=`<div class="lbl">Jour</div><div class="chw">${jours.map(d=>`<button class="ch${(a.jours||[]).includes(d)?' on':''}" data-ej="${d}" aria-pressed="${(a.jours||[]).includes(d)}">${cap(JOURS[d])}</button>`).join('')}</div>`;}
