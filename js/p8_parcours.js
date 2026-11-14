@@ -16,8 +16,8 @@ function poserArrets(p,l){const v=l.map(b=>[b.nom,b.adr]),m=LS.get('parc'+D.k,{}
 const modifie=p=>{const m=(LS.get('parc'+D.k,{})||{})[p.nom],e=eqDe(p.nom);return !!((e&&e.arrets)||(m&&m.length));};
 const longArrets=l=>{let s=0;for(let k=1;k<l.length;k++)s+=dist(l[k-1].ll,l[k].ll);return s;};
 const kmTxt=m=>m<1000?m10(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';
-function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom);
- return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span></button>${eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
+function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom),ec=ecDiff(p.nom);
+ return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span></button>${ec?`<span class="eqp">En cours</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
 function parcHTML(){const P=D&&D.parc;if(!P||(!P.deamb.length&&!P.bar.length))return '';const tous=P.deamb.concat(P.bar),n=tous.length;
  if(TRI==='prio')tous.sort((x,y)=>y.prio-x.prio);
  const l=EXP.pc?tous:TRI==='prio'?tous.slice(0,2):[P.deamb[0],P.bar[0]].filter(Boolean);
@@ -42,8 +42,9 @@ function ouvrirParcours(nom){const p=parcDe(nom);if(!p)return;sel(null);if(det==
    if(modifie(p))h+=`<button class="lnk2 c" id="bRz">Revenir à la proposition de l'appli</button>`;}
   else h+=`<h2>Parcours</h2><div class="lr">${avH('br',1)}<div class="tx"><b>Départ</b><small>vers le ${esc(p.dep)}</small></div><span></span></div><div class="lr">${avH('br',2)}<div class="tx"><b>Arrivée</b><small>vers le ${esc(p.arr)}</small></div><span></span></div>`;
   h+=`<div style="margin-top:14px">${equipeHTML(p.nom,[1,2,3,4,5,6,0])}</div>`;
+  h+=histoHTML(p.nom);   /* v29 : diffs prévues et faites ici */
   h+=`<div class="src" style="margin-top:14px">${esc(D.parc.src)}</div>`;return h;},
- after:()=>{lierEquipe(p.nom,'parcours');const l=b?arretsDe(p):null;
+ after:()=>{lierEquipe(p.nom,'parcours');lierHisto(p.nom,'parcours');const l=b?arretsDe(p):null;
   /* une équipe y va : elle emporte les arrêts modifiés sur ce téléphone (journal partagé) */
   const tg=$('eqT');if(b&&tg){const f=tg.onclick;tg.onclick=()=>{const m=(LS.get('parc'+D.k,{})||{})[p.nom];f();const e=eqDe(p.nom);if(e&&!e.arrets&&m&&m.length){e.arrets=m;saisie(e,'arrêts du barathon');sauverA();}};}
   if(b){tracer(l.map(s=>s.ll),l.map(s=>s.ll));
