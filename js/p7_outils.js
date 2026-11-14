@@ -165,6 +165,7 @@ function retirerRef(ga,t){const A=LS.get('refs_'+ga,[]);if(A.includes(t))LS.set(
 function ajouterRef(ga,t){LS.set('refsX_'+ga,LS.get('refsX_'+ga,[]).filter(x=>x!==t));const A=LS.get('refs_'+ga,[]);if(!A.includes(t))LS.set('refs_'+ga,A.concat([t]));}
 const PHRASE_V22=' Tracts : à compléter. Vous pouvez vous y inscrire si vous le désirez.';
 let SOND=null;
+const hS=s=>/T\d\d:\d\d/.test(s||'')?s.slice(11,13)+'h'+(s.slice(14,16)!=='00'?s.slice(14,16):''):'';   /* heure d'une ligne : « 10h », « 10h30 » */
 function semaineS(deb){const x=toD(deb+'T12:00'),j=[];for(let k=0;k<7;k++){const y=new Date(x);y.setDate(x.getDate()+k);j.push(isoD(y).slice(0,10));}return j;}
 function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
  const p=refsGA(ga)[0]||'';
@@ -174,8 +175,13 @@ function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
    J.forEach(q=>{if(j.includes(toD(q+'T12:00').getDay()))L.push({d:q,h:'',t,l:lieu,p});});}
   /* v19 (JL, 01/11/2026 : « quand on met un PAP en cours, il doit se préremplir dans la partie sondage ») : les PAP en cours et les
      pieds d'immeuble en cours y sont, datés du jour prévu s'il tombe dans la semaine, sinon du premier jour (modifiable) */
-  else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&a.encours))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
-   L.push({aid:a.id,d:dans?q:deb,h:/T\d/.test(a.prevue||'')?a.prevue.slice(11,13)+'h':'',t:a.type==='pap'?'Porte-à-porte':"Pied d'immeuble",l:lieuS(a),p});}});
+  /* v28 (JL, 14/11/2026 : « ça doit pouvoir rentrer dans le sondage comme les PAP, pour les futures actions ; pareil pour toutes
+     les diffs et pour les pieds d'immeuble » ; « écrire PAP plutôt que porte-à-porte ») : les PAP, pieds d'immeuble et diffs
+     prévus plus tard y entrent à leur jour et à leur heure */
+  else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&(a.encours||a.plan))||diffPrevue(a))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
+   const o={aid:a.id,d:dans?q:deb,h:hS(a.prevue),t:a.type==='pap'?'PAP':"Pied d'immeuble",l:'',p};
+   if(diffPrevue(a)){const l=a.etapes[0].lieu;o.t=l.t==='marche'?l.id:'Diffusion';o.l=l.t==='station'?'Métro '+l.id:l.t==='marche'?'':l.id;}else o.l=lieuS(a);
+   L.push(o);}});
  L.sort((x,y)=>x.d.localeCompare(y.d));
  const x=toD(deb+'T12:00'),y=toD(fin+'T12:00');
  return {q:`Bonjour, voici le calendrier des actions du ${dLong(x)} au ${dLong(y)}.`,L};}
@@ -185,10 +191,10 @@ function lieuS(a){const id=(a.etapes[0]||{lieu:{id:''}}).lieu.id;if(a.type==='pa
 function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:isoD(lundiS(new Date())).slice(0,10)};const S=SOND;
  const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const N=prerempliS(S.ga,S.deb).L,vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));let n=0;N.forEach(o=>{if(o.aid&&!vu.has(o.aid)){S.b.L.push(o);n++;}});if(n)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));
   /* brouillons d'avant la v23 : phrase des tracts retirée, rue remplacée par l'adresse avec son numéro, plus de RDV */
-  S.b.q=S.b.q.replace(PHRASE_V22,'');S.b.L.forEach(o=>{delete o.r;const z=o.aid&&N.find(x=>x.aid===o.aid);if(z&&z.l!==o.l&&z.l.endsWith(o.l))o.l=z.l;});}},garde=()=>LS.set(cle(),S.b);charge();
+  S.b.q=S.b.q.replace(PHRASE_V22,'');S.b.L.forEach(o=>{delete o.r;if(o.t==='Porte-à-porte')o.t='PAP';const z=o.aid&&N.find(x=>x.aid===o.aid);if(z&&z.l!==o.l&&z.l.endsWith(o.l))o.l=z.l;});}},garde=()=>LS.set(cle(),S.b);charge();
  const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o),R=refsGA(S.ga);
   return `<div class="sl" data-k="${k}"><div class="sl1"><span class="n">${k+1}</span><label class="chs"><select data-f="d" aria-label="Jour">${o.d?'':'<option value="" selected>Jour à choisir</option>'}${J.map(q=>`<option value="${q}"${q===o.d?' selected':''}>${jourTxt(q)}</option>`).join('')}</select>${I.down}</label><input data-f="h" value="${esc(o.h)}" placeholder="Heure" aria-label="Heure"><button class="xb" data-sx="${k}" aria-label="Retirer la ligne ${k+1}">${I.x}</button></div>
-   <input data-f="t" value="${esc(o.t)}" placeholder="Action : Porte-à-porte, Marché d'Aligre, Diffusion…" aria-label="Action"><input data-f="l" value="${esc(o.l)}" placeholder="Lieu : 5 rue Eugénie Eboué, Métro…" aria-label="Lieu">
+   <input data-f="t" value="${esc(o.t)}" placeholder="Action : PAP, Marché d'Aligre, Diffusion…" aria-label="Action"><input data-f="l" value="${esc(o.l)}" placeholder="Lieu : 5 rue Eugénie Eboué, Métro…" aria-label="Lieu">
    <label class="chs slr"><select data-f="p" aria-label="Référent"><option value="">Pas de référent</option>${R.concat(o.p&&!R.includes(o.p)?[o.p]:[]).map(t=>`<option value="${esc(t)}"${t===o.p?' selected':''}>${esc(t)}</option>`).join('')}</select>${I.down}</label>
    <div class="slp"><span class="tx2">${esc(t)}</span><span class="cn${t.length>100?' over':''}">${t.length} / 100</span></div></div>`;};
  return {id:base?'base':'sond',html:()=>{const B=S.b,x=toD(S.deb+'T12:00'),y=new Date(x);y.setDate(x.getDate()+6);
