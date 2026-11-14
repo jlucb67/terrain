@@ -71,7 +71,7 @@ function vueMoi(){return {id:'moi',html:()=>{const u=moi(),t=themeDe();let h=hea
   const c=$('cons');if(c)c.onclick=()=>detail(vueConsole());}};}
 function aVerifier(){const l=[];ACTIONS.forEach(a=>{if(a.type==='diff_marche'&&a.etapes[0]&&!seanceLe(a.etapes[0].lieu.id,a.faite_le))l.push([a,'diff un jour sans marché']);
  if(a.type==='pap'&&a.etapes.some(e=>e.toquees>0&&!e.portes))l.push([a,'portes non comptées']);
- if(a.statut==='a_faire'&&a.prevue&&ageJ(a.prevue+'T23:59')>1)l.push([a,'date prévue passée']);});return l;}
+ if(a.statut==='a_faire'&&a.prevue&&ageJ(a.prevue.slice(0,10)+'T23:59')>1)l.push([a,'date prévue passée']);});return l;}
 function vueConsole(){if(!estAdmin())return vueMoi();return {id:'console',html:()=>{let h=headHTML('Administration','Listes de référence, accès et réglages',true);
   const rows=[['users','Personnes et accès',`${pl(REF.users.length,'personne')} · ${REF.users.filter(u=>u.profil==='admin').length} administrateurs`],['ga','Groupes d\'action',pl(REF.ga.filter(g=>!g.archive).length,'actif')],['reglages','Réglages',`une adresse faite n'est plus proposée pendant ${REF.reglages.delaiFaite} jours, puis revient avec un quart de priorité en moins (${REF.reglages.delaiFerme} jours après « pas pu entrer »)`],['actions','Toutes les actions',pl(ACTIONS.length,'action')],['controles','Contrôles',(n=>n?`${pl(n,'saisie','saisies')} à vérifier`:'rien à vérifier')(aVerifier().length)],['donnees','Données','sources et dates des cartes et des chiffres']];
   h+=`<div style="margin-top:8px">${rows.map(([k,t,s])=>`<div class="row p"><button class="tx" data-cs="${k}"><b>${t}</b><small>${s}</small></button><span class="chev">${I.next}</span></div>`).join('')}</div>`;
