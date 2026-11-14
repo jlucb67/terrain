@@ -44,7 +44,7 @@ function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.
  return Object.values(P).sort((x,y)=>String(y.der.faite_le).localeCompare(String(x.der.faite_le)));}
 let TRTOUT=false;
 function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
- let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « C'est fait : noter la diff » enregistre le jour et l'heure.</div>`;
+ let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « Noter ou prévoir une diff » enregistre le jour et l'heure.</div>`;
  h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
  const n=TRTOUT?R.length:Math.min(6,R.length);
  h+=R.slice(0,n).map((o,j)=>`<div class="lr">${avH('ok',o.n>1?o.n:I.check)}<button class="tx" data-tr="${j}"><b>${esc(o.id)}</b><small>${esc(TYPES_C[o.type])} · dernier passage ${esc(fmtJH(o.der.faite_le).replace(/^./,c=>c.toLowerCase()))}${o.der.ga&&o.der.ga.length?' · '+esc(o.der.ga.map(gaNom).join(', ')):''}</small></button><span class="trn">${pl(o.n,'passage')}</span></div>`).join('');
@@ -57,9 +57,18 @@ function chiffresHTML(x){const B=parBureau();
 
 /* ---- en cours : « On y va » ; « C'est fait » valide. Un pied d'immeuble lancé = une action « pied d'immeuble » et une
    action PAP par équipe, reliées par « groupe » */
-function lancer(a){const now=isoD(new Date());a.encours=now;a.prevue=now.slice(0,10);}
-/* en cours : lancés par « On y va » ; on y range aussi les PAP prévus avant la v16 (statut « à faire », sans « en cours ») */
-const enCours=()=>ACTIONS.filter(a=>a.statut==='a_faire'&&((a.type==='diff_pied'&&a.encours)||(a.type==='pap'&&!a.groupe&&!deListe(a))));
+function lancer(a){const now=isoD(new Date());a.encours=now;a.prevue=now.slice(0,10);delete a.plan;}
+/* en cours : lancés par « On y va » ; on y range aussi les PAP prévus avant la v16 (statut « à faire », sans « en cours ») ;
+   v28 : et ce qui est prévu plus tard (plan) : PAP, pieds d'immeuble, diffs. En cours d'abord, puis le plus proche */
+const enCours=()=>ACTIONS.filter(a=>a.statut==='a_faire'&&((a.type==='diff_pied'&&(a.encours||a.plan))||(a.type==='pap'&&!a.groupe&&!deListe(a))||diffPrevue(a)))
+ .sort((x,y)=>(!!y.encours-!!x.encours)||String(x.prevue||'9999').localeCompare(String(y.prevue||'9999')));
+/* v28 (14/11/2026, JL : « ça doit pouvoir rentrer dans le sondage, pour les futures actions ») : « Maintenant » ou « Plus tard »
+   (jour et heure) pour lancer un PAP ou un pied d'immeuble ; prévu plus tard, il entre dans le sondage de la semaine du GA */
+const demain10=()=>isoD(new Date(Date.now()+864e5)).slice(0,10)+'T10:00';
+function tardHTML(o){const auj=isoD(new Date()).slice(0,10);
+ return `<div class="qtd">${segH('data-qt',[['0','Maintenant'],['1','Plus tard']],o.tard?'1':'0')}`+(o.tard?`<div class="rw3"><input type="date" id="qtD" min="${auj}" value="${o.q.slice(0,10)}" aria-label="Jour"><input type="time" id="qtT" value="${o.q.slice(11,16)}" aria-label="Heure"></div>`:'')+`</div>`;}
+function lierTard(o){body.querySelectorAll('[data-qt]').forEach(b=>b.onclick=()=>{o.tard=b.dataset.qt==='1';if(o.tard&&!o.q)o.q=demain10();render(true);});
+ const d=$('qtD'),t=$('qtT');if(d)d.onchange=()=>{if(d.value){o.q=d.value+o.q.slice(10);render(true);}};if(t)t.onchange=()=>{if(t.value)o.q=o.q.slice(0,11)+t.value;};}
 const duGroupe=g=>ACTIONS.filter(a=>a.groupe===g);
 function finirPAP(a,ferm){const now=isoD(new Date());
  a.etapes.forEach((e,k)=>{if(idxE(e)==null)return;if(ferm&&ferm.has(k)){e.st='ferme';e.le=now;}else if(stE(e)==='afaire'){e.st='faite';e.le=now;}});
@@ -71,12 +80,13 @@ function oterAction(l,quoi){const pos=l.map(a=>[ACTIONS.indexOf(a),a]).filter(x=
  toast(quoi,{t:'Annuler',fn:()=>{pos.slice().reverse().forEach(([k,a])=>ACTIONS.splice(k,0,a));sauverA();dessinerParcours();render(true);}});}
 const sansToast=()=>{const t=$('toast');if(t)t.hidden=true;clearTimeout(toast.k);};
 const pourQui=a=>(a.ga||[]).map(gaNom).join(', ')||'sans GA';
-function carteEC(a){const p=a.type==='diff_pied',s=p&&a.etapes[0]?a.etapes[0].lieu.id:'',n=p?duGroupe(a.groupe||'').filter(x=>x.type==='pap').length:0;
- const t=p?`Pied d'immeuble ${esc(s)}`:esc((a.nom||'PAP').replace(/^PAP /,''));
- const q=a.encours?depuis(a.encours):a.prevue?'le '+fmtJ(a.prevue):'sans date';
- const sub=p?`${n?pl(n,'équipe')+' de PAP · ':''}${q} · ${esc(pourQui(a))}`:`${pl(a.etapes.length,'adresse')} · ${q} · ${esc(pourQui(a))}`;
- return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${a.encours?'En cours':'Prévu'} : ${t}</b><small>${sub}</small></span><span class="ecb">Terminer</span></button>`;}
-function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}detail(vueEnCours(id));}
+function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a),l=a.etapes[0]?a.etapes[0].lieu:{t:'',id:''},s=(p||d)?l.id:'',n=p?duGroupe(a.groupe||'').filter(x=>x.type==='pap').length:0;
+ const t=p?`Pied d'immeuble ${esc(s)}`:d?esc(l.t==='station'?'Métro '+s:s):esc((a.nom||'PAP').replace(/^PAP /,''));
+ const q=a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date',due=!a.encours&&!p&&dueP(a);
+ const sub=p?`${n?pl(n,'équipe')+' de PAP · ':''}${q} · ${esc(pourQui(a))}`:d?`${esc(TYPES[a.type])} · ${q} · ${esc(pourQui(a))}`:`${pl(a.etapes.length,'adresse')} · ${q} · ${esc(pourQui(a))}`;
+ return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${a.encours?'En cours':due?'À valider':'Prévu'} : ${t}</b><small>${sub}</small></span><span class="ecb">${a.encours||due?'Terminer':'Voir'}</span></button>`;}
+function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}
+ if(diffPrevue(a)){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché'};detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));return;}detail(vueEnCours(id));}
 const lierEC=()=>body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));
 
 /* ---- accueil du porte-à-porte : en cours, avancement, taille, 3 PAP proposés */
@@ -84,7 +94,7 @@ let TMODE=LS.get('tmode','ins'),EQN=LS.get('eqN',2),EQH=LS.get('eqH',2),VIS=fals
 const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5 et +']];
 const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
-function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.encours);   /* les PAP prévus d'avant la v16 : dans le Suivi */
+function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.encours||(a.plan&&a.type==='pap'));   /* les PAP prévus d'avant la v16 : dans le Suivi ; v28 : les PAP prévus plus tard ici */
   const mien=EC.filter(a=>a.cree_par===moi().id),autres=EC.filter(a=>a.cree_par!==moi().id);
   let h=`<div class="csh"><h1>Porte-à-porte</h1></div>`+mien.concat(autres).slice(0,3).map(carteEC).join('');
   if(EC.length>3)h+=`<div class="sub" style="margin:-4px 0 10px">et ${pl(EC.length-3,'autre action')} en cours : voir le Suivi</div>`;
@@ -115,8 +125,8 @@ function vueEnCours(id){const ferm=new Set();return {id:'ec',aid:id,html:()=>{co
   let h=headHTML(esc((a.nom||'PAP').replace(/^PAP /,'')),E.length?`Priorité ${prioMoyIds(E.map(x=>x.i))}`:'',true);
   h+=`<div class="sum2"><span><b>${E.length}</b>adresse${E.length>1?'s':''}</span><span><b>${n0(portesDe(ins))}</b>portes environ</span><span><b>${n0(ins)}</b>inscrits</span></div>`;
   h+=E.map((x,j)=>`<div class="lr">${avH('br',j+1)}<button class="tx" data-i="${x.i}"><b>${esc(D.adresses[x.i][2])}</b><small>${pl(D.adresses[x.i][3],'inscrit')}</small></button>${pillH(ferm.has(x.k)?'kf':'k',`data-kf="${x.k}"`)}</div>`).join('');
-  h+=`<div class="encours"><b>${a.encours?'En cours':'Prévu'}</b> ${a.encours?depuis(a.encours):a.prevue?'le '+fmtJ(a.prevue):'sans date'} · ${esc(pourQui(a))}</div>`;
-  h+=`<button class="btnf stk" id="fini">${I.check} C'est fait</button><div class="hint" style="text-align:center">Toutes les adresses passent en faites, sauf celles marquées « Pas pu entrer ».</div>`;
+  h+=`<div class="encours"><b>${a.encours?'En cours':'Prévu'}</b> ${a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date'} · ${esc(pourQui(a))}</div>`;
+  h+=`<button class="btnf stk" id="fini">${I.check} C'est fait</button>`;   /* v28 (JL) : phrase d'explication retirée */
   h+=`<button class="lnk9" id="annul">On n'y va plus</button>`;
   return h;},
  after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite')lierPortes(a);if(!a||a.statut==='faite')return;
@@ -184,13 +194,15 @@ function majCouches(){if(!D||typeof L==='undefined')return;if(VIS&&ONG!=='pap')v
 const standLL=s=>s.poste?[s.poste.lat,s.poste.lon]:[s.lat,s.lon];
 const standTxt=s=>s.poste?s.poste.txt:'Au pied des immeubles';
 const ecPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&a.encours&&a.etapes[0]&&a.etapes[0].lieu.id===s.nom);
-function infoPied(s){const r=prioLieu([s.lat,s.lon],'pi',s.geo);return {s,v:r.t?r.v:0,fait:passPied(s.nom)[0],ec:ecPied(s)};}
+/* v28 : un pied d'immeuble prévu plus tard (jour, heure, GA) ; les équipes de PAP se font le jour même, à « On y va » */
+const pvPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&a.plan&&!a.encours&&a.etapes[0]&&a.etapes[0].lieu.id===s.nom);
+function infoPied(s){const r=prioLieu([s.lat,s.lon],'pi',s.geo);return {s,v:r.t?r.v:0,fait:passPied(s.nom)[0],ec:ecPied(s),pv:pvPied(s)};}
 function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPied).sort((x,y)=>y.v-x.v),nf=S.filter(o=>o.fait).length;
-  let h=S.filter(o=>o.ec).map(o=>carteEC(o.ec)).join('');
+  let h=S.filter(o=>o.ec).map(o=>carteEC(o.ec)).join('')+S.filter(o=>o.pv&&!o.ec).sort((x,y)=>String(x.pv.prevue).localeCompare(String(y.pv.prevue))).map(o=>carteEC(o.pv)).join('');
   h+=`<div class="csh"><h1>Pieds d'immeuble</h1></div>`;
   if(!S.length)return h+`<div class="empty">Aucun secteur de pied d'immeuble dans cette circonscription.</div>`;
   h+=S.map((o,k)=>{const c=prioCol(o.v);return `<button class="sect" data-ps="${D.pieds.indexOf(o.s)}"><span class="pv" style="background:${c};color:${encreSur(c)}">${o.v}</span><span><b>${esc(o.s.nom)}</b>`+
-   `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">En cours</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
+   `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">En cours</span>`:o.pv?`<span class="tg ec">Prévu le ${esc(quandP(o.pv.prevue))}</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
   return h;},
  after:()=>{lierEC();if(pfL){map.removeLayer(pfL);pfL=null;}majCouches();body.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>ouvrirPied(D.pieds[+b.dataset.ps]));}};}
 function ouvrirPied(s){if(!s)return;if(ONG!=='pieds')setMode('pieds');sel(null);if(!wide&&det==='peek')setDet('half');detail(vuePied(s));}
@@ -217,19 +229,19 @@ const GENS_P=[[2,'2'],[4,'4'],[6,'6'],[8,'8'],[10,'10 et +']];
 /* v24 : deux équipes n'ont plus le même nom (la 2e rue de l'équipe, sinon un numéro de plus) */
 function nomsEq(T){const vu=new Set();T.forEach(e=>{const r=ruesDe(e.ids);let n=r[0]||'';if(vu.has(n))n=r.find(x=>!vu.has(x))||n+' (suite)';vu.add(n);e.rue=n;});}
 function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),pI=LS.get('pI',300),gaC=gaDefaut()[0]||((gaActifs()[0]||{}).id)||'',T=[];
- return {id:'pi',html:()=>{const o=infoPied(s),ec=o.ec;
+ const pv0=pvPied(s);if(pv0&&pv0.ga&&pv0.ga[0])gaC=pv0.ga[0];const QT={tard:false,q:pv0?pv0.prevue:''};
+ return {id:'pi',html:()=>{const o=infoPied(s),ec=o.ec,pv=o.pv;
   let h=headHTML(esc(s.nom),s.qpv&&s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
-  h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
+  h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${pv&&!ec?`<span class="pc pv"><i></i>Prévu le ${esc(quandP(pv.prevue))} · ${esc(pourQui(pv))}</span>`:o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
   h+=`<div class="sub" style="margin-top:10px;color:var(--ink);font-size:14px">Stand : <b>${esc(standTxt(s))}</b></div>`;
-  /* v26 : le stand vérifié sur photo ; sans endroit vérifié, au pied des immeubles */
-  if(s.poste&&s.poste.verif)h+=`<div class="hint">Endroit vérifié sur photo : une tente de 3 m et le passage des piétons y tiennent.</div>`;
-  else if(s.poste&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
+  /* v26 : sans endroit vérifié, au pied des immeubles ; v28 (JL) : la phrase « Endroit vérifié sur photo » est retirée */
+  if(s.poste&&!s.poste.verif&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
   else if(!s.poste)h+=`<div class="hint">Pas encore d'endroit vérifié pour la tente : installez-vous au pied des immeubles, au cœur de la zone.</div>`;
+  /* v28 (JL) : en cours, plus de cadre « En cours » ni de phrase sous « C'est fait » (la carte en haut de l'onglet le dit) */
   if(ec){const G=ec.groupe?duGroupe(ec.groupe).filter(a=>a.type==='pap'&&a.statut==='a_faire'):[];T=G.map(a=>({ids:a.etapes.map(idxE).filter(i=>i!=null)}));T.forEach(e=>{e.ins=e.ids.reduce((t,i)=>t+D.adresses[i][3],0);e.rue=ruesDe(e.ids)[0];});
-   h+=`<div class="encours"><b>En cours</b> ${depuis(ec.encours)} · ${esc(pourQui(ec))}</div>`;
    h+=`<h2>Qui fait quoi</h2><div class="eqx"><span class="av2 eqS">${I.pied}</span><div><b>Stand</b><small>${esc(standTxt(s))}</small></div></div>`;
    nomsEq(T);h+=G.map((a,k)=>`<button class="eqx bt" data-eqa="${a.id}"><span class="av2" ${eqSt(k)}>${k+1}</span><div><b>Équipe ${k+1} · ${esc(T[k].rue||'')}</b><small>${pl(T[k].ids.length,'adresse')} · environ ${n0(portesDe(T[k].ins))} portes · voir ses adresses</small></div><span class="cv">${I.next}</span></button>`).join('');
-   h+=`<button class="btnf stk" id="pfini">${I.check} C'est fait</button><div class="hint" style="text-align:center">${G.length?'Le stand et les PAP des équipes sont validés d\'une seule touche.':'Le stand est validé.'}</div><button class="lnk9" id="pannul">On n'y va plus</button>`;
+   h+=`<button class="btnf stk" id="pfini">${I.check} C'est fait</button><button class="lnk9" id="pannul">On n'y va plus</button>`;
    return h;}
   const cible=PM==='i'?(E?pI/E:0):2*hh*PORTES_H*INS_PORTE;T=equipes(standLL(s),E,cible);
   h+=`<div class="tsz"><span>Équipes de 2 en PAP<small>et 2 personnes au stand</small></span><div class="stp"><button data-pe="-1" aria-label="Une équipe de moins">−</button><b>${E}<small>équipe${E>1?'s':''}</small></b><button data-pe="1" aria-label="Une équipe de plus">+</button></div></div>`;
@@ -241,23 +253,32 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   nomsEq(T);h+=T.map((e,k)=>`<div class="eqx"><span class="av2" ${eqSt(k)}>${k+1}</span><div><b>Équipe ${k+1} · ${esc(e.rue)}</b><small>${pl(e.ids.length,'adresse')} · environ ${n0(portesDe(e.ins))} portes · départ de la tente</small></div></div>`).join('');
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="pga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
-  h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>On y va</button><div class="hint" style="text-align:center">Le stand${T.length?' et les PAP des équipes passent':' passe'} « en cours » ; à la fin, une seule touche « C'est fait » valide tout.</div>`;
+  h+=tardHTML(QT);
+  h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>${QT.tard?(pv?'Changer la date':'Prévoir'):'On y va'}</button>`;   /* v28 (JL) : phrase d'explication retirée */
+  if(pv)h+=`<button class="lnk9" id="pannul">On n'y va plus</button>`;
   return h;},
  after:()=>{dessinerPied(s,T);body.querySelectorAll('[data-eqa]').forEach(b=>b.onclick=()=>detail(vueEnCours(b.dataset.eqa)));
   body.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>{E=Math.max(0,Math.min(10,E+(+b.dataset.pe)));LS.set('pE',E);render(true);});
   body.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{PM=b.dataset.pm;LS.set('pM',PM);render(true);});
   body.querySelectorAll('[data-pi]').forEach(b=>b.onclick=()=>{pI=Math.max(50,Math.min(5000,pI+50*(+b.dataset.pi)));LS.set('pI',pI);render(true);});
   body.querySelectorAll('[data-ph]').forEach(b=>b.onclick=()=>{hh=+b.dataset.ph;LS.set('pH',hh);render(true);});
-  const g=$('pga');if(g)g.onchange=()=>{gaC=g.value;};
-  const go=$('pgo');if(go)go.onclick=()=>{if(!gaC)return;const grp=uid();
-   const st=nouvelleAction('diff_pied',{ga:[gaC],nb:2+2*T.length,groupe:grp,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
-   st.nom=`Pied d'immeuble ${s.nom}`;lancer(st);ACTIONS.push(st);saisie(st,'pied d\'immeuble lancé : en cours');
+  const g=$('pga');if(g)g.onchange=()=>{gaC=g.value;};lierTard(QT);
+  const go=$('pgo');if(go)go.onclick=()=>{if(!gaC)return;const pv=pvPied(s);
+   /* v28 : prévu plus tard (jour, heure, GA) : rien n'est réservé ; les équipes se feront à « On y va », le jour même */
+   if(QT.tard){if(pv){pv.prevue=QT.q;pv.ga=[gaC];saisie(pv,'date du pied d\'immeuble');}
+    else{const x=nouvelleAction('diff_pied',{ga:[gaC],nb:2+2*E,plan:1,prevue:QT.q,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
+     x.nom=`Pied d'immeuble ${s.nom}`;ACTIONS.push(x);saisie(x,'pied d\'immeuble prévu');}
+    LS.set('dga',[gaC]);sauverA();QT.tard=false;render(true);toast(`Prévu : ${s.nom}, le ${quandP(QT.q)}`);return;}
+   const grp=uid();
+   const st=pv||nouvelleAction('diff_pied',{origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
+   Object.assign(st,{ga:[gaC],nb:2+2*T.length,groupe:grp});
+   st.nom=`Pied d'immeuble ${s.nom}`;lancer(st);if(!pv)ACTIONS.push(st);saisie(st,'pied d\'immeuble lancé : en cours');
    T.forEach((e,k)=>{const a=nouvelleAction('pap',{ga:[gaC],nb:2,groupe:grp,origine:{lot:'pied',secteur:s.nom,equipe:k+1},etapes:e.ids.map(etapeAdr)});
     a.nom=`PAP ${e.rue} (équipe ${k+1}, ${s.nom})`;lancer(a);ACTIONS.push(a);saisie(a,'PAP lancé depuis un pied d\'immeuble');});
    LS.set('dga',[gaC]);sauverA();dessinerParcours();vibrer();render(true);toast(`En cours : ${s.nom}${T.length?' et '+pl(T.length,'équipe'):''}`);};
   const f=$('pfini');if(f)f.onclick=()=>{sansToast();const ec=ecPied(s);if(!ec)return;const avant=avance(),snap=photo(ec.groupe?duGroupe(ec.groupe):[ec]);finirPied(ec);sauverA();dessinerParcours();vibrer();
    stack=[vueBase(),vueNote(ec,avant,"Pied d'immeuble "+s.nom,snap)];render();};
-  const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Retiré : '+s.nom);render(true);};}};}
+  const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s)||pvPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Retiré : '+s.nom);render(true);};}};}
 
 /* ---------------- v17 (31/10/2026, arbitrages JL) : le pourcentage seulement dans le Suivi ; un choix clair « par inscrits »
    ou « par personnes et temps » ; jusqu'à 5 h ; pieds d'immeuble : 1 à 10 équipes de 2 et le stand, réglés par le temps ou
