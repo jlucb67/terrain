@@ -12,7 +12,7 @@ const ruesDe=ids=>{const r={};ids.forEach(i=>{const v=ADRP[i].voie;r[v]=(r[v]||0
 const depuis=s=>{const d=toD(s);if(!d)return '';return cetteSem(s)&&isoD(d).slice(0,10)===isoD(new Date()).slice(0,10)?'depuis '+fmtH(d):'depuis le '+fmtJ(s);};
 
 /* ---- avancement : part des inscrits des adresses prioritaires (priorité 70 et plus, 6 inscrits et plus) déjà faits
-   pendant la campagne en cours (arbitrage JL du 31/10/2026) */
+   (arbitrage JL du 31/10/2026 ; v27 : une seule campagne, la présidentielle) */
 function avance(){let tot=0,fi=0,sem=0,nf=0;D.adresses.forEach(a=>{if(!isPr(a))return;tot+=a[3];if(statutA(a[2])!=='fait')return;fi+=a[3];nf++;const p=PASS[a[2]];if(p&&cetteSem(p[0].q))sem+=a[3];});
  return {tot,fi,nf,pct:tot?100*fi/tot:0,sem:tot?100*sem/tot:0};}
 function bandeHTML(x,titre,extra,grand,larg){const w=larg!=null?larg:x.pct;
@@ -20,9 +20,40 @@ function bandeHTML(x,titre,extra,grand,larg){const w=larg!=null?larg:x.pct;
   `<small>${extra||`<b>${n0(x.fi)}</b> inscrits faits sur ${n0(x.tot)} dans les adresses prioritaires · ${x.sem>0?`<b>+${pc1(x.sem)} %</b> cette semaine`:'rien encore cette semaine'}`}</small></div>`;}
 function parBureau(){const B={};D.adresses.forEach(a=>{if(!isPr(a))return;const o=B[a[8]]=B[a[8]]||{b:a[8],tot:0,fi:0};o.tot+=a[3];if(statutA(a[2])==='fait')o.fi+=a[3];});
  return Object.values(B).map(o=>Object.assign(o,{p:o.tot?100*o.fi/o.tot:0}));}
-const papsFaits=()=>ACTIONS.filter(a=>a.type==='pap'&&a.statut==='faite'&&a.campagne===campDefaut()&&!deListe(a));
+const papsFaits=()=>ACTIONS.filter(a=>a.type==='pap'&&a.statut==='faite'&&!deListe(a));
+/* ---- v27 (14/11/2026, JL) : taux d'ouverture des portes d'un PAP, facultatif : portes toquées et ouvertes (le taux se calcule),
+   ou le taux noté directement */
+const tauxA=a=>a.taux!=null&&a.taux!==''?Math.max(0,Math.min(100,Math.round(+a.taux))):a.portes&&a.portes.t>0?Math.round(100*Math.min(a.portes.o||0,a.portes.t)/a.portes.t):null;
+function portesHTML(a){const p=a.portes||{t:0,o:0},m=a.taux!=null?'t':a.portes?'c':LS.get('ptm','c'),tx=tauxA(a);
+ let h=`<div class="pto"><h2>Portes ouvertes <small>(facultatif)</small></h2>`+segH('data-tm',[['c','Compter les portes'],['t','Noter le taux']],m);
+ if(m==='c')h+=`<div class="cpts">${cptHTML('t','Portes toquées',p.t||0)}${cptHTML('o','Portes ouvertes',p.o||0)}</div>`;
+ else h+=`<label class="fld" for="ptx">Taux d'ouverture des portes (en %)<input id="ptx" inputmode="numeric" pattern="[0-9]*" maxlength="3" value="${a.taux!=null?a.taux:''}" placeholder="par exemple 30"></label>`;
+ h+=`<div class="sub" id="ptxv">${tx!=null?`Taux d'ouverture : <b>${tx} %</b>`:'Pas encore noté.'}</div></div>`;return h;}
+function lierPortes(a){let tS=0,dit=false;const enr=()=>{clearTimeout(tS);tS=setTimeout(()=>{if(!dit){saisie(a,'portes ouvertes');dit=true;}sauverA();},700);},
+  maj=()=>{const v=$('ptxv'),tx=tauxA(a);if(v)v.innerHTML=tx!=null?`Taux d'ouverture : <b>${tx} %</b>`:'Pas encore noté.';};
+ body.querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{LS.set('ptm',b.dataset.tm);if(b.dataset.tm==='c'){delete a.taux;}else{delete a.portes;}enr();render(true);});
+ lierCpt(k=>((a.portes||{})[k])||0,(k,v)=>{a.portes=Object.assign({t:0,o:0},a.portes||{});a.portes[k]=v;if(k==='o'&&v>a.portes.t)a.portes.t=v;if(k==='t'&&a.portes.o>v)a.portes.o=v;delete a.taux;enr();maj();});
+ const x=$('ptx');if(x)x.oninput=()=>{const v=parseInt(x.value.replace(/\D/g,''),10);if(isNaN(v))delete a.taux;else a.taux=Math.min(100,v);delete a.portes;enr();maj();};}
+/* taux moyen des PAP qui l'ont noté (un PAP compte pour un) */
+function tauxMoyen(){const l=ACTIONS.filter(a=>(a.type==='pap'||a.type==='diff_pied')&&a.statut==='faite').map(tauxA).filter(v=>v!=null);
+ return l.length?{v:Math.round(l.reduce((s,v)=>s+v,0)/l.length),n:l.length}:null;}
+/* récap du tractage (v27) : chaque lieu, son dernier passage (jour, heure, GA) et le nombre de passages */
+const TYPES_TR=['diff_marche','diff_metro','diff_supermarche'];
+function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.type)||a.statut!=='faite'||!a.etapes[0])return;const l=a.etapes[0].lieu,k=l.t+'|'+l.id;
+  const o=P[k]=P[k]||{t:l.t,id:l.id,type:a.type,n:0,der:null,sem:0};o.n++;if(cetteSem(a.faite_le))o.sem++;if(!o.der||String(a.faite_le)>String(o.der.faite_le))o.der=a;});
+ return Object.values(P).sort((x,y)=>String(y.der.faite_le).localeCompare(String(x.der.faite_le)));}
+let TRTOUT=false;
+function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
+ let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « C'est fait : noter la diff » enregistre le jour et l'heure.</div>`;
+ h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
+ const n=TRTOUT?R.length:Math.min(6,R.length);
+ h+=R.slice(0,n).map((o,j)=>`<div class="lr">${avH('ok',o.n>1?o.n:I.check)}<button class="tx" data-tr="${j}"><b>${esc(o.id)}</b><small>${esc(TYPES_C[o.type])} · dernier passage ${esc(fmtJH(o.der.faite_le).replace(/^./,c=>c.toLowerCase()))}${o.der.ga&&o.der.ga.length?' · '+esc(o.der.ga.map(gaNom).join(', ')):''}</small></button><span class="trn">${pl(o.n,'passage')}</span></div>`).join('');
+ if(R.length>6)h+=`<button class="lnk9" id="trT">${TRTOUT?'Moins de lieux':`Voir les ${R.length} lieux`}</button>`;
+ return h;}
+function lierTractage(){const R=recapTractage();body.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const o=R[+b.dataset.tr];if(!o)return;setMode('tractage');ouvrirLieuEq(o.t,o.id);});
+ const t=$('trT');if(t)t.onclick=()=>{TRTOUT=!TRTOUT;render(true);};}
 function chiffresHTML(x){const B=parBureau();
- const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,`bureaux commencés (ceux qui ont des adresses prioritaires, sur ${n0((D.bureaux||[]).length||B.length)})`]]);}
+ const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,`bureaux commencés (ceux qui ont des adresses prioritaires, sur ${n0((D.bureaux||[]).length||B.length)})`]])+(t=>t?`<div class="sub txo">Taux d'ouverture des portes : <b>${t.v} %</b> en moyenne, sur ${pl(t.n,'PAP renseigné','PAP renseignés')}</div>`:'')(tauxMoyen());}
 
 /* ---- en cours : « On y va » ; « C'est fait » valide. Un pied d'immeuble lancé = une action « pied d'immeuble » et une
    action PAP par équipe, reliées par « groupe » */
@@ -79,7 +110,7 @@ function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='e
 
 /* ---- un PAP en cours : on note « Pas pu entrer » là où c'est le cas, puis « C'est fait » */
 function vueEnCours(id){const ferm=new Set();return {id:'ec',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('PAP retiré','',true);
-  if(a.statut==='faite')return headHTML(esc(a.nom),'Fait le '+fmtJ(a.faite_le),true)+`<button class="lnk9" id="vact">Voir le détail</button>`;
+  if(a.statut==='faite')return headHTML(esc(a.nom),'Fait le '+fmtJ(a.faite_le),true)+portesHTML(a)+`<button class="lnk9" id="vact">Voir le détail</button>`;
   const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})).filter(x=>x.i!=null),ins=E.reduce((s,x)=>s+D.adresses[x.i][3],0);
   let h=headHTML(esc((a.nom||'PAP').replace(/^PAP /,'')),E.length?`Priorité ${prioMoyIds(E.map(x=>x.i))}`:'',true);
   h+=`<div class="sum2"><span><b>${E.length}</b>adresse${E.length>1?'s':''}</span><span><b>${n0(portesDe(ins))}</b>portes environ</span><span><b>${n0(ins)}</b>inscrits</span></div>`;
@@ -88,7 +119,7 @@ function vueEnCours(id){const ferm=new Set();return {id:'ec',aid:id,html:()=>{co
   h+=`<button class="btnf stk" id="fini">${I.check} C'est fait</button><div class="hint" style="text-align:center">Toutes les adresses passent en faites, sauf celles marquées « Pas pu entrer ».</div>`;
   h+=`<button class="lnk9" id="annul">On n'y va plus</button>`;
   return h;},
- after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(!a||a.statut==='faite')return;
+ after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite')lierPortes(a);if(!a||a.statut==='faite')return;
   body.querySelectorAll('[data-kf]').forEach(b=>b.onclick=()=>{const k=+b.dataset.kf;if(ferm.has(k))ferm.delete(k);else ferm.add(k);render(true);});
   $('fini').onclick=()=>{sansToast();const avant=avance(),snap=photo([a]);finirPAP(a,ferm);saisie(a,'C\'est fait'+(ferm.size?` (${ferm.size} pas pu entrer)`:''));sauverA();dessinerParcours();vibrer();stack=[vueBase(),vueNote(a,avant,'',snap)];render();};
   $('annul').onclick=()=>{oterAction([a],'PAP retiré : '+(a.nom||''));show(vueBase());};}};}
@@ -101,9 +132,10 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
   const g=x.pct-avant.pct,sem=papsFaits().filter(y=>cetteSem(y.faite_le)&&(y.ga||[]).some(id=>(a.ga||[]).includes(id))).length;
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>C'est noté</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
   const B=parBureau();h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
+  h+=portesHTML(a);
   h+=`<button class="btnf" id="suite">Voir les propositions suivantes</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Annuler : ce n'était pas fini</button>`;
-  return h;},after:()=>{$('suite').onclick=()=>{if(ONG!=='pap')setMode('pap');else show(vueBase());};
+  return h;},after:()=>{lierPortes(a);$('suite').onclick=()=>{if(ONG!=='pap')setMode('pap');else show(vueBase());};
   const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);toast('Remis en cours');const s=a.type==='diff_pied'&&(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);stack=[vueBase()];if(s)ouvrirPied(s);else detail(vueEnCours(a.id));};}};}
 
 /* ---- Suivi : avancement, en cours, par bureau de vote (liste et carte), toutes les adresses, outils */
@@ -122,6 +154,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%;background:${bzCol(o.fi>0?Math.max(o.p,.1):0)}"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
   if(B.length>6)h+=`<button class="lnk9" id="bzT">${BZTOUT?'Moins de bureaux':`Voir les ${B.length} bureaux`}</button>`;
   h+=`<div class="legb">${[['moins de 10 %',1],['10 à 25 %',2],['25 à 50 %',3],['50 % et plus',4]].map(([t,k])=>`<span><i style="background:${BZCOL[k][1]}"></i>${t}</span>`).join('')}</div>`;
+  h+=tractageHTML();
   h+=`</div><div class="pc2"><h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div></div></div>`;
   return h;},
  after:()=>{lierEC();majCouches();
@@ -130,7 +163,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   $('lfa').onclick=()=>{LFAITES=!LFAITES;LN=LPAS;$('lfa').setAttribute('aria-pressed',LFAITES);majRes(true);};
   $('lres').onclick=clicRes;lierQA();suite();
   body.querySelectorAll('[data-bv]').forEach(b=>b.onclick=()=>ouvrirBureau(b.dataset.bv,true));
-  const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};
+  const t=$('bzT');if(t)t.onclick=()=>{BZTOUT=!BZTOUT;render(true);};lierTractage();
   $('sPlus').onclick=()=>{const m=$('sMenu');m.hidden=!m.hidden;$('sPlus').setAttribute('aria-expanded',!m.hidden);};}};}
 
 /* ---- ce que la carte montre selon l'onglet : points des adresses (porte-à-porte, tractage), bureaux colorés par
@@ -166,7 +199,7 @@ function equipes(ll,E,cible){if(!E)return [];const A=D.adresses,cosl=Math.cos(ll
  A.forEach((a,i)=>{if(isPr(a)&&!recente(i)&&!pasEntreRecent(i)&&!PREV[a[2]]&&dist(ll,[a[1],a[0]])<=800)libre.add(i);});
  /* v23 : écart d'angle ramené entre 0 et 180° (au-delà d'un tour, une adresse comptait à tort dans le secteur d'une équipe) */
  const ang=p=>Math.atan2(p[0]-ll[0],(p[1]-ll[1])*cosl),ecart=(p,th)=>{let x=Math.abs(ang(p)-th)%(2*Math.PI);return x>Math.PI?2*Math.PI-x:x;};
- let best=0,bv=-1;for(let d=0;d<24;d++){const th=-Math.PI+d*Math.PI/12;let v=0;libre.forEach(i=>{const p=ptA(i);if(ecart(p,th)<Math.PI/E)v+=A[i][3]/(80+dist(ll,p));});if(v>bv){bv=v;best=th;}}
+ let best=0,bv=-1;for(let d=0;d<24;d++){const th=-Math.PI+d*Math.PI/12;let v=0;libre.forEach(i=>{const p=ptA(i);if(ecart(p,th)<Math.PI/E)v+=A[i][3]*poidsP(i)/(80+dist(ll,p));});if(v>bv){bv=v;best=th;}}
  const T=[];for(let k=0;k<E;k++){const th=best+2*Math.PI*k/E,ids=[];let s=0,cur=ll;
   while(s<cible*.85){let bi=null,bd=1e12;libre.forEach(i=>{const p=ptA(i),dans=ecart(p,th)<=Math.PI/E;if(!ids.length&&!dans)return;if(s+A[i][3]>cible*1.25)return;
     const d=dist(cur,p)+(dans?0:120);if(d<bd&&d<300+(ids.length?0:200)){bd=d;bi=i;}});
@@ -244,7 +277,7 @@ function meilleurPAP(ll){const A=D.adresses,cible=taille,S=[],C=[];
  S.sort((x,y)=>x[1]-y[1]);let best=null;
  for(const [i0] of S.slice(0,60)){const out=[i0],pris=new Set(out);let s=A[i0][3],km=0,cur=i0;
   while(s<cible*.9){const c0=ptA(cur),r=pasSuivant(C,j=>dist(c0,ptA(j)),pris,cible-s,cur,[250,400],false);if(!r)break;out.push(r[0]);pris.add(r[0]);s+=A[r[0]][3];km+=r[1];cur=r[0];}
-  const e=out.reduce((t,j)=>t+A[j][3]*A[j][5]/100,0)/(km+40*out.length)*(s>=cible*.6?1:.01);
+  const e=out.reduce((t,j)=>t+A[j][3]*A[j][5]/100*poidsP(j),0)/(km+40*out.length)*(s>=cible*.6?1:.01);
   if(!best||e>best.e)best={ids:out,ins:s,km,e};}
  return best?{ll:null,ids:best.ids,ins:best.ins,km:best.km,cible,msg:'',zone:true,rue:ruesDe(best.ids)[0]}:null;}
 /* la cible (v20, JL : « dur de cibler, on ne voit rien ») : la liste se range, la carte prend l'écran, la cible au milieu de
