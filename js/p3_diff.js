@@ -1,11 +1,40 @@
-const LT={'marché':'marche','station':'station','supermarché':'commerce','pied':'secteur'};
+const LT={'marché':'marche','station':'station','supermarché':'commerce','pied':'secteur','parcours':'parcours'};
+const TDE={marche:'marché',commerce:'supermarché',station:'station',parcours:'parcours'},DLT={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_parcours:'parcours',diff_pied:'pied'};
 const diffsDe=nom=>ACTIONS.filter(a=>a.type.startsWith('diff')&&a.statut==='faite'&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((a,b)=>toD(b.faite_le)-toD(a.faite_le));
 /* v28 (14/11/2026, JL) : une diff datée plus tard est prévue (statut « à faire », plan) ; elle entre dans le sondage de la
    semaine du GA ; l'heure passée, elle attend « C'est fait » (ou « On n'y va plus ») et ne compte qu'une fois validée */
 const diffPrevue=a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&!!a.plan&&!!a.etapes[0];
 const prevuesDe=nom=>ACTIONS.filter(a=>diffPrevue(a)&&a.etapes[0].lieu.id===nom).sort((a,b)=>String(a.prevue).localeCompare(String(b.prevue)));
 const dueP=a=>!!a.prevue&&!futurQ(a.prevue.length>10?a.prevue:a.prevue+'T00:00');
-function diffFaite(a){const q=a.prevue||isoD(new Date());a.statut='faite';a.faite_le=q;a.prevue='';delete a.plan;if(a.etapes[0])a.etapes[0].le=q;}
+/* v29 (14/11/2026, JL : « l'onglet Tractage, ça doit être comme pour le PAP : une action lancement, puis une action validation
+   plus tard ; quand on a fait lancement, ça met l'action en cours puis ça l'ajoute dans le sondage » ; « métro, marché,
+   déambulation, tout ») : sur la fiche d'un lieu, GA, « Maintenant » ou « Plus tard », « On y va » ; la diff est en cours
+   (encours) ou prévue (plan) ; « C'est fait » la valide, au jour et à l'heure du lancement (ou de l'heure prévue) */
+const diffEC=a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&!!a.encours&&!!a.etapes[0];
+const ecDiff=nom=>ACTIONS.find(a=>diffEC(a)&&a.etapes[0].lieu.id===nom);
+function diffFaite(a){const q=a.encours||(a.prevue&&a.prevue.length>10?a.prevue:'')||isoD(new Date());a.statut='faite';a.faite_le=q;a.prevue='';delete a.plan;delete a.encours;if(a.etapes[0])a.etapes[0].le=q;}
+const etapeL=(k,nom)=>({lieu:{t:LT[k]||'marche',id:nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
+const nomDiff=(a,nom)=>`${TYPES_C[a.type]} ${nom.replace(/^Marché /,'')}`;
+/* bloc de lancement d'une diff, sur la fiche d'un lieu (état gardé tant que la fiche du même lieu est ouverte) */
+let LCH={nom:''};
+const etatL=nom=>{if(LCH.nom!==nom)LCH={nom,tard:false,q:'',ga:gaDefaut()[0]||((gaActifs()[0]||{}).id)||''};return LCH;};
+function lancerDiffHTML(nom){const ec=ecDiff(nom);
+ if(ec)return `<div class="pcs"><span class="pc pv"><i></i>En cours ${esc(depuis(ec.encours))} · ${esc(pourQui(ec))}</span></div><button class="btnf" id="dOk">${I.check} C'est fait</button><button class="lnk9" id="dNon">On n'y va plus</button>`;
+ const S=etatL(nom),G=gaActifs();
+ return `<div class="pour"><label class="chs">${G.length?`<select id="tga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`+tardHTML(S)+
+  `<button class="btnf go2" id="dGo" ${S.ga?'':'disabled'}>${S.tard?'Prévoir':'On y va'}</button><button class="lnk9" id="dFait">Déjà fait ? Noter le passage</button>`;}
+function lierLancerDiff(nom,t){const S=etatL(nom),k=TDE[t]||'marché';lierTard(S);
+ const g=$('tga');if(g)g.onchange=()=>{S.ga=g.value;};
+ const df=$('dFait');if(df)df.onclick=()=>detail(vueDiff(nom,k));
+ const ok=$('dOk');if(ok)ok.onclick=()=>{const a=ecDiff(nom);if(a)validerDiff(a.id);};
+ const non=$('dNon');if(non)non.onclick=()=>{const a=ecDiff(nom);if(!a)return;oterAction([a],'Retiré : '+nom);render(true);};
+ const go=$('dGo');if(go)go.onclick=()=>{if(!S.ga)return;const now=isoD(new Date());LS.set('dga',[S.ga]);
+  if(S.tard){const x=nouvelleAction(TYPE_DIFF[k],{statut:'a_faire',prevue:S.q,plan:1,ga:[S.ga],nb:0,tracts:0,materiel:'',etapes:[etapeL(k,nom)]});x.nom=nomDiff(x,nom);
+   ACTIONS.push(x);saisie(x,'diff prévue');sauverA();S.tard=false;render(true);toast(`Prévu : ${nom}, le ${quandP(x.prevue)}`);return;}
+  /* une diff prévue aujourd'hui (ou avant) ici : c'est elle qu'on lance */
+  const pv=prevuesDe(nom).find(a=>a.prevue.slice(0,10)<=now.slice(0,10)),x=pv||nouvelleAction(TYPE_DIFF[k],{nb:0,tracts:0,materiel:'',etapes:[etapeL(k,nom)]});
+  Object.assign(x,{statut:'a_faire',ga:[S.ga],encours:now,prevue:now});delete x.plan;if(!pv){x.nom=nomDiff(x,nom);ACTIONS.push(x);}
+  saisie(x,'diff lancée : en cours');sauverA();vibrer();render(true);toast('En cours : '+nom);};}
 const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
 function histoHTML(nom){const P=prevuesDe(nom),v=diffsDe(nom).filter(a=>!deListe(a));let h='';
  if(P.length)h+=`<h2>Diffs prévues ici</h2>`+P.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.prevue)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}${dueP(a)?' · à valider':''}</small></button>${dueP(a)?`<button class="addb" data-hf="${a.id}">C'est fait</button>`:`<button class="addb" data-hk="${a.id}">Modifier</button>`}</div>`).join('');
@@ -14,7 +43,7 @@ function histoHTML(nom){const P=prevuesDe(nom),v=diffsDe(nom).filter(a=>!deListe
 const lierHisto=(nom,type)=>{body.querySelectorAll('[data-hk]').forEach(b=>b.onclick=()=>detail(vueDiff(nom,type,b.dataset.hk)));
  body.querySelectorAll('[data-hf]').forEach(b=>b.onclick=()=>validerDiff(b.dataset.hf));};
 /* « C'est fait » d'une diff prévue : le passage compte au jour et à l'heure prévus (modifiable ensuite) */
-function validerDiff(id){const a=actPar(id);if(!a||a.statut!=='a_faire')return;const snap=photo([a]);diffFaite(a);saisie(a,'C\'est fait');sauverA();render(true);
+function validerDiff(id){const a=actPar(id);if(!a||a.statut!=='a_faire')return;const snap=photo([a]);diffFaite(a);saisie(a,'C\'est fait');sauverA();vibrer();render(true);
  toast('Passage du '+fmtJH(a.faite_le).replace(/^./,c=>c.toLowerCase())+' enregistré',{t:'Annuler',fn:()=>{remettre(snap);render(true);}});}
 
 /* ---------------- tractage (20/10/2026) : un moment (jour et heure, par défaut maintenant), quatre sortes de lieux,
@@ -73,12 +102,12 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
  /* v24 (revue) : les lieux fermés au moment choisi passent après les lieux ouverts (les magasins à petits prix restent en tête des ouverts) */
  const ferme=o=>(o.k==='ma'&&o.v<=0)||(o.k==='su'&&o.s.af&&o.v<=0)?1:0;Object.values(out).forEach(l=>l.sort((x,y)=>ferme(x)-ferme(y)));return out;}
 /* v28 : les diffs prévues, la plus proche d'abord, en haut de l'onglet Tractage */
-const diffsPrevues=()=>ACTIONS.filter(diffPrevue).sort((a,b)=>String(a.prevue).localeCompare(String(b.prevue)));
+const diffsPrevues=()=>ACTIONS.filter(a=>diffEC(a)||diffPrevue(a)).sort((x,y)=>(!!y.encours-!!x.encours)||String(x.prevue).localeCompare(String(y.prevue)));   /* v29 : en cours d'abord */
 /* v16 (31/10/2026) : les pieds d'immeuble ont leur onglet ; ils ne sont plus dans le tractage */
 const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
- const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';
+ const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):ecDiff(nm)?`<span class="eqp">En cours</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';   /* v29 : « En cours » */
  return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
@@ -200,7 +229,7 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
  let q=e?(prv?e.prevue:e.faite_le):rep?rep.q:isoD(new Date()),ga=e?e.ga.slice():(LS.get('dga',null)||d0.ga).filter(g=>gaActifs().some(x=>x.id===g));
  const garde=()=>{if(!e)LS.set('brd'+D.k,{nom,q,ts:Date.now()});};
  return {id:'fini',aid:e?e.id:null,html:()=>{const fut=futurQ(q);
-  let h=headHTML(e?(prv?'Diff prévue':'Modifier la diff'):fut?'Diff prévue':'Diff faite',esc(nom),true);
+  let h=headHTML(e?(prv?(e.encours?'Diff en cours':'Diff prévue'):'Modifier la diff'):fut?'Diff prévue':'Diff faite',esc(nom),true);
   if(rep&&!e)h+=`<div class="note">Saisie reprise là où vous l'aviez laissée.</div>`;
   h+=quandHTML(q,'Jour et heure du passage',true);
   const hors=type==='marché'&&!seanceLe(nom,q),lock=interdit(q);
@@ -218,8 +247,8 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const dl=$('del');if(dl)dl.onclick=()=>{const k=ACTIONS.indexOf(e);ACTIONS.splice(k,1);sauverA();back();toast(prv?'Diff retirée : '+nom:'Compte rendu supprimé',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,e);sauverA();render(true);}});};
   $('env').onclick=()=>{if(!ga.length)return;const lieuId=nom,fut=futurQ(q);
-   if(e){if(fut){Object.assign(e,{statut:'a_faire',prevue:q,faite_le:'',plan:1,ga:ga.slice()});if(e.etapes[0])e.etapes[0].le='';}
-    else{e.prevue=q;diffFaite(e);e.ga=ga.slice();}
+   if(e){if(fut){Object.assign(e,{statut:'a_faire',prevue:q,faite_le:'',plan:1,ga:ga.slice()});delete e.encours;if(e.etapes[0])e.etapes[0].le='';}
+    else{e.prevue=q;delete e.encours;diffFaite(e);e.ga=ga.slice();}
     saisie(e,fut?'diff prévue':prv?'C\'est fait':'compte rendu modifié');sauverA();back();toast((fut?'Passage prévu le ':'Passage du ')+fmtJH(q).replace(/^./,c=>c.toLowerCase())+(fut?'':' enregistré'));return;}
    const x=nouvelleAction(TYPE_DIFF[type]||'diff_marche',Object.assign(fut?{statut:'a_faire',prevue:q,plan:1}:{statut:'faite',faite_le:q},{nb:0,tracts:0,campagne:campDefaut(),ga:ga.slice(),materiel:'',etapes:[{lieu:{t:LT[type]||'marche',id:lieuId},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:fut?'':q}]}));
    x.nom=`${TYPES_C[x.type]} ${nom.replace(/^Marché /,'')}`;ACTIONS.push(x);saisie(x,fut?'diff prévue':'diff faite');sauverA();LS.set('brd'+D.k,null);LS.set('dga',ga);
@@ -228,7 +257,7 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
 function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML(esc(a.nom),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
  h+=`<div class="meta2"><div><span>Lieu</span><b>${esc(e.lieu.id)}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Passage':'Prévu'}</span><b>${fmtJH(a.statut==='faite'?a.faite_le:a.prevue)}</b></div></div>`;
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
-function lierActionDiff(a){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_pied:'pied'};$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
+function lierActionDiff(a){$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,DLT[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
 /* ---------------- liste des actions : tri par date ou par GA, filtres type et GA (filtre statut retiré, JL 25/10/2026) */
 let FILTRE={type:'tous',ga:'tous',tri:'date'};
