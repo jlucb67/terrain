@@ -15,7 +15,7 @@ const fmtD=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'';
 function enregistrerHisto(L){let n=0;const G={};
  L.forEach(x=>{const k=x.q+'|'+(x.ga||'');(G[k]=G[k]||[]).push(x);});
  Object.entries(G).forEach(([k,l])=>{const [q,ga]=k.split('|'),le=q+'T12:00';
-  let a=ACTIONS.find(y=>y.type==='pap'&&y.origine&&y.origine.lot==='historique'&&y.faite_le===le&&(y.ga[0]||'')===ga&&y.cree_par===moi().id&&y.campagne===campDefaut());
+  let a=ACTIONS.find(y=>y.type==='pap'&&y.origine&&y.origine.lot==='historique'&&y.faite_le===le&&(y.ga[0]||'')===ga&&y.cree_par===moi().id);
   if(!a){a=nouvelleAction('pap',{nom:'Ancien passage du '+fmtJ(le),statut:'faite',faite_le:le,ga:ga?[ga]:[],origine:{lot:'historique'}});ACTIONS.push(a);saisie(a,'création : ancien passage');}
   l.forEach(x=>{const id=AID(x.i);if(a.etapes.some(e=>e.lieu.id===id))return;a.etapes.push(Object.assign(etapeAdr(x.i),{st:x.st,le}));n++;});
   saisie(a,'ancien passage : '+pl(l.length,'adresse'));});
