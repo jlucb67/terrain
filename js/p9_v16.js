@@ -9,7 +9,7 @@ const portesDe=ins=>Math.round(ins/INS_PORTE);
 const pc1=x=>(Math.round(x*10)/10).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1});
 function prioMoyIds(ids){const A=D.adresses,s=ids.reduce((t,i)=>t+A[i][3],0);return s?Math.round(ids.reduce((t,i)=>t+A[i][3]*A[i][5],0)/s):0;}
 const ruesDe=ids=>{const r={};ids.forEach(i=>{const v=ADRP[i].voie;r[v]=(r[v]||0)+1;});return Object.keys(r).sort((x,y)=>r[y]-r[x]);};
-const depuis=s=>{const d=toD(s);if(!d)return '';return cetteSem(s)&&isoD(d).slice(0,10)===isoD(new Date()).slice(0,10)?'depuis '+fmtH(d):'depuis le '+fmtJ(s);};
+const depuis=s=>{const d=toD(s);if(!d)return '';return cetteSem(s)&&isoD(d).slice(0,10)===isoD(new Date()).slice(0,10)?'depuis '+fmtH(d).replace(/ /g,String.fromCharCode(160)):'depuis le '+fmtJ(s);};
 
 /* ---- avancement : part des inscrits des adresses prioritaires (priorité 70 et plus, 6 inscrits et plus) déjà faits
    (arbitrage JL du 31/10/2026 ; v27 : une seule campagne, la présidentielle) */
@@ -38,13 +38,13 @@ function lierPortes(a){let tS=0,dit=false;const enr=()=>{clearTimeout(tS);tS=set
 function tauxMoyen(){const l=ACTIONS.filter(a=>(a.type==='pap'||a.type==='diff_pied')&&a.statut==='faite').map(tauxA).filter(v=>v!=null);
  return l.length?{v:Math.round(l.reduce((s,v)=>s+v,0)/l.length),n:l.length}:null;}
 /* récap du tractage (v27) : chaque lieu, son dernier passage (jour, heure, GA) et le nombre de passages */
-const TYPES_TR=['diff_marche','diff_metro','diff_supermarche'];
+const TYPES_TR=['diff_marche','diff_metro','diff_supermarche','diff_parcours'];
 function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.type)||a.statut!=='faite'||!a.etapes[0])return;const l=a.etapes[0].lieu,k=l.t+'|'+l.id;
   const o=P[k]=P[k]||{t:l.t,id:l.id,type:a.type,n:0,der:null,sem:0};o.n++;if(cetteSem(a.faite_le))o.sem++;if(!o.der||String(a.faite_le)>String(o.der.faite_le))o.der=a;});
  return Object.values(P).sort((x,y)=>String(y.der.faite_le).localeCompare(String(x.der.faite_le)));}
 let TRTOUT=false;
 function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
- let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « Noter ou prévoir une diff » enregistre le jour et l'heure.</div>`;
+ let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « On y va » puis « C'est fait » enregistrent le passage.</div>`;
  h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
  const n=TRTOUT?R.length:Math.min(6,R.length);
  h+=R.slice(0,n).map((o,j)=>`<div class="lr">${avH('ok',o.n>1?o.n:I.check)}<button class="tx" data-tr="${j}"><b>${esc(o.id)}</b><small>${esc(TYPES_C[o.type])} · dernier passage ${esc(fmtJH(o.der.faite_le).replace(/^./,c=>c.toLowerCase()))}${o.der.ga&&o.der.ga.length?' · '+esc(o.der.ga.map(gaNom).join(', ')):''}</small></button><span class="trn">${pl(o.n,'passage')}</span></div>`).join('');
@@ -60,7 +60,7 @@ function chiffresHTML(x){const B=parBureau();
 function lancer(a){const now=isoD(new Date());a.encours=now;a.prevue=now.slice(0,10);delete a.plan;}
 /* en cours : lancés par « On y va » ; on y range aussi les PAP prévus avant la v16 (statut « à faire », sans « en cours ») ;
    v28 : et ce qui est prévu plus tard (plan) : PAP, pieds d'immeuble, diffs. En cours d'abord, puis le plus proche */
-const enCours=()=>ACTIONS.filter(a=>a.statut==='a_faire'&&((a.type==='diff_pied'&&(a.encours||a.plan))||(a.type==='pap'&&!a.groupe&&!deListe(a))||diffPrevue(a)))
+const enCours=()=>ACTIONS.filter(a=>a.statut==='a_faire'&&((a.type==='diff_pied'&&(a.encours||a.plan))||(a.type==='pap'&&!a.groupe&&!deListe(a))||diffPrevue(a)||diffEC(a)))
  .sort((x,y)=>(!!y.encours-!!x.encours)||String(x.prevue||'9999').localeCompare(String(y.prevue||'9999')));
 /* v28 (14/11/2026, JL : « ça doit pouvoir rentrer dans le sondage, pour les futures actions ») : « Maintenant » ou « Plus tard »
    (jour et heure) pour lancer un PAP ou un pied d'immeuble ; prévu plus tard, il entre dans le sondage de la semaine du GA */
@@ -80,13 +80,13 @@ function oterAction(l,quoi){const pos=l.map(a=>[ACTIONS.indexOf(a),a]).filter(x=
  toast(quoi,{t:'Annuler',fn:()=>{pos.slice().reverse().forEach(([k,a])=>ACTIONS.splice(k,0,a));sauverA();dessinerParcours();render(true);}});}
 const sansToast=()=>{const t=$('toast');if(t)t.hidden=true;clearTimeout(toast.k);};
 const pourQui=a=>(a.ga||[]).map(gaNom).join(', ')||'sans GA';
-function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a),l=a.etapes[0]?a.etapes[0].lieu:{t:'',id:''},s=(p||d)?l.id:'',n=p?duGroupe(a.groupe||'').filter(x=>x.type==='pap').length:0;
+function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a)||diffEC(a),l=a.etapes[0]?a.etapes[0].lieu:{t:'',id:''},s=(p||d)?l.id:'',n=p?duGroupe(a.groupe||'').filter(x=>x.type==='pap').length:0;
  const t=p?`Pied d'immeuble ${esc(s)}`:d?esc(l.t==='station'?'Métro '+s:s):esc((a.nom||'PAP').replace(/^PAP /,''));
  const q=a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date',due=!a.encours&&!p&&dueP(a);
  const sub=p?`${n?pl(n,'équipe')+' de PAP · ':''}${q} · ${esc(pourQui(a))}`:d?`${esc(TYPES[a.type])} · ${q} · ${esc(pourQui(a))}`:`${pl(a.etapes.length,'adresse')} · ${q} · ${esc(pourQui(a))}`;
  return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${a.encours?'En cours':due?'À valider':'Prévu'} : ${t}</b><small>${sub}</small></span><span class="ecb">${a.encours||due?'Terminer':'Voir'}</span></button>`;}
 function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}
- if(diffPrevue(a)){const lt={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché'};detail(vueDiff(a.etapes[0].lieu.id,lt[a.type],a.id));return;}detail(vueEnCours(id));}
+ if(diffPrevue(a)||diffEC(a)){const l=a.etapes[0].lieu;if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);return;}   /* v29 : la fiche du lieu, avec « C'est fait » */detail(vueEnCours(id));}
 const lierEC=()=>body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));
 
 /* ---- accueil du porte-à-porte : en cours, avancement, taille, 3 PAP proposés */
