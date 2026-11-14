@@ -1,7 +1,7 @@
 
 /* ---------------- actions : on les prepare (PAP, boitage) ou on les fait en direct (diffs), puis chacun peut les renseigner */
-const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff devant un magasin',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe qui y va'};
-const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Magasin',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',equipe:'Équipe'};
+const TYPES={pap:'Porte-à-porte',boitage:'Boîtage',diff_marche:'Diff en marché',diff_supermarche:'Diff devant un magasin',diff_metro:'Diff en métro',diff_pied:'Pied d\'immeuble',diff_parcours:'Diff en déambulation',equipe:'Équipe qui y va'};
+const TYPES_C={pap:'PAP',boitage:'Boîtage',diff_marche:'Marché',diff_supermarche:'Magasin',diff_metro:'Métro',diff_pied:'Pied d\'immeuble',diff_parcours:'Déambulation',equipe:'Équipe'};
 const actPar=id=>ACTIONS.find(a=>a.id===id);
 const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifier();if(typeof majOffl==='function')majOffl();};
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
