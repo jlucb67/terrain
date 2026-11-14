@@ -183,9 +183,9 @@ const ordJ=l=>l.slice().sort((x,y)=>((x+6)%7)-((y+6)%7));
 const eqTxt=a=>`${(a.ga||[]).map(gaNom).join(', ')||'Une équipe'}${a.jours&&a.jours.length?' · '+ordJ(a.jours).map(d=>JC[d]).join(', '):''}`;
 const nomEq=a=>{const l=a.etapes[0].lieu;return l.t==='station'?'Métro '+l.id:l.id;};
 function llLieu(l){let s=null;if(l.t==='station')s=D.metro.find(x=>x.nom===l.id);else if(l.t==='marche')s=D.marches.find(x=>x.nom===l.id);else if(l.t==='commerce')s=(D.supers||[]).find(x=>nomSup(x)===l.id);else if(l.t==='parcours'){const p=parcDe(l.id);return p?(p.trace?p.trace[0]:arretsDe(p)[0].ll):null;}return s?[s.lat,s.lon]:null;}
-function ouvrirLieuEq(t,id){if(t==='parcours'){ouvrirParcours(id);return;}if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
+function ouvrirLieuEq(t,id){if(t==='parcours'||(t==='marche'&&!D.marches.some(x=>x.nom===id)&&parcDe(id))){ouvrirParcours(id);return;}   /* avant la v29, une diff de déambulation était notée « marché » */if(t==='station'){const s=D.metro.find(x=>x.nom===id);if(s)ouvrirStation(s);}else if(t==='marche'){const s=D.marches.find(x=>x.nom===id);if(s)ouvrirMarche(s);}else{const s=(D.supers||[]).find(x=>nomSup(x)===id);if(s)ouvrirMagasin(s);}}
 function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
- let h=`<div class="btns"><button class="btn primary" id="dFait">${I.check} Noter ou prévoir une diff</button></div>`;   /* v28 : une date plus tard = une diff prévue */
+ let h=lancerDiffHTML(nom);   /* v29 : lancer (maintenant ou plus tard), puis « C'est fait » ; « Déjà fait ? » pour un oubli */
  h+=`<div class="eqr"><b>Une équipe y va chaque semaine</b><button class="tog" id="eqT" role="switch" aria-checked="${!!a}" aria-label="Une équipe y va chaque semaine"></button></div>`;
  if(a){h+=`<div class="lbl" style="margin-top:2px">Équipe</div><div class="chw">${G.map(g=>`<button class="ch${a.ga.includes(g.id)?' on':''}" data-eg="${g.id}" aria-pressed="${a.ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div>`;
   h+=`<div class="lbl">Jour</div><div class="chw">${jours.map(d=>`<button class="ch${(a.jours||[]).includes(d)?' on':''}" data-ej="${d}" aria-pressed="${(a.jours||[]).includes(d)}">${cap(JOURS[d])}</button>`).join('')}</div>`;}
@@ -193,7 +193,7 @@ function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
  if(aut.length)h+=`<div class="h3">Équipes prévues ailleurs</div>`+aut.map(x=>{const l=x.etapes[0].lieu;
   return `<div class="lr">${l.t==='station'?avH('mt','M'):l.t==='marche'?avH('ma',I.basket):l.t==='parcours'?avH('af',I.route):avH('su',I.cart)}<button class="tx" data-eo="${esc(l.t)}|${esc(l.id)}"><b>${esc(nomEq(x))}</b><small>${esc(eqTxt(x))}</small></button><span></span></div>`;}).join('');
  return h;}
-function lierEquipe(nom,t){const df=$('dFait');if(df)df.onclick=()=>detail(vueDiff(nom,{marche:'marché',commerce:'supermarché',station:'station'}[t]||'marché'));const tg=$('eqT');if(!tg)return;
+function lierEquipe(nom,t){lierLancerDiff(nom,t);const tg=$('eqT');if(!tg)return;
  tg.onclick=()=>{const a=eqDe(nom);
   if(a){const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();render(true);toast('Plus d\'équipe : '+nom,{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});return;}
   const g=gaDefaut()[0]||((gaActifs()[0]||{}).id);
