@@ -48,8 +48,14 @@ const fmtH=d=>`${d.getHours()} h${d.getMinutes()?' '+p2(d.getMinutes()):''}`;
 const fmtJH=s=>{const d=toD(s);if(!d)return '';return cap(d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}))+(/T\d/.test(s)?', '+fmtH(d):'');};
 const ageJ=s=>{const d=toD(s);return d?(Date.now()-d.getTime())/864e5:1e9;};
 const qOf=x=>x.quand||x.debut||(x.date&&isoD(toD(x.date)))||'';
-function quandHTML(q,lab){const auj=isoD(new Date()).slice(0,10),hier=isoD(new Date(Date.now()-864e5)).slice(0,10),dv=q.slice(0,10),autre=dv!==auj&&dv!==hier;
- return `<div class="qd"><span>${lab||'Quand'}</span><div class="rw"><button data-qj="${auj}" aria-pressed="${dv===auj}">Aujourd'hui</button><button data-qj="${hier}" aria-pressed="${dv===hier}">Hier</button><input type="date" id="qD" class="${autre?'on':''}" value="${dv}" max="${auj}" aria-label="Autre jour"></div><div class="rw2"><label for="qT">Heure</label><input type="time" id="qT" value="${q.slice(11,16)}"></div></div>`;}
+/* v28 (14/11/2026, JL : « il faut pouvoir mettre comme date plus tard dans la diff faite ») : futur = un jour à venir est permis,
+   avec « Demain » ; une diff datée plus tard est une diff prévue */
+function quandHTML(q,lab,futur){const auj=isoD(new Date()).slice(0,10),hier=isoD(new Date(Date.now()-864e5)).slice(0,10),dem=isoD(new Date(Date.now()+864e5)).slice(0,10),dv=q.slice(0,10),autre=dv!==auj&&dv!==hier&&(!futur||dv!==dem);
+ const bj=(j,t)=>`<button data-qj="${j}" aria-pressed="${dv===j}">${t}</button>`;
+ return `<div class="qd"><span>${lab||'Quand'}</span><div class="rw${futur?' f4':''}">${futur?bj(hier,'Hier')+bj(auj,'Aujourd\'hui')+bj(dem,'Demain'):bj(auj,'Aujourd\'hui')+bj(hier,'Hier')}<input type="date" id="qD" class="${autre?'on':''}" value="${dv}"${futur?'':` max="${auj}"`} aria-label="Autre jour"></div><div class="rw2"><label for="qT">Heure</label><input type="time" id="qT" value="${q.slice(11,16)}"></div></div>`;}
+const futurQ=q=>{const d=toD(q);return !!d&&d.getTime()>Date.now();};
+/* jour et heure d'une action prévue, en court : « 21 nov., 10 h » */
+const quandP=s=>s?fmtJ(s)+(/T\d/.test(s)?', '+fmtH(toD(s)).replace(/ /g,String.fromCharCode(160)):''):'';
 function lierQuand(get,set){body.querySelectorAll('[data-qj]').forEach(b=>b.onclick=()=>{set(b.dataset.qj+get().slice(10));render(true);});
  const d=$('qD'),t=$('qT');if(d)d.onchange=()=>{if(d.value){set(d.value+get().slice(10));render(true);}};if(t)t.onchange=()=>{if(t.value)set(get().slice(0,11)+t.value);};}
 
