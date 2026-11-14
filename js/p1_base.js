@@ -115,7 +115,7 @@ const AID=i=>D.adresses[i][2];
 let BYID={};
 const ptA=i=>[D.adresses[i][1],D.adresses[i][0]];
 const uid=()=>{try{return crypto.randomUUID();}catch(e){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}};
-const TYPE_DIFF={'marché':'diff_marche','supermarché':'diff_supermarche','station':'diff_metro','pied':'diff_pied'};
+const TYPE_DIFF={'marché':'diff_marche','supermarché':'diff_supermarche','station':'diff_metro','pied':'diff_pied','parcours':'diff_parcours'};   /* v29 : la déambulation a son type */
 /* listes de reference : lues dans le journal (listes.json), gerees dans la console ; ci-dessous, les exemples de la maquette, avant la premiere connexion */
 const REF0={v:2,campagnes:[{id:'pres',nom:'Présidentielle',debut:'',fin:'',archive:false,defaut:true},{id:'legis',nom:'Législatives',debut:'',fin:'',archive:false,defaut:false},{id:'muni',nom:'Municipales',debut:'',fin:'',archive:false,defaut:false},{id:'thema',nom:'Campagnes thématiques récurrentes',debut:'',fin:'',archive:false,defaut:false}],
  ga:[{id:'g1',nom:'GA exemple A',arr:11,circos:[6],archive:false},{id:'g2',nom:'GA exemple B',arr:20,circos:[6],archive:false},{id:'g3',nom:'GA exemple C',arr:20,circos:[6],archive:false}],
