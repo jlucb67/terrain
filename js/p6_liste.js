@@ -129,7 +129,7 @@ function retirerPassage(i){const id=AID(i),p=(PASS[id]||[])[0];if(!p)return fals
 function retirerFerme(i){const id=AID(i),f=FER[id];if(!f||!cetteSem(f.q))return false;const a=actPar(f.aid);if(!a||!a.etapes[f.k])return false;oterEtape(a,f.k,id);return true;}
 
 /* ---- pieds d'immeuble : validés comme une adresse (un passage par semaine), gardés en actions « pied d'immeuble » */
-const passPied=nom=>ACTIONS.filter(a=>a.type==='diff_pied'&&a.statut==='faite'&&a.campagne===campDefaut()&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((x,y)=>String(y.faite_le).localeCompare(String(x.faite_le)));
+const passPied=nom=>ACTIONS.filter(a=>a.type==='diff_pied'&&a.statut==='faite'&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((x,y)=>String(y.faite_le).localeCompare(String(x.faite_le)));
 function etatPied(s){const l=passPied(s.nom),sem=l.length&&cetteSem(l[0].faite_le);
  return {l,k:sem?'f':l.length?'p':'v',t:sem?(l.length>1?pl(l.length,'passage'):''):l.length?`<span class="g">fait ${relSem(l[0].faite_le)}</span>`:''};}
 function lignePied(j){const s=D.pieds[j],e=etatPied(s);
@@ -144,7 +144,7 @@ function basculerPied(j){const s=D.pieds[j],e=etatPied(s);
 /* fiche d'un pied d'immeuble : la même ligne « Cette semaine » qu'une adresse */
 function semPiedHTML(j){const s=D.pieds[j],e=etatPied(s),x=e.l[0];
  let h=`<div class="sem"><div><b>Cette semaine</b>${e.k==='f'?`<small>Validé${x&&x.cree_par?' par '+(x.cree_par===moi().id?'toi':esc(userNom(x.cree_par))):''}</small>`:''}</div>${pillH(e.k,'id="pdv"')}</div>`;
- if(e.l.length)h+=`<div class="h3">Passages pendant la campagne</div>`+e.l.slice(0,6).map(a=>`<div class="tl"><i></i><div><b>${esc(semLong(a.faite_le))}</b><span>${deListe(a)?'Validé depuis la liste':`${n0(a.tracts)} tracts`}${a.ga&&a.ga.length?' · '+esc(a.ga.map(gaNom).join(', ')):''}</span></div></div>`).join('');
+ if(e.l.length)h+=`<div class="h3">Passages</div>`+e.l.slice(0,6).map(a=>`<div class="tl"><i></i><div><b>${esc(fmtJH(a.faite_le))}</b><span>${deListe(a)?'Validé depuis la liste':'Stand'}${a.ga&&a.ga.length?' · '+esc(a.ga.map(gaNom).join(', ')):''}</span></div></div>`).join('');
  return h;}
 
 /* ---- fiche d'une adresse : état, « Cette semaine », passages */
@@ -168,7 +168,7 @@ function lierSemaine(i){const id=AID(i),ap=$('adp'),ak=$('adk'),ar=$('adr');
  if(ak)ak.onclick=()=>{const f=FER[id];if(f&&cetteSem(f.q)&&statutA(id)==='ferme'){retirerFerme(i);vibrer();render(true);return;}
   marquerFerme(i);vibrer();render(true);toast(id+' : pas pu entrer',{t:'Annuler',fn:()=>{retirerFerme(i);rafr();}});};}
 function passagesHTML(id){const ps=PASS[id]||[];if(!ps.length)return '';
- return `<div class="h3">Passages pendant la campagne</div>`+ps.slice(0,6).map(p=>{const a=actPar(p.aid),g=(p.ga||[]).map(gaNom).join(', '),q=parQui(a,id);
+ return `<div class="h3">Passages</div>`+ps.slice(0,6).map(p=>{const a=actPar(p.aid),g=(p.ga||[]).map(gaNom).join(', '),q=parQui(a,id);
   const t=deListe(a)?`Validée depuis la liste${q?', par '+esc(q):''}`:`${esc(a?a.nom:'PAP')}${g?' · '+esc(g):''}${p.t?` · ${pl(p.t,'toquée')}, ${pl(p.o,'ouverte')}`:''}`;
   return `<div class="tl"><i></i><div><b>${esc(semLong(p.q))}</b><span>${t}</span></div></div>`;}).join('')+(ps.length>6?`<div class="hs">et ${pl(ps.length-6,'passage')} plus ancien${ps.length-6>1?'s':''}</div>`:'');}
 
@@ -241,11 +241,11 @@ function conseilles(){const cible=taille,QA=cqAdr(),cle=[VERS,crit.score,crit.in
   while(s<cible*.9){const reste=cible-s,c0=cur;const r=pasSuivant(pres(cur),j=>d(c0,j),pris,reste,cur,[250,400],false);
    if(!r)break;const bi=r[0];out.push(bi);pris.add(bi);s+=A[bi][3];km+=r[1];cur=bi;}
   return {ids:out,ins:s,km};};
- const res=[],memo=new Array(n),eff=r=>r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100,0)/(r.km+40*r.ids.length);
+ const res=[],memo=new Array(n),eff=r=>r.ids.reduce((s,j)=>s+A[j][3]*A[j][5]/100*poidsP(j),0)/(r.km+40*r.ids.length);   /* v27 : déjà faite = un quart de moins */
  /* adresses de départ : toutes pour un petit PAP ; au-delà de 150 inscrits, la meilleure de chaque carré de 150 m (et de chaque
     quartier), pour un calcul plus court ; un grand PAP couvre de toute façon plusieurs carrés */
  let SEM=[];if(cible<=150){for(let i=0;i<n;i++)if(ok[i])SEM.push(i);}
- else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150)+','+(QA?QA[i]:0),v=A[i][3]*A[i][5];const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
+ else{const bc=new Map();for(let i=0;i<n;i++){if(!ok[i])continue;const k=Math.floor(P[i][0]/150)+','+Math.floor(P[i][1]/150)+','+(QA?QA[i]:0),v=A[i][3]*A[i][5]*poidsP(i);const b=bc.get(k);if(!b||v>b[1])bc.set(k,[i,v]);}SEM=[...bc.values()].map(x=>x[0]);}
  const calc=i=>{let r=memo[i];if(!r||r.ids.some(j=>!ok[j])){r=lot(i);r.v=eff(r);memo[i]=r;}return r;};
  if(QA){/* un par conseil de quartier : le plus efficace qui atteint 60 % de la taille voulue, sinon 30 % */
   /* un bout de quartier qui déborde à peine dans la circo (moins de 200 inscrits prioritaires) n'a pas de PAP à lui */
