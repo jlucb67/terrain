@@ -13,19 +13,19 @@ function nouvelleAction(type,x){
 const etapeAdr=i=>({lieu:{t:'adresse',id:AID(i)},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
 const idxE=e=>e.lieu.t==='adresse'?BYID[e.lieu.id]:null;
 const lieuNom=e=>e?(e.lieu.t==='adresse'?e.lieu.id:e.lieu.id):'';
-/* PASS : passages de la campagne en cours, adresse par adresse (une adresse peut être faite plusieurs fois dans une campagne) ;
-   FER : dernier « pas pu entrer » de la campagne ; PREV : adresse prévue dans un PAP à faire, pas encore faite */
+/* PASS : passages, adresse par adresse (une adresse peut être faite plusieurs fois) ; FER : dernier « pas pu entrer » ;
+   PREV : adresse prévue dans un PAP à faire, pas encore faite. v27 : une seule campagne (la présidentielle), toutes les actions comptent */
 let PASS={},FER={},PREV={};
-function deriver(){faites={};ACC={};BOI={};PASS={};FER={};PREV={};const cc=campDefaut();
+function deriver(){faites={};ACC={};BOI={};PASS={};FER={};PREV={};
  ACTIONS.forEach(a=>a.etapes.forEach((e,k)=>{if(e.lieu.t!=='adresse')return;const q=e.le||a.faite_le||a.cree_le,id=e.lieu.id;
   if(a.type==='pap'){const ok=e.toquees>0||e.st==='faite';
    if(ok){if(!faites[id]||faites[id]<q)faites[id]=q;}else if(e.st==='ferme'){if(!ACC[id]||ACC[id].q<q)ACC[id]={q,r:e.acc};}
-   if(a.campagne===cc){if(ok)(PASS[id]=PASS[id]||[]).push({q,aid:a.id,k,ga:a.ga,t:e.toquees,o:e.ouvertes});else if(e.st==='ferme'&&(!FER[id]||FER[id].q<q))FER[id]={q,r:e.acc,aid:a.id,k};}
+   if(ok)(PASS[id]=PASS[id]||[]).push({q,aid:a.id,k,ga:a.ga,t:e.toquees,o:e.ouvertes});else if(e.st==='ferme'&&(!FER[id]||FER[id].q<q))FER[id]={q,r:e.acc,aid:a.id,k};
    if(a.statut==='a_faire'&&!ok&&e.st!=='ferme'&&!PREV[id])PREV[id]={aid:a.id,k};}
   else if(a.type==='boitage'&&(e.st==='boite'||e.st==='ferme')){if(!BOI[id]||BOI[id].q<q)BOI[id]={q,st:e.st};}}));
  Object.values(PASS).forEach(l=>l.sort((x,y)=>String(y.q).localeCompare(String(x.q))));
  VERS=(VERS||0)+1;if(typeof majBadge==='function')majBadge();if(typeof majEq==='function')majEq();}
-/* statut d'une adresse dans la campagne en cours : fait, ferme (pas pu entrer), prevu (dans un PAP à faire), afaire */
+/* statut d'une adresse : fait, ferme (pas pu entrer), prevu (dans un PAP à faire), afaire */
 const statutA=id=>{const p=PASS[id],f=FER[id];if(p&&(!f||p[0].q>=f.q))return 'fait';if(f)return 'ferme';if(PREV[id])return 'prevu';return 'afaire';};
 /* pastille d'une étape : violette si faite, grise si pas pu entrer */
 const nbCls=e=>e.st==='ferme'?' ko':(e.toquees>0||e.st==='faite')?' fa':'';
@@ -35,8 +35,8 @@ const ordreAct=(a,b)=>(a.prevue||'9999')<(b.prevue||'9999')?-1:(a.prevue||'9999'
 function resumeA(a){const ga=a.ga.map(gaNom).join(', ')||'sans GA';const d=a.statut==='faite'?(a.faite_le?'faite le '+fmtJ(a.faite_le):'faite'):a.prevue?'prévue le '+fmtJ(a.prevue):'sans date';
  let q='';if(a.type==='pap'){const t=a.etapes.reduce((s,e)=>s+e.toquees,0),o=a.etapes.reduce((s,e)=>s+e.ouvertes,0);q=`${pl(a.etapes.length,'adresse')}${t?` · ${t} toquée${t>1?'s':''}, ${o} ouverte${o>1?'s':''}`:''}`;}
  else if(a.type==='boitage'){const b=a.etapes.filter(e=>e.st==='boite').length;q=`${pl(a.etapes.length,'numéro')}${b?` · ${b} boîté${b>1?'s':''}`:''}`;}
- else q=`${n0(a.tracts)} tracts`;
- return `${d} · ${esc(ga)} · ${q}`;}
+ else q=a.faite_le&&/T\d/.test(a.faite_le)?'à '+fmtH(toD(a.faite_le)):'';
+ return `${d} · ${esc(ga)}${q?' · '+q:''}`;}
 const sttHTML=a=>`<span class="stt ${a.statut}">${a.statut==='faite'?'Faite':'À faire'}</span>`;
 const rowAction=a=>`<div class="row p"><button class="tx" data-act="${a.id}"><b>${esc(a.nom||TYPES[a.type])}</b><small>${resumeA(a)}</small></button>${sttHTML(a)}</div>`;
 function blocActions(type){const l=ACTIONS.filter(a=>a.type===type),af=l.filter(a=>a.statut==='a_faire').sort(ordreAct);
@@ -196,23 +196,21 @@ function vueSel(){return {id:'sel',html:()=>{let h=headHTML('Ma sélection',SEL.
   return h;},after:()=>{lierRows();const c=$('cree');if(c)c.onclick=()=>{const a=nouvelleAction('pap',{etapes:ordonner(SEL).map(etapeAdr),origine:{lot:'manuel'}});a.nom=nomDefaut(a);detail(vueEditer(a,true));};
   const v=$('vid');if(v)v.onclick=()=>{const old=SEL.slice();SEL=[];LS.set('sel'+D.k,SEL);dessinerParcours();render();toast('Sélection vidée',{t:'Annuler',fn:()=>{SEL=old;LS.set('sel'+D.k,SEL);dessinerParcours();render();}});};}};}
 
-/* ---------------- creer ou modifier une action : nom, campagne, GA, date prevue */
-function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne,ga=a.ga.slice(),prev=a.prevue;const prepa=a.type==='pap'||a.type==='boitage';
+/* ---------------- creer ou modifier une action : nom, GA, date prevue (v27 : plus de choix de campagne, tout compte pour la présidentielle) */
+function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne||campDefaut(),ga=a.ga.slice(),prev=a.prevue;const prepa=a.type==='pap'||a.type==='boitage';
  return {id:'edit',aid:neuve?null:a.id,html:()=>{
   let h=headHTML(neuve?'Créer l\'action':'Modifier l\'action',`${TYPES[a.type]} · ${a.type==='pap'?pl(a.etapes.length,'adresse'):a.type==='boitage'?pl(a.etapes.length,'numéro'):esc(lieuNom(a.etapes[0]))}`,true);
   h+=`<label class="fld" for="an">Nom de l'action<input id="an" value="${esc(nom)}" autocomplete="off"></label>`;
-  h+=`<div class="fl"><span>Campagne</span><div class="ch2">${REF.campagnes.filter(c=>!c.archive||c.id===camp).map(c=>`<button data-cp="${c.id}" aria-pressed="${camp===c.id}">${esc(c.nom)}</button>`).join('')}</div></div>`;
   h+=`<div class="fl"><span>Groupes d'action (un ou plusieurs)</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
   if(prepa)h+=`<label class="fld" for="ap">Date prévue<input type="date" id="ap" value="${prev}"></label>`;
-  const ok=camp&&ga.length;
-  h+=`<div class="btns stick"><button class="btn primary" id="sv" ${ok?'':'disabled'}>${I.check} ${neuve?'Enregistrer l\'action':'Enregistrer'}</button>${ok?'':'<div class="hint">Choisissez une campagne et au moins un GA.</div>'}</div>`;
+  const ok=ga.length;
+  h+=`<div class="btns stick"><button class="btn primary" id="sv" ${ok?'':'disabled'}>${I.check} ${neuve?'Enregistrer l\'action':'Enregistrer'}</button>${ok?'':'<div class="hint">Choisissez au moins un GA.</div>'}</div>`;
   return h;},
  after:()=>{$('an').oninput=e=>{nom=e.target.value;};
-  body.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{camp=b.dataset.cp;render(true);});
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const ap=$('ap');if(ap)ap.onchange=()=>{prev=ap.value;};
   const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';LS.set('dga',a.ga);
-   if(neuve){if(a.type==='pap')lancer(a);ACTIONS.push(a);saisie(a,a.type==='pap'?'PAP lancé : en cours':'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'campagne, GA ou date');
+   if(neuve){if(a.type==='pap')lancer(a);ACTIONS.push(a);saisie(a,a.type==='pap'?'PAP lancé : en cours':'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'GA ou date');
    sauverA();stack=[vueBase(),neuve&&a.type==='pap'?vueEnCours(a.id):vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
   $('sv').onclick=()=>enr(false);const s2=$('sv2');if(s2)s2.onclick=()=>enr(true);}};}
 
@@ -231,7 +229,8 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   if(a.type==='equipe')return headHTML(esc(a.nom),TYPES.equipe,true)+`<div class="sub" style="margin-top:10px">${esc(eqTxt(a))}</div><div class="btns"><button class="btn line" id="eqv">Voir le lieu</button></div>`+histoSaisies(a);
   const t=totaux(a),ids=a.etapes.map(idxE).filter(i=>i!=null);
   let h=headHTML(esc(a.nom||TYPES[a.type]),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
-  h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Faite le':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?fmtJH(a.faite_le):'date à indiquer'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
+  h+=`<div class="meta2"><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Faite le':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?fmtJH(a.faite_le):'date à indiquer'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
+  if(a.type==='pap'&&tauxA(a)!=null)h+=`<div class="sub txo">Taux d'ouverture des portes : <b>${tauxA(a)} %</b></div>`;   /* v27 */
   h+=a.type==='pap'?`<div class="pap-sum"><span><b>${pl(a.etapes.length,'adresse')}</b></span><span><b>${n0(insDe(ids))}</b> inscrits</span><span><b>${t.p}</b> portes</span><span><b>${t.t}</b> toquées</span><span><b>${t.o}</b> ouvertes</span></div>`
    :`<div class="pap-sum"><span><b>${pl(a.etapes.length,'numéro')}</b></span><span><b>${t.b}</b> boîté${t.b>1?'s':''}</span><span><b>${t.f}</b> fermé${t.f>1?'s':''}</span><span>environ <b>${n0(insDe(ids))}</b> tracts</span></div>`;
   h+=`<div class="ordbar"><span>Ordre de passage</span><button class="lnk3" id="ord">${ordre?'Terminé':'Changer l\'ordre'}</button></div>`;
@@ -251,7 +250,7 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   else if(tout)h+=`<div class="btns stick"><button class="btn cta" id="fin">${I.check} Terminer l'action : compte rendu</button></div>`;
   else{if(jS>=0)h+=`<div class="btns stick"><button class="btn primary" id="goE">${nR?'Continuer : adresse suivante':'Commencer : 1re adresse'}</button></div>`;
    if(nR||a.type!=='pap')h+=`<div class="btns"><button class="btn line" id="fin">${I.check} Terminer l'action : compte rendu</button></div>`;}
-  h+=`<div class="btns two"><button class="btn line" id="mod">Campagne, GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
+  h+=`<div class="btns two"><button class="btn line" id="mod">GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
   if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer l'action</button></div>`;
   h+=histoSaisies(a);
   return h;},
@@ -270,7 +269,7 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
 /* un PAP (version légère) : ses adresses à valider d'une touche, ou toutes d'un coup ; l'ordre de passage se change */
 function papActionHTML(a,ordre){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})),ids=E.filter(x=>x.i!=null).map(x=>x.i),nf=E.filter(x=>x.i!=null&&stE(x.e)!=='afaire').length,t=totaux(a);
  let h=headHTML(esc(a.nom||TYPES[a.type]),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
- h+=`<div class="meta2"><div><span>Campagne</span><b>${esc(campNom(a.campagne))}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')||'sans GA'}</b></div><div><span>${a.statut==='faite'?'Faite':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?esc(semTxt(a.faite_le)):'faite'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
+ h+=`<div class="meta2"><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')||'sans GA'}</b></div><div><span>${a.statut==='faite'?'Faite':'Prévue'}</span><b>${a.statut==='faite'?(a.faite_le?esc(semTxt(a.faite_le)):'faite'):a.prevue?fmtJ(a.prevue):'sans date'}</b></div></div>`;
  h+=`<div class="sum2"><span><b>${ids.length}</b>adresse${ids.length>1?'s':''}</span><span><b>${n0(insDe(ids))}</b>inscrits</span><span><b>${nf}</b>faite${nf>1?'s':''}</span>${t.t?`<span><b>${t.t}</b>toquées</span>`:''}</div>`;
  h+=`<div class="ordbar"><span>Adresses</span><button class="lnk3" id="ord">${ordre?'Terminé':'Changer l\'ordre'}</button></div>`;
  if(ordre)h+=`<div class="btns"><button class="btn line" id="auto">${I.route} Remettre dans l'ordre de marche</button></div>`;
@@ -278,7 +277,7 @@ function papActionHTML(a,ordre){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})),i
   const right=ordre?`<span class="ord"><button data-up="${x.k}" aria-label="Monter" ${x.k===0?'disabled':''}>${I.up}</button><button data-dn="${x.k}" aria-label="Descendre" ${x.k===a.etapes.length-1?'disabled':''}>${I.down}</button></span>`:pillH(s==='fait'?'f':'v',`data-ae="${x.k}"`);
   h+=`<div class="lr">${s==='fait'?avH('ok',I.check):s==='ferme'?avH('ko','!'):avH('br',x.k+1)}<button class="tx" data-e="${x.k}"><b>${esc(ad[2])}</b><small>${pl(ad[3],'inscrit')}${s==='ferme'?' · <span class="o">pas pu entrer</span>':x.e.toquees>0?' · '+esc(sub):''}</small></button>${right}</div>`;});
  if(a.statut==='a_faire'&&nf<ids.length)h+=`<div class="btns"><button class="btn primary" id="tv">${I.check} Tout valider</button></div>`;
- h+=`<div class="btns two"><button class="btn line" id="mod">Campagne, GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
+ h+=`<div class="btns two"><button class="btn line" id="mod">GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
  if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer le PAP</button></div>`;
  return h+histoSaisies(a);}
 function lierPapAction(a,basc){$('ord').onclick=basc;
@@ -293,9 +292,10 @@ function lierPapAction(a,basc){$('ord').onclick=basc;
  if(a.etapes.length&&det!=='full'){const ll=a.etapes.map(idxE).filter(i=>i!=null).map(ptA);if(ll.length)map.flyToBounds(L.latLngBounds(ll).pad(.25),{...pad(),maxZoom:17.5,duration:.5});}}
 function histoSaisies(a){const l=a.saisies.slice(-5).reverse();if(!l.length)return '';
  return `<h2>Historique</h2>`+l.map(s=>`<div class="hs"><b>${esc(userNom(s.par))}</b> · ${esc(s.quoi)} · ${fmtJH(s.le)}</div>`).join('')+(a.saisies.length>5?`<div class="hs">et ${a.saisies.length-5} saisies plus anciennes</div>`:'');}
-function txtAction(a){const t=totaux(a);let s=`${a.nom} (${TYPES[a.type]}, ${D.k}e circonscription)\nCampagne : ${campNom(a.campagne)} · GA : ${a.ga.map(gaNom).join(', ')}\n${a.statut==='faite'?'Faite le '+fmtJH(a.faite_le):a.prevue?'Prévue le '+fmtJ(a.prevue):'À faire'}\n`;
+function txtAction(a){const t=totaux(a);let s=`${a.nom} (${TYPES[a.type]}, ${D.k}e circonscription)\nGA : ${a.ga.map(gaNom).join(', ')}\n${a.statut==='faite'?'Faite le '+fmtJH(a.faite_le):a.prevue?'Prévue le '+fmtJ(a.prevue):'À faire'}\n`;
  s+=a.etapes.map((e,k)=>{const i=idxE(e);return `${k+1}. ${i!=null?D.adresses[i][2]:e.lieu.id}${etatE(a,e)?' : '+etatE(a,e):''}`;}).join('\n');
  if(a.type==='pap'&&t.t)s+=`\nTotal : ${t.p} portes, ${t.t} toquées, ${t.o} ouvertes`;
+ if(a.type==='pap'&&tauxA(a)!=null)s+=`\nTaux d'ouverture des portes : ${tauxA(a)} %`;
  const ids=a.etapes.map(idxE).filter(i=>i!=null);if(ids.length)s+=`\nOuvrir dans l'appli : ${location.href.split('#')[0]}#act=${D.k}:${D.adresses.length}:${a.type}:${ids.join('.')}`;return s;}
 
 /* ---------------- une adresse d'une action de PAP : portes, toquees, ouvertes */
