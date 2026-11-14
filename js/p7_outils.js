@@ -178,9 +178,9 @@ function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
   /* v28 (JL, 14/11/2026 : « ça doit pouvoir rentrer dans le sondage comme les PAP, pour les futures actions ; pareil pour toutes
      les diffs et pour les pieds d'immeuble » ; « écrire PAP plutôt que porte-à-porte ») : les PAP, pieds d'immeuble et diffs
      prévus plus tard y entrent à leur jour et à leur heure */
-  else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&(a.encours||a.plan))||diffPrevue(a))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
+  else if(a.statut==='a_faire'&&((a.type==='pap'&&!a.groupe)||(a.type==='diff_pied'&&(a.encours||a.plan))||diffPrevue(a)||diffEC(a))){const q=(a.prevue||'').slice(0,10),dans=q>=deb&&q<=fin;if(!dans&&!a.encours)return;
    const o={aid:a.id,d:dans?q:deb,h:hS(a.prevue),t:a.type==='pap'?'PAP':"Pied d'immeuble",l:'',p};
-   if(diffPrevue(a)){const l=a.etapes[0].lieu;o.t=l.t==='marche'?l.id:'Diffusion';o.l=l.t==='station'?'Métro '+l.id:l.t==='marche'?'':l.id;}else o.l=lieuS(a);
+   if(TYPES_TR.includes(a.type)){const l=a.etapes[0].lieu,pc=l.id.split(' · ');o.t=l.t==='marche'?l.id:l.t==='parcours'?pc[0]:'Diffusion';o.l=l.t==='station'?'Métro '+l.id:l.t==='marche'?'':l.t==='parcours'?pc.slice(1).join(' · '):l.id;}else o.l=lieuS(a);   /* v29 : diffs en cours aussi, et la déambulation */
    L.push(o);}});
  L.sort((x,y)=>x.d.localeCompare(y.d));
  const x=toD(deb+'T12:00'),y=toD(fin+'T12:00');
