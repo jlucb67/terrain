@@ -115,7 +115,7 @@ const REF0={v:2,campagnes:[{id:'pres',nom:'Présidentielle',debut:'',fin:'',arch
  ga:[{id:'g1',nom:'GA exemple A',arr:11,circos:[6],archive:false},{id:'g2',nom:'GA exemple B',arr:20,circos:[6],archive:false},{id:'g3',nom:'GA exemple C',arr:20,circos:[6],archive:false}],
  materiel:[{id:'m1',nom:'Tract exemple',campagne:'thema',archive:false}],
  users:[{id:'u1',nom:'Vous',contact:'',profil:'admin',ga:['g1'],actif:true},{id:'u2',nom:'Administrateur exemple',contact:'',profil:'admin',ga:['g2'],actif:true},{id:'u3',nom:'Militant exemple',contact:'',profil:'utilisateur',ga:['g1'],actif:true}],
- reglages:{delaiFaite:30,delaiFerme:14,taille:100,scrutins:[]}};
+ reglages:{delaiFaite:60,delaiFerme:14,taille:100,scrutins:[],v27:1}};
 let REF=LS.get('ref',null)||JSON.parse(JSON.stringify(REF0));
 const sauverREF=()=>{LS.set('ref',REF);if(JPRET)jEcrireListes();};
 const CAMP_V1={c1:'thema',c2:'pres'};
@@ -279,7 +279,13 @@ const niTxt=n=>n>0?n+'+':'tous';
 const FIAB={b:'bonne',m:'moyenne',f:'faible'};
 const zoneOf=a=>(BZ[a[9]]||{}).zone||0;
 const rad=(ins,z)=>{const f=z<14?.48:z<15?.6:z<16?.78:z<17?1:z<18?1.3:1.65;return Math.max(1.8,(1.4+Math.sqrt(ins)*.58)*f);};
-const recente=i=>ageJ(faites[AID(i)])<REF.reglages.delaiFaite;
+/* v27 (14/11/2026, JL) : pour les propositions, une adresse faite n'est plus proposée pendant le délai réglé (60 jours par défaut,
+   « au bout de 2 mois ») ; ensuite elle revient avec un quart de priorité en moins (poidsP). Le 1er mars 2027, tout repart à zéro
+   pour les propositions : les passages d'avant ne comptent plus (l'historique et le Suivi les gardent). */
+const RAZ_PAP='2027-03-01';
+const faitePropo=id=>{const q=faites[id];if(!q)return '';const auj=isoD(new Date()).slice(0,10);return auj>=RAZ_PAP&&String(q).slice(0,10)<RAZ_PAP?'':q;};
+const recente=i=>ageJ(faitePropo(AID(i)))<REF.reglages.delaiFaite;
+const poidsP=i=>faitePropo(AID(i))?.75:1;
 const pasEntreRecent=i=>{const x=ACC[AID(i)];return !!x&&ageJ(x.q)<REF.reglages.delaiFerme;};
 function styler(){if(!D)return;ZC={1:tok('--z1'),2:tok('--z2'),3:tok('--z3')};PC=[0,1,2,3,4].map(k=>tok('--p'+k));
  const g=tok('--green'),r=tok('--road'),bt=tok('--bati'),ink=tok('--ink'),so=tok('--solid'),fo=parseFloat(tok('--fo-zone'))||.075,zo=parseFloat(tok('--zo'))||.55;
@@ -297,7 +303,7 @@ function stylerAdr(){const z=map.getZoom(),so=tok('--solid'),dt=tok('--dot'),ac=
    :tour.has(a[2])?{radius:rad(a[3],z),stroke:true,color:so,weight:z<15?.6:1,opacity:.95,fill:true,fillColor:prioCol(a[5]),fillOpacity:1,dashArray:null}
    :{radius:rad(a[3],z)*.7,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:.55,dashArray:null});});return;}
  if(mode!=='pap'){AM.forEach(m=>{const a=D.adresses[m.i];m.setStyle({radius:rad(a[3],z)*.55,stroke:false,fill:true,fillColor:prioCol(a[5]),fillOpacity:isPr(a)?.45:.35,dashArray:null});});return;}
-/* statut de l'adresse pendant la campagne en cours : faite (violet), pas pu entrer (gris), prévue dans un PAP (anneau) */
+/* statut de l'adresse : faite (violet), pas pu entrer (gris), prévue dans un PAP (anneau) */
  const okc=tok('--ok'),koc=tok('--ko'),plein=(a,c)=>({radius:Math.max(3,rad(a[3],z)*.92),stroke:true,color:so,weight:z<15?.6:1.2,opacity:1,fill:true,fillColor:c,fillOpacity:1,dashArray:null});
  AM.forEach(m=>{const a=D.adresses[m.i],pr=isPr(a),s=statutA(a[2]);
   m.setStyle(s==='fait'?plein(a,okc):s==='ferme'?plein(a,koc)
