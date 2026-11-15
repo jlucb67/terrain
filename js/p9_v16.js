@@ -93,7 +93,8 @@ const lierEC=()=>{body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ou
 
 /* ---- accueil du porte-à-porte : en cours, avancement, taille, 3 PAP proposés */
 let TMODE=LS.get('tmode','ins'),EQN=LS.get('eqN',2),EQH=LS.get('eqH',2),VIS=false;
-const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5 et +']];
+if(![2,4,6,8,10].includes(EQN))EQN=Math.min(10,Math.max(2,Math.ceil((+EQN||2)/2)*2));   /* v31 : une ancienne valeur (1, 3, 5) passe au nombre pair au-dessus */
+const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[2,'2'],[4,'4'],[6,'6'],[8,'8'],[10,'10']];   /* v31 (JL) : 2, 4, 6, 8, 10 */
 const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
 function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.type==='pap'&&(a.encours||a.plan));   /* les PAP prévus d'avant la v16 : dans le Suivi ; v28 : les PAP prévus plus tard ici */
@@ -123,11 +124,12 @@ function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='e
 /* ---- un PAP en cours : on note « Pas pu entrer » là où c'est le cas, puis « C'est fait » */
 /* v30 (audit) : un PAP prévu a « On y va » (il passe en cours), son jour et son heure se changent ici ; « C'est fait » dès l'heure passée */
 function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('PAP retiré','',true);
-  if(a.statut==='faite')return headHTML(esc(a.nom),'Fait le '+fmtJ(a.faite_le),true)+portesHTML(a)+`<button class="lnk9" id="vact">Voir le détail</button>`;
+  if(a.statut==='faite')return headHTML(esc(a.nom),'Fait le '+fmtJ(a.faite_le),true)+portesHTML(a)+comViteHTML(a,'pap')+`<button class="lnk9" id="vact">Voir le détail</button>`;
   const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})).filter(x=>x.i!=null),ins=E.reduce((s,x)=>s+D.adresses[x.i][3],0);
   let h=headHTML(esc((a.nom||'PAP').replace(/^PAP /,'')),E.length?`Priorité ${prioMoyIds(E.map(x=>x.i))}`:'',true);
   h+=`<div class="sum2"><span><b>${E.length}</b>adresse${E.length>1?'s':''}</span><span><b>${n0(portesDe(ins))}</b>portes environ</span><span><b>${n0(ins)}</b>inscrits</span></div>`;
   const pv=!a.encours,due=pv&&dueP(a),fin=!pv||due;
+  h+=notesAvantHTML(E.map(x=>x.i),a.id);   /* v31 */
   h+=E.map((x,j)=>`<div class="lr">${avH('br',j+1)}<button class="tx" data-i="${x.i}"><b>${esc(D.adresses[x.i][2])}</b><small>${pl(D.adresses[x.i][3],'inscrit')}</small></button>${fin?pillH(ferm.has(x.k)?'kf':'k',`data-kf="${x.k}"`):'<span></span>'}</div>`).join('');
   h+=`<div class="encours"><b>${a.encours?'En cours':'Prévu'}</b> ${a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date'} · ${esc(pourQui(a))}</div>`;
   if(pv){h+=`<button class="btnf go2" id="goP">On y va</button>`;
@@ -136,7 +138,7 @@ function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec'
   if(fin)h+=`<button class="btnf${pv?'':' stk'}" id="fini">${I.check} C'est fait</button>`;   /* v28 (JL) : phrase d'explication retirée */
   h+=`<button class="lnk9" id="annul">On n'y va plus</button>`;
   return h;},
- after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite')lierPortes(a);if(!a||a.statut==='faite')return;
+ after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite'){lierPortes(a);lierComVite(a,{cibles:[a]});}if(!a||a.statut==='faite')return;
   body.querySelectorAll('[data-kf]').forEach(b=>b.onclick=()=>{const k=+b.dataset.kf;if(ferm.has(k))ferm.delete(k);else ferm.add(k);render(true);});
   const gp=$('goP');if(gp)gp.onclick=()=>{const snap=photo([a]);lancer(a);saisie(a,'PAP lancé : en cours');sauverA();dessinerParcours();vibrer();render(true);toast('PAP en cours',{t:'Annuler',fn:()=>{remettre(snap);render(true);}});};
   const pc=$('pqC');if(pc)pc.onclick=()=>{chg=true;nq=a.prevue&&a.prevue.length>10?a.prevue:(a.prevue||demain10().slice(0,10))+'T10:00';render(true);};
@@ -144,6 +146,43 @@ function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec'
   const po=$('pqOk');if(po)po.onclick=()=>{if(!futurQ(nq)){toast('Choisissez un jour et une heure à venir.');return;}a.prevue=nq;a.plan=1;saisie(a,'jour et heure du PAP');sauverA();chg=false;render(true);toast('PAP prévu le '+quandP(nq));};
   const fi=$('fini');if(fi)fi.onclick=()=>{sansToast();const avant=avance(),snap=photo([a]);finirPAP(a,ferm);saisie(a,'C\'est fait'+(ferm.size?` (${ferm.size} pas pu entrer)`:''));sauverA();dessinerParcours();vibrer();stack=[vueBase(),vueNote(a,avant,'',snap)];render();};
   $('annul').onclick=()=>{oterAction([a],'PAP retiré : '+(a.nom||''));show(vueBase());};}};}
+/* ---- v31 (15/11/2026, JL) : un commentaire facultatif à la validation, qu'on revoit la fois d'après (fiche de l'adresse,
+   préparation d'un PAP, PAP en cours, fiche du lieu ou du pied d'immeuble) ; une case « À refaire bientôt » :
+   PAP et équipes d'un pied d'immeuble : les adresses reviennent dans les propositions au bout de 30 jours, à pleine priorité ;
+   tractage : le lieu passe en tête de sa liste, avec « À refaire », jusqu'à la prochaine diff */
+const VITE_J=30,delaiVite=()=>Math.min(VITE_J,REF.reglages.delaiFaite);
+const comDe=a=>!a?'':a.com||(a.groupe?((duGroupe(a.groupe).find(y=>y.type==='diff_pied')||{}).com||''):'');
+const aRefaire=nom=>{const d=diffsDe(nom).filter(a=>!deListe(a))[0];return !!(d&&d.vite);};
+function comViteHTML(o,sorte){const R=REF.reglages,tx=sorte==='diff'?'Le lieu passe en tête de sa liste, avec « À refaire », jusqu\'à la prochaine diff.'
+  :`${sorte==='pied'?'Les adresses des équipes':'Les adresses'} reviennent dans les propositions au bout de ${delaiVite()} jours, à pleine priorité (sinon ${R.delaiFaite} jours, avec un quart de priorité en moins).`;
+ return `<div class="pto cv"><h2>Commentaire <small>(facultatif)</small></h2><textarea class="mq-ta" id="com" rows="3" maxlength="500" aria-label="Commentaire" placeholder="Pour la prochaine fois : ce qui a marché, ce qui a bloqué…">${esc(o.com||'')}</textarea>
+  <label class="ckb ckv"><input type="checkbox" id="vite"${o.vite?' checked':''}><span><b>À refaire bientôt</b><small>${tx}</small></span></label></div>`;}
+/* pers : l'action à enregistrer tout de suite (écran « C'est noté ») et les actions qui prennent la case ; sinon, un formulaire enregistre à la fin */
+function lierComVite(o,pers){const c=$('com'),v=$('vite');let t=0,dit=false;
+ const enr=()=>{clearTimeout(t);if(!pers)return;if(!String(o.com||'').trim())delete o.com;if(!dit){saisie(o,'commentaire');dit=true;}sauverA();};
+ if(c){c.oninput=()=>{o.com=c.value.slice(0,500);clearTimeout(t);if(pers)t=setTimeout(enr,700);};c.onchange=enr;}
+ if(v)v.onchange=()=>{if(!pers){o.vite=v.checked;return;}(pers.cibles||[o]).forEach(y=>{if(v.checked)y.vite=1;else delete y.vite;});saisie(o,v.checked?'à refaire bientôt':'« à refaire bientôt » retiré');sauverA();};}
+/* un formulaire : le commentaire et la case posés sur l'action (et, pour un pied d'immeuble, la case sur ses équipes) */
+function poserComVite(a,o){const c=String(o.com||'').trim().slice(0,500);if(c)a.com=c;else delete a.com;
+ const l=[a].concat(a.type==='diff_pied'&&a.groupe?duGroupe(a.groupe).filter(y=>y.type==='pap'):[]);l.forEach(y=>{if(o.vite)y.vite=1;else delete y.vite;});}
+const comLigne=a=>{const c=comDe(a);return c?`<span class="pcom">« ${esc(c)} »</span>`:'';};
+/* les commentaires des PAP d'avant sur ces adresses (un par PAP, ou un par pied d'immeuble), les plus récents d'abord */
+function notesAvantHTML(ids,sauf){const vu=new Map();
+ ids.forEach(i=>(PASS[AID(i)]||[]).forEach(p=>{const a=actPar(p.aid);if(!a||a.id===sauf)return;const c=comDe(a);if(!c)return;const k=a.groupe&&!a.com?'g:'+a.groupe:a.id;
+  if(!vu.has(k))vu.set(k,{a,c,q:a.faite_le||p.q});}));
+ const l=[...vu.values()].sort((x,y)=>String(y.q).localeCompare(String(x.q)));if(!l.length)return '';
+ return `<div class="h3">Commentaires des PAP d'avant ici</div>`+l.slice(0,3).map(o=>`<div class="tl"><i></i><div><b>${esc(fmtJ(o.q))}${o.a.ga&&o.a.ga.length?' · '+esc(o.a.ga.map(gaNom).join(', ')):''}</b><span class="pcom">« ${esc(o.c)} »</span></div></div>`).join('')+(l.length>3?`<div class="hs">et ${pl(l.length-3,'autre commentaire','autres commentaires')}</div>`:'');}
+/* le dernier commentaire d'un lieu de tractage (ou d'un pied d'immeuble), et « À refaire » */
+function noteLieuHTML(l){const d=l.find(a=>a.com);if(!d)return '';
+ return `<div class="pnote"><b>Dernier commentaire · ${esc(fmtJH(d.faite_le).replace(/^./,c=>c.toLowerCase()))}${d.ga&&d.ga.length?' · '+esc(d.ga.map(gaNom).join(', ')):''}</b><span class="pcom">« ${esc(d.com)} »</span></div>`;}
+/* « C'est fait » d'une diff : « C'est noté », avec le commentaire et la case */
+function vueNoteDiff(a,snap){const nom=a.etapes[0]?a.etapes[0].lieu.id:'';return {id:'note',aid:a.id,html:()=>{
+  let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>C'est noté</h1><div class="sub">${esc(nom)} · ${esc(fmtJH(a.faite_le).replace(/^./,c=>c.toLowerCase()))}${a.ga.length?' · '+esc(a.ga.map(gaNom).join(', ')):''}</div></div>`;
+  h+=comViteHTML(a,'diff')+`<button class="btnf" id="suite">Revenir au lieu</button>`;
+  if(snap)h+=`<button class="lnk9" id="nAnn">Annuler : ce n'était pas fini</button>`;
+  return h;},after:()=>{lierComVite(a,{cibles:[a]});$('suite').onclick=()=>back();
+  const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);back();toast('Remis en cours');};}};}
+
 /* ---- « C'est noté » : ce que l'action fait gagner à la circo */
 /* v24 : une photo des actions avant « C'est fait », pour pouvoir annuler */
 const photo=l=>l.map(a=>[a,JSON.stringify(a)]);
@@ -153,10 +192,10 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
   const g=x.pct-avant.pct,sem=papsFaits().filter(y=>cetteSem(y.faite_le)&&(y.ga||[]).some(id=>(a.ga||[]).includes(id))).length;
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>C'est noté</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
   const B=parBureau();h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
-  h+=portesHTML(a);
+  h+=portesHTML(a)+comViteHTML(a,a.type==='diff_pied'?'pied':'pap');   /* v31 */
   h+=`<button class="btnf" id="suite">${a.type==='diff_pied'?'Revenir aux pieds d\'immeuble':'Voir les propositions suivantes'}</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Annuler : ce n'était pas fini</button>`;
-  return h;},after:()=>{lierPortes(a);$('suite').onclick=()=>{const m=a.type==='diff_pied'?'pieds':'pap';if(ONG!==m)setMode(m);else show(vueBase());};
+  return h;},after:()=>{lierPortes(a);lierComVite(a,{cibles:[a].concat(a.groupe?duGroupe(a.groupe).filter(y=>y.type==='pap'&&y!==a):[])});$('suite').onclick=()=>{const m=a.type==='diff_pied'?'pieds':'pap';if(ONG!==m)setMode(m);else show(vueBase());};
   const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);toast('Remis en cours');const s=a.type==='diff_pied'&&(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);stack=[vueBase()];if(s)ouvrirPied(s);else detail(vueEnCours(a.id));};}};}
 
 /* ---- Suivi : avancement, en cours, par bureau de vote (liste et carte), toutes les adresses, outils */
@@ -244,7 +283,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
  return {id:'pi',html:()=>{const o=infoPied(s),ec=o.ec,pv=o.pv;
   let h=headHTML(esc(s.nom),s.qpv&&s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
   h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${pv&&!ec?`<span class="pc pv"><i></i>Prévu le ${esc(quandP(pv.prevue))} · ${esc(pourQui(pv))}</span>`:o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
-  h+=`<div class="sub" style="margin-top:10px;color:var(--ink);font-size:14px">Stand : <b>${esc(standTxt(s))}</b></div>`;
+  h+=`<div class="sub" style="margin-top:10px;color:var(--ink);font-size:14px">Stand : <b>${esc(standTxt(s))}</b></div>`+noteLieuHTML(passPied(s.nom));   /* v31 */
   /* v26 : sans endroit vérifié, au pied des immeubles ; v28 (JL) : la phrase « Endroit vérifié sur photo » est retirée */
   if(s.poste&&!s.poste.verif&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
   else if(!s.poste)h+=`<div class="hint">Pas encore d'endroit vérifié pour la tente : installez-vous au pied des immeubles, au cœur de la zone.</div>`;
