@@ -19,7 +19,8 @@ const jMsg=r=>r.st===0?'Pas de connexion au journal. Vérifiez le réseau, puis 
 
 /* listes de reference : lues a la connexion et a chaque ouverture, ecrites par la console (cle administrateurs) */
 function normREF(x){x=x&&typeof x==='object'?x:{};x.v=2;['campagnes','ga','users','materiel'].forEach(k=>{if(!Array.isArray(x[k]))x[k]=[];});
- x.users.forEach(u=>{delete u.ga;if(u.actif===undefined)u.actif=true;});x.ga.forEach(g=>{if(!Array.isArray(g.circos))g.circos=[];});
+ /* v30 (JL : un compte par GA) : un compte de GA garde son GA ; les administrateurs n'en ont pas */
+ x.users.forEach(u=>{if(u.profil==='admin'||!Array.isArray(u.ga)||!u.ga.length)delete u.ga;else u.ga=u.ga.slice(0,1);if(u.actif===undefined)u.actif=true;});x.ga.forEach(g=>{if(!Array.isArray(g.circos))g.circos=[];});
  x.reglages=Object.assign({delaiFaite:60,delaiFerme:14,taille:100,scrutins:[]},x.reglages||{});
  /* v27 : 30 jours était l'ancien réglage par défaut ; JL : « au bout de 2 mois » (une seule fois, ensuite le réglage de l'administrateur fait foi) */
  if(!x.reglages.v27){if(x.reglages.delaiFaite===30)x.reglages.delaiFaite=60;x.reglages.v27=1;}return x;}
