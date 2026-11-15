@@ -7,7 +7,8 @@ const sauverA=()=>{LS.set('actions'+D.k,ACTIONS);deriver();stylerAdr();jPlanifie
 function saisie(a,quoi){const u=moi().id,now=isoD(new Date()),l=a.saisies[a.saisies.length-1];
  if(l&&l.par===u&&l.quoi===quoi&&ageJ(l.le)*1440<10){l.le=now;return;}a.saisies.push({par:u,le:now,quoi});}
 /* GA d'une nouvelle action : le dernier choisi sur ce téléphone s'il mène des actions dans cette circo, sinon le seul GA de la circo s'il n'y en a qu'un */
-function gaDefaut(){const act=gaActifs(),d=(LS.get('dga',null)||[]).filter(g=>act.some(x=>x.id===g));return d.length?d.slice():act.length===1?[act[0].id]:[];}
+function gaDefaut(){const act=gaActifs(),m=((moi()||{}).ga||[]).filter(g=>act.some(x=>x.id===g));if(m.length)return m.slice(0,1);   /* v30 : le GA du compte d'abord */
+ const d=(LS.get('dga',null)||[]).filter(g=>act.some(x=>x.id===g));return d.length?d.slice():act.length===1?[act[0].id]:[];}
 function nouvelleAction(type,x){
  return Object.assign({id:uid(),type,nom:'',campagne:campDefaut(),ga:gaDefaut(),statut:'a_faire',prevue:'',faite_le:'',nb:nbm,tracts:0,materiel:'',etapes:[],saisies:[],cree_par:moi().id,cree_le:isoD(new Date())},x||{});}
 const etapeAdr=i=>({lieu:{t:'adresse',id:AID(i)},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
@@ -32,12 +33,12 @@ const nbCls=e=>e.st==='ferme'?' ko':(e.toquees>0||e.st==='faite')?' fa':'';
 function voieDe(e){const i=idxE(e);return i!=null&&typeof ADRP!=='undefined'&&ADRP[i]?ADRP[i].voie:(e.lieu.voie||'');}
 function nomDefaut(a){const v=a.etapes.length?voieDe(a.etapes[0])||lieuNom(a.etapes[0]):'';return `${TYPES_C[a.type]}${v?' '+v:''}`;}
 const ordreAct=(a,b)=>(a.prevue||'9999')<(b.prevue||'9999')?-1:(a.prevue||'9999')>(b.prevue||'9999')?1:(b.cree_le>a.cree_le?1:-1);
-function resumeA(a){const ga=a.ga.map(gaNom).join(', ')||'sans GA';const d=a.statut==='faite'?(a.faite_le?'faite le '+fmtJ(a.faite_le):'faite'):a.prevue?'prévue le '+quandP(a.prevue):'sans date';
+function resumeA(a){const ga=a.ga.map(gaNom).join(', ')||'sans GA';const d=a.statut==='faite'?(a.faite_le?'faite le '+fmtJ(a.faite_le):'faite'):a.encours?'en cours '+depuis(a.encours):a.prevue?'prévue le '+quandP(a.prevue):'sans date';
  let q='';if(a.type==='pap'){const t=a.etapes.reduce((s,e)=>s+e.toquees,0),o=a.etapes.reduce((s,e)=>s+e.ouvertes,0);q=`${pl(a.etapes.length,'adresse')}${t?` · ${t} toquée${t>1?'s':''}, ${o} ouverte${o>1?'s':''}`:''}`;}
  else if(a.type==='boitage'){const b=a.etapes.filter(e=>e.st==='boite').length;q=`${pl(a.etapes.length,'numéro')}${b?` · ${b} boîté${b>1?'s':''}`:''}`;}
  else q=a.statut==='faite'&&a.faite_le&&/T\d/.test(a.faite_le)?'à '+fmtH(toD(a.faite_le)):'';
  return `${d} · ${esc(ga)}${q?' · '+q:''}`;}
-const sttHTML=a=>`<span class="stt ${a.statut}">${a.statut==='faite'?'Faite':'À faire'}</span>`;
+const sttHTML=a=>`<span class="stt ${a.statut}">${a.statut==='faite'?'Faite':a.encours?'En cours':a.plan?'Prévue':'À faire'}</span>`;
 const rowAction=a=>`<div class="row p"><button class="tx" data-act="${a.id}"><b>${esc(a.nom||TYPES[a.type])}</b><small>${resumeA(a)}</small></button>${sttHTML(a)}</div>`;
 function blocActions(type){const l=ACTIONS.filter(a=>a.type===type),af=l.filter(a=>a.statut==='a_faire').sort(ordreAct);
  let h=`<h2>Actions ${type==='pap'?'de porte-à-porte':'de boîtage'} à faire</h2>`;
@@ -181,7 +182,7 @@ function preparer(ll,nom,i0,ids,titre,cons){if(ONG!=='pap')setMode('pap');
   body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
   const ag=$('agr');if(ag)ag.onclick=()=>{if(!agrandir(lot)){toast('Plus d\'adresse prioritaire libre à côté.');return;}dessinerLot();render(true);};
   const g=$('lga');if(g)g.onchange=()=>{gaC=g.value;};lierTard(QT);
-  const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length)return;
+  const c=$('cree');if(c)c.onclick=()=>{if(!gaC||!lot.ids.length||!tardOk(QT))return;
    const a=nouvelleAction('pap',{ga:[gaC],etapes:lot.ids.map(etapeAdr),origine:lot.recu?{lot:'recu'}:lot.rang?{lot:'conseille',rang:lot.rang,cible:lot.cible}:lot.zone?{lot:'zone',cible:lot.cible}:{lot:'propose',cible:lot.cible}});
    a.nom=nomDefaut(a);LS.set('dga',a.ga);
    /* v28 : prévu plus tard : ses adresses sont réservées (« prévue le ») ; il entre dans le sondage de la semaine du GA */
@@ -202,21 +203,27 @@ function vueSel(){return {id:'sel',html:()=>{let h=headHTML('Ma sélection',SEL.
   const v=$('vid');if(v)v.onclick=()=>{const old=SEL.slice();SEL=[];LS.set('sel'+D.k,SEL);dessinerParcours();render();toast('Sélection vidée',{t:'Annuler',fn:()=>{SEL=old;LS.set('sel'+D.k,SEL);dessinerParcours();render();}});};}};}
 
 /* ---------------- creer ou modifier une action : nom, GA, date prevue (v27 : plus de choix de campagne, tout compte pour la présidentielle) */
-function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne||campDefaut(),ga=a.ga.slice(),prev=a.prevue;const prepa=a.type==='pap'||a.type==='boitage';
+/* v30 (audit) : nouveau PAP : « Maintenant » ou « Plus tard » (jour et heure) ; PAP prévu : jour et heure ; en cours ou fait : pas de date ici */
+function vueEditer(a,neuve){let nom=a.nom,camp=a.campagne||campDefaut(),ga=a.ga.slice(),prev=a.prevue;const prepa=a.type==='pap'||a.type==='boitage',QT={tard:false,q:''};
+ const prevu=!neuve&&a.statut==='a_faire'&&!a.encours;if(prevu&&prev&&prev.length<=10)prev=prev+'T10:00';
  return {id:'edit',aid:neuve?null:a.id,html:()=>{
   let h=headHTML(neuve?'Créer l\'action':'Modifier l\'action',`${TYPES[a.type]} · ${a.type==='pap'?pl(a.etapes.length,'adresse'):a.type==='boitage'?pl(a.etapes.length,'numéro'):esc(lieuNom(a.etapes[0]))}`,true);
   h+=`<label class="fld" for="an">Nom de l'action<input id="an" value="${esc(nom)}" autocomplete="off"></label>`;
   h+=`<div class="fl"><span>Groupes d'action (un ou plusieurs)</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
-  if(prepa)h+=`<label class="fld" for="ap">Date prévue<input type="date" id="ap" value="${(prev||'').slice(0,10)}"></label>`;
+  if(prepa&&neuve&&a.type==='pap')h+=tardHTML(QT);
+  else if(prepa&&prevu)h+=`<div class="fl"><span>Jour et heure prévus</span><div class="qtd"><div class="rw3"><input type="date" id="ap" value="${(prev||'').slice(0,10)}" aria-label="Jour"><input type="time" id="apT" value="${(prev||'').slice(11,16)}" aria-label="Heure"></div></div></div>`;
+  else if(prepa&&neuve)h+=`<label class="fld" for="ap">Date prévue<input type="date" id="ap" value="${(prev||'').slice(0,10)}"></label>`;
   const ok=ga.length;
   h+=`<div class="btns stick"><button class="btn primary" id="sv" ${ok?'':'disabled'}>${I.check} ${neuve?'Enregistrer l\'action':'Enregistrer'}</button>${ok?'':'<div class="hint">Choisissez au moins un GA.</div>'}</div>`;
   return h;},
  after:()=>{$('an').oninput=e=>{nom=e.target.value;};
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const ap=$('ap');if(ap)ap.onchange=()=>{prev=ap.value?ap.value+((prev||'').length>10?prev.slice(10):''):'';};
-  const enr=go=>{a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();a.prevue=prev||'';LS.set('dga',a.ga);
-   /* v28 : une date prévue à venir = PAP prévu (pas en cours) */
-   if(neuve){if(a.type==='pap'){if(a.prevue&&a.prevue.slice(0,10)>isoD(new Date()).slice(0,10))a.plan=1;else lancer(a);}ACTIONS.push(a);saisie(a,a.type==='pap'?(a.plan?'PAP prévu':'PAP lancé : en cours'):'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'GA ou date');
+  const at=$('apT');if(at)at.onchange=()=>{if(at.value&&prev)prev=prev.slice(0,11)+at.value;};lierTard(QT);
+  const enr=go=>{if(neuve&&a.type==='pap'&&!tardOk(QT))return;if(prevu&&prev&&!futurQ(prev)){toast('Choisissez un jour et une heure à venir.');return;}
+   a.nom=(nom||'').trim()||nomDefaut(a);a.campagne=camp;a.ga=ga.slice();if(prepa&&(neuve||prevu))a.prevue=prev||'';LS.set('dga',a.ga);
+   /* v28 : une date prévue à venir = PAP prévu (pas en cours) ; v30 : « Plus tard » avec l'heure */
+   if(neuve){if(a.type==='pap'){if(QT.tard){a.prevue=QT.q;a.plan=1;}else lancer(a);}ACTIONS.push(a);saisie(a,a.type==='pap'?(a.plan?'PAP prévu':'PAP lancé : en cours'):'création');if(a.origine&&a.origine.lot==='manuel'){SEL=[];LS.set('sel'+D.k,SEL);}}else saisie(a,'GA ou date');
    sauverA();stack=[vueBase(),neuve&&a.type==='pap'?vueEnCours(a.id):vueAction(a.id)];render();toast(neuve?'Action créée : '+a.nom:'Action modifiée');if(go&&a.etapes.length&&a.type==='pap')ouvrirEtape(a.id,0);};
   $('sv').onclick=()=>enr(false);const s2=$('sv2');if(s2)s2.onclick=()=>enr(true);}};}
 
@@ -257,7 +264,7 @@ function vueAction(id){let ordre=false;return {id:'act',aid:id,html:()=>{const a
   else{if(jS>=0)h+=`<div class="btns stick"><button class="btn primary" id="goE">${nR?'Continuer : adresse suivante':'Commencer : 1re adresse'}</button></div>`;
    if(nR||a.type!=='pap')h+=`<div class="btns"><button class="btn line" id="fin">${I.check} Terminer l'action : compte rendu</button></div>`;}
   h+=`<div class="btns two"><button class="btn line" id="mod">GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
-  if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer l'action</button></div>`;
+  if(a.statut==='a_faire'||peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">${a.statut==='a_faire'?'On n\'y va plus':'Supprimer l\'action'}</button></div>`;
   h+=histoSaisies(a);
   return h;},
  after:()=>{const a=actPar(id);if(!a)return;if(a.type.startsWith('diff')){lierActionDiff(a);return;}
@@ -282,9 +289,10 @@ function papActionHTML(a,ordre){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})),i
  E.forEach(x=>{if(x.i==null)return;const ad=D.adresses[x.i],s=stE(x.e),sub=etatE(a,x.e);
   const right=ordre?`<span class="ord"><button data-up="${x.k}" aria-label="Monter" ${x.k===0?'disabled':''}>${I.up}</button><button data-dn="${x.k}" aria-label="Descendre" ${x.k===a.etapes.length-1?'disabled':''}>${I.down}</button></span>`:pillH(s==='fait'?'f':'v',`data-ae="${x.k}"`);
   h+=`<div class="lr">${s==='fait'?avH('ok',I.check):s==='ferme'?avH('ko','!'):avH('br',x.k+1)}<button class="tx" data-e="${x.k}"><b>${esc(ad[2])}</b><small>${pl(ad[3],'inscrit')}${s==='ferme'?' · <span class="o">pas pu entrer</span>':x.e.toquees>0?' · '+esc(sub):''}</small></button>${right}</div>`;});
- if(a.statut==='a_faire'&&nf<ids.length)h+=`<div class="btns"><button class="btn primary" id="tv">${I.check} Tout valider</button></div>`;
- h+=`<div class="btns two"><button class="btn line" id="mod">GA, date</button><button class="btn line" id="sh">Partager</button></div>`;
- if(peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer le PAP</button></div>`;
+ if(a.statut==='a_faire')h+=`<div class="btns"><button class="btn primary" id="tv">${a.encours?I.check+' Terminer : C\'est fait':'Ouvrir le PAP'}</button></div>`;
+ h+=`<div class="btns two"><button class="btn line" id="mod">${a.statut==='a_faire'&&!a.encours?'GA, jour, heure':'GA'}</button><button class="btn line" id="sh">Partager</button></div>`;
+ /* v30 (audit) : une action à faire, chacun peut la retirer (comme « On n'y va plus ») ; une action faite, son auteur ou un administrateur */
+ if(a.statut==='a_faire'||peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">${a.statut==='a_faire'?'On n\'y va plus':'Supprimer le PAP'}</button></div>`;
  return h+histoSaisies(a);}
 function lierPapAction(a,basc){$('ord').onclick=basc;
  const au=$('auto');if(au)au.onclick=()=>{const ord=ordonner(a.etapes.map(idxE).filter(i=>i!=null));const rest=a.etapes.filter(e=>idxE(e)==null);a.etapes=[...ord.map(i=>a.etapes.find(e=>e.lieu.id===AID(i))),...rest];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);};
@@ -292,7 +300,7 @@ function lierPapAction(a,basc){$('ord').onclick=basc;
  body.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const k=+b.dataset.dn;if(k>=a.etapes.length-1)return;[a.etapes[k+1],a.etapes[k]]=[a.etapes[k],a.etapes[k+1]];saisie(a,'ordre de passage');sauverA();dessinerParcours();render(true);});
  body.querySelectorAll('[data-ae]').forEach(b=>b.onclick=()=>basculerEtape(a.id,+b.dataset.ae));
  body.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const i=idxE(a.etapes[+b.dataset.e]);if(i!=null)ouvrirAdresse(i);});
- const tv=$('tv');if(tv)tv.onclick=()=>toutValider(a.id);
+ const tv=$('tv');if(tv)tv.onclick=()=>detail(vueEnCours(a.id));
  $('mod').onclick=()=>detail(vueEditer(a,false));$('sh').onclick=()=>partager(txtAction(a));
  const d=$('del');if(d)d.onclick=()=>{const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();back();toast('PAP supprimé',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});};
  if(a.etapes.length&&det!=='full'){const ll=a.etapes.map(idxE).filter(i=>i!=null).map(ptA);if(ll.length)map.flyToBounds(L.latLngBounds(ll).pad(.25),{...pad(),maxZoom:17.5,duration:.5});}}
