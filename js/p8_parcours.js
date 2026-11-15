@@ -16,8 +16,8 @@ function poserArrets(p,l){const v=l.map(b=>[b.nom,b.adr]),m=LS.get('parc'+D.k,{}
 const modifie=p=>{const m=(LS.get('parc'+D.k,{})||{})[p.nom],e=eqDe(p.nom);return !!((e&&e.arrets)||(m&&m.length));};
 const longArrets=l=>{let s=0;for(let k=1;k<l.length;k++)s+=dist(l[k-1].ll,l[k].ll);return s;};
 const kmTxt=m=>m<1000?m10(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';
-function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom),ec=ecDiff(p.nom);
- return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span></button>${ec?`<span class="eqp">En cours</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
+function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom),ec=ecDiff(p.nom),pv=!ec&&prevuesDe(p.nom)[0],df=diffsDe(p.nom)[0];
+ return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span>${df?`<small>fait le ${fmtJ(df.faite_le)}</small>`:''}</button>${ec?`<span class="eqp">En cours</span>`:pv?`<span class="eqp">Prévu le ${esc(quandP(pv.prevue))}</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
 function parcHTML(){const P=D&&D.parc;if(!P||(!P.deamb.length&&!P.bar.length))return '';const tous=P.deamb.concat(P.bar),n=tous.length;
  if(TRI==='prio')tous.sort((x,y)=>y.prio-x.prio);
  const l=EXP.pc?tous:TRI==='prio'?tous.slice(0,2):[P.deamb[0],P.bar[0]].filter(Boolean);
