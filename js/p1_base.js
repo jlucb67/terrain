@@ -290,8 +290,9 @@ const rad=(ins,z)=>{const f=z<14?.48:z<15?.6:z<16?.78:z<17?1:z<18?1.3:1.65;retur
    pour les propositions : les passages d'avant ne comptent plus (l'historique et le Suivi les gardent). */
 const RAZ_PAP='2027-03-01';
 const faitePropo=id=>{const q=faites[id];if(!q)return '';const auj=isoD(new Date()).slice(0,10);return auj>=RAZ_PAP&&String(q).slice(0,10)<RAZ_PAP?'':q;};
-const recente=i=>ageJ(faitePropo(AID(i)))<REF.reglages.delaiFaite;
-const poidsP=i=>faitePropo(AID(i))?.75:1;
+/* v31 (15/11/2026, JL) : un PAP coché « À refaire bientôt » : ses adresses reviennent au bout de 30 jours, à pleine priorité */
+const recente=i=>ageJ(faitePropo(AID(i)))<(VITE[AID(i)]?delaiVite():REF.reglages.delaiFaite);
+const poidsP=i=>faitePropo(AID(i))&&!VITE[AID(i)]?.75:1;
 const pasEntreRecent=i=>{const x=ACC[AID(i)];return !!x&&ageJ(x.q)<REF.reglages.delaiFerme;};
 function styler(){if(!D)return;ZC={1:tok('--z1'),2:tok('--z2'),3:tok('--z3')};PC=[0,1,2,3,4].map(k=>tok('--p'+k));
  const g=tok('--green'),r=tok('--road'),bt=tok('--bati'),ink=tok('--ink'),so=tok('--solid'),fo=parseFloat(tok('--fo-zone'))||.075,zo=parseFloat(tok('--zo'))||.55;
