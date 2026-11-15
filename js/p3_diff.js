@@ -14,27 +14,36 @@ const diffEC=a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&!!a.encours&&!!
 const ecDiff=nom=>ACTIONS.find(a=>diffEC(a)&&a.etapes[0].lieu.id===nom);
 function diffFaite(a){const q=a.encours||(a.prevue&&a.prevue.length>10?a.prevue:'')||isoD(new Date());a.statut='faite';a.faite_le=q;a.prevue='';delete a.plan;delete a.encours;if(a.etapes[0])a.etapes[0].le=q;}
 const etapeL=(k,nom)=>({lieu:{t:LT[k]||'marche',id:nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
-const nomDiff=(a,nom)=>`${TYPES_C[a.type]} ${nom.replace(/^Marché /,'')}`;
+const nomDiff=(a,nom)=>a.type==='diff_parcours'?nom:`${TYPES_C[a.type]} ${nom.replace(/^Marché /,'')}`;   /* v30 : « Déambulation · Rue … », sans doublon */
 /* bloc de lancement d'une diff, sur la fiche d'un lieu (état gardé tant que la fiche du même lieu est ouverte) */
 let LCH={nom:''};
 const etatL=nom=>{if(LCH.nom!==nom)LCH={nom,tard:false,q:'',ga:gaDefaut()[0]||((gaActifs()[0]||{}).id)||''};return LCH;};
+/* v30 (audit) : en cours, « Changer le GA ou l'heure » sans valider ; un marché prévu un jour sans marché est signalé ;
+   sans GA dans la circo, on le dit */
+const SANS_GA=`<div class="hint">Aucun groupe d'action dans cette circonscription : voyez avec un administrateur.</div>`;
 function lancerDiffHTML(nom){const ec=ecDiff(nom);
- if(ec)return `<div class="pcs"><span class="pc pv"><i></i>En cours ${esc(depuis(ec.encours))} · ${esc(pourQui(ec))}</span></div><button class="btnf" id="dOk">${I.check} C'est fait</button><button class="lnk9" id="dNon">On n'y va plus</button>`;
- const S=etatL(nom),G=gaActifs();
+ if(ec)return `<div class="pcs"><span class="pc pv"><i></i>En cours ${esc(depuis(ec.encours))} · ${esc(pourQui(ec))}</span></div><button class="btnf" id="dOk">${I.check} C'est fait</button><button class="lnk9" id="dMod">Changer le GA ou l'heure</button><button class="lnk9" id="dNon">On n'y va plus</button>`;
+ const S=etatL(nom),G=gaActifs(),q=S.tard?S.q:isoD(new Date()),hors=D.marches.some(m=>m.nom===nom)&&!!q&&!seanceLe(nom,q);
  return `<div class="pour"><label class="chs">${G.length?`<select id="tga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`+tardHTML(S)+
-  `<button class="btnf go2" id="dGo" ${S.ga?'':'disabled'}>${S.tard?'Prévoir':'On y va'}</button><button class="lnk9" id="dFait">Déjà fait ? Noter le passage</button>`;}
+  (hors?`<div class="note">Le marché n'a pas lieu le ${JOURS[toD(q).getDay()]}. Vérifiez le jour.</div>`:'')+
+  `<button class="btnf go2" id="dGo" ${S.ga?'':'disabled'}>${S.tard?'Prévoir':'On y va'}${hors?' quand même':''}</button>${S.ga?'':SANS_GA}<button class="lnk9" id="dFait">Déjà fait ? Noter le passage</button>`;}
+/* « Plus tard » : un jour et une heure à venir (sinon « Maintenant ») */
+const tardOk=S=>{if(S.tard&&!futurQ(S.q)){toast('Choisissez un jour et une heure à venir, ou « Maintenant ».');return false;}return true;};
 function lierLancerDiff(nom,t){const S=etatL(nom),k=TDE[t]||'marché';lierTard(S);
  const g=$('tga');if(g)g.onchange=()=>{S.ga=g.value;};
  const df=$('dFait');if(df)df.onclick=()=>detail(vueDiff(nom,k));
  const ok=$('dOk');if(ok)ok.onclick=()=>{const a=ecDiff(nom);if(a)validerDiff(a.id);};
  const non=$('dNon');if(non)non.onclick=()=>{const a=ecDiff(nom);if(!a)return;oterAction([a],'Retiré : '+nom);render(true);};
- const go=$('dGo');if(go)go.onclick=()=>{if(!S.ga)return;const now=isoD(new Date());LS.set('dga',[S.ga]);
+ const md=$('dMod');if(md)md.onclick=()=>{const a=ecDiff(nom);if(a)detail(vueDiff(nom,k,a.id));};
+ const go=$('dGo');if(go)go.onclick=()=>{if(!S.ga||!tardOk(S))return;const now=isoD(new Date());LS.set('dga',[S.ga]);
   if(S.tard){const x=nouvelleAction(TYPE_DIFF[k],{statut:'a_faire',prevue:S.q,plan:1,ga:[S.ga],nb:0,tracts:0,materiel:'',etapes:[etapeL(k,nom)]});x.nom=nomDiff(x,nom);
-   ACTIONS.push(x);saisie(x,'diff prévue');sauverA();S.tard=false;render(true);toast(`Prévu : ${nom}, le ${quandP(x.prevue)}`);return;}
+   ACTIONS.push(x);saisie(x,'diff prévue');sauverA();S.tard=false;render(true);toast(`Prévu : ${nom}, le ${quandP(x.prevue)}`,{t:'Annuler',fn:()=>{oterSans(x);render(true);}});return;}
   /* une diff prévue aujourd'hui (ou avant) ici : c'est elle qu'on lance */
-  const pv=prevuesDe(nom).find(a=>a.prevue.slice(0,10)<=now.slice(0,10)),x=pv||nouvelleAction(TYPE_DIFF[k],{nb:0,tracts:0,materiel:'',etapes:[etapeL(k,nom)]});
+  const pv=prevuesDe(nom).find(a=>a.prevue.slice(0,10)<=now.slice(0,10)),snap=pv?photo([pv]):null,x=pv||nouvelleAction(TYPE_DIFF[k],{nb:0,tracts:0,materiel:'',etapes:[etapeL(k,nom)]});
   Object.assign(x,{statut:'a_faire',ga:[S.ga],encours:now,prevue:now});delete x.plan;if(!pv){x.nom=nomDiff(x,nom);ACTIONS.push(x);}
-  saisie(x,'diff lancée : en cours');sauverA();vibrer();render(true);toast('En cours : '+nom);};}
+  saisie(x,'diff lancée : en cours');sauverA();vibrer();render(true);toast('En cours : '+nom,{t:'Annuler',fn:()=>{if(snap)remettre(snap);else oterSans(x);render(true);}});};}
+/* retirer une action sans message (pour « Annuler ») */
+function oterSans(a){const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();if(typeof dessinerParcours==='function')dessinerParcours();}}
 const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
 function histoHTML(nom){const P=prevuesDe(nom),v=diffsDe(nom).filter(a=>!deListe(a));let h='';
  if(P.length)h+=`<h2>Diffs prévues ici</h2>`+P.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.prevue)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}${dueP(a)?' · à valider':''}</small></button>${dueP(a)?`<button class="addb" data-hf="${a.id}">C'est fait</button>`:`<button class="addb" data-hk="${a.id}">Modifier</button>`}</div>`).join('');
@@ -107,8 +116,9 @@ const diffsPrevues=()=>ACTIONS.filter(a=>diffEC(a)||diffPrevue(a)).sort((x,y)=>(
 const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
- const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):ecDiff(nm)?`<span class="eqp">En cours</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';   /* v29 : « En cours » */
- return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
+ const pv=o.k!=='pi'&&!ecDiff(nm)&&prevuesDe(nm)[0],df=o.k!=='pi'&&diffsDe(nm)[0];   /* v30 : « Prévu le … », « fait le … » */
+ const right=o.k==='pi'?pillH(etatPied(o.s).k,`data-tp="${o.i}"`):ecDiff(nm)?`<span class="eqp">En cours</span>`:pv?`<span class="eqp">Prévu le ${esc(quandP(pv.prevue))}</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:'';   /* v29 : « En cours » */
+ return `<div class="row p"><button class="tx${TRI==='monde'&&(o.k==='ma'||(o.k==='su'&&o.s.af))&&o.v<=0?' dim':''}" data-tl="${o.k}:${o.i}"><b>${esc(o.nom)}${o.lim?' <span class="lim">limite de circo</span>':''}</b>${o.sub?`<small>${o.sub}</small>`:''}<small>${o.info}${df?` · fait le ${fmtJ(df.faite_le)}`:''}</small>${prHTML(ll,o.k,o.k==='pi'?o.s.geo:null,o.s)}</button>${right}</div>`;}
 function momHTML(m){const auj=new Date().getDay();
  return `<div class="mom" role="group" aria-label="Moment"><div class="jr">${[1,2,3,4,5,6,0].map(d=>`<button data-mj="${d}" aria-pressed="${m.d===d}"${d===auj?' class="auj"':''}>${JCOURT[d].replace('.','')}</button>`).join('')}</div>
   <div class="hr"><button data-mh="-1" aria-label="Une heure plus tôt">−</button><b>${m.h} h à ${(m.h+1)%24} h</b><button data-mh="1" aria-label="Une heure plus tard">+</button><button class="now" data-mj="now" aria-pressed="${!MOM}">Maintenant</button></div></div>`;}
@@ -118,8 +128,9 @@ let TT=LS.get('ttab','su');
 const TTAB=[['su','Magasins'],['me','Métro'],['ma','Marchés'],['pa','Déambulation']];
 function appliquerTT(){chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';if(TT==='pa')EXP.pc=true;if(D){lieux();noms();majBulles();majMoment();}}
 function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';const m=mom(),L_=lieuxTract(m);
-  const DP=diffsPrevues();let h=headHTML('Tractage','');
-  h+=DP.slice(0,3).map(carteEC).join('')+(DP.length>3?`<div class="sub" style="margin:-4px 0 10px">et ${pl(DP.length-3,'autre diff prévue','autres diffs prévues')} : voir le Suivi</div>`:'');
+  /* v30 (audit) : toutes les diffs en cours, puis les 3 prévues les plus proches ; le reste, d'une touche, dans le Suivi */
+  const DP=diffsPrevues(),EC=DP.filter(diffEC),PV=DP.filter(diffPrevue);let h=headHTML('Tractage','');
+  h+=EC.concat(PV.slice(0,3)).map(carteEC).join('')+voirSuivi(PV.length-3,'autre diff prévue','autres diffs prévues');
   h+=`<div class="seg tt" role="group" aria-label="Sorte de lieu">${TTAB.map(([k,t])=>`<button data-tt="${k}" aria-pressed="${TT===k}">${t}</button>`).join('')}</div>`;
   h+=momHTML(m);
   h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
@@ -237,7 +248,7 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
   if(lock)h+=`<div class="note">Distribution interdite à cette date : veille ou jour de scrutin (code électoral, article L. 49).</div>`;
   h+=`<div class="fl"><span>Groupes d'action</span><div class="ch2">${gaActifs().map(g=>`<button data-g="${g.id}" aria-pressed="${ga.includes(g.id)}">${esc(g.nom)}</button>`).join('')}</div></div>`;
   const ok=ga.length&&!lock;
-  const lab=hors?'Enregistrer quand même':fut?(e?'Enregistrer':'Prévoir le passage'):prv?'C\'est fait':e?'Enregistrer':'Enregistrer le passage';
+  const lab=hors?'Enregistrer quand même':fut?(e?'Enregistrer':'Prévoir le passage'):e&&e.encours?'Enregistrer':prv?'C\'est fait':e?'Enregistrer':'Enregistrer le passage';
   h+=`<div class="btns stick"><button class="btn cta" id="env" ${ok?'':'disabled'}>${I.check} ${lab}</button>${ok||lock?'':`<div class="hint">Choisissez au moins un GA.</div>`}</div>`;
   if(prv)h+=`<button class="lnk9" id="del">On n'y va plus</button>`;
   else if(e&&peutSupprimer(e))h+=`<div class="btns"><button class="btn line danger" id="del">Supprimer ce compte rendu</button></div>`;
@@ -247,7 +258,9 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
   body.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,k=ga.indexOf(g);if(k>=0)ga.splice(k,1);else ga.push(g);render(true);});
   const dl=$('del');if(dl)dl.onclick=()=>{const k=ACTIONS.indexOf(e);ACTIONS.splice(k,1);sauverA();back();toast(prv?'Diff retirée : '+nom:'Compte rendu supprimé',{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,e);sauverA();render(true);}});};
   $('env').onclick=()=>{if(!ga.length)return;const lieuId=nom,fut=futurQ(q);
-   if(e){if(fut){Object.assign(e,{statut:'a_faire',prevue:q,faite_le:'',plan:1,ga:ga.slice()});delete e.encours;if(e.etapes[0])e.etapes[0].le='';}
+   if(e){const enc=!!e.encours;
+    if(fut){Object.assign(e,{statut:'a_faire',prevue:q,faite_le:'',plan:1,ga:ga.slice()});delete e.encours;if(e.etapes[0])e.etapes[0].le='';}
+    else if(enc){Object.assign(e,{encours:q,prevue:q,ga:ga.slice()});saisie(e,'diff en cours modifiée');sauverA();back();toast('En cours depuis le '+fmtJH(q).replace(/^./,c=>c.toLowerCase()));return;}
     else{e.prevue=q;delete e.encours;diffFaite(e);e.ga=ga.slice();}
     saisie(e,fut?'diff prévue':prv?'C\'est fait':'compte rendu modifié');sauverA();back();toast((fut?'Passage prévu le ':'Passage du ')+fmtJH(q).replace(/^./,c=>c.toLowerCase())+(fut?'':' enregistré'));return;}
    const x=nouvelleAction(TYPE_DIFF[type]||'diff_marche',Object.assign(fut?{statut:'a_faire',prevue:q,plan:1}:{statut:'faite',faite_le:q},{nb:0,tracts:0,campagne:campDefaut(),ga:ga.slice(),materiel:'',etapes:[{lieu:{t:LT[type]||'marche',id:lieuId},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:fut?'':q}]}));
@@ -255,21 +268,27 @@ function vueDiff(nom,type,aid){const e=aid?actPar(aid):null;const brd=LS.get('br
    stack=[vueBase(),{id:'ok',html:()=>`<div class="ok"><div class="ck">${I.check}</div><h1>${fut?'Passage prévu':'Passage enregistré'}</h1><div class="sub">${esc(nom)} · ${fmtJH(q)}</div><div class="sub">${fut?'Il entre dans le sondage de la semaine du GA. ':''}Envoyé au journal partagé, ou au retour du réseau si le téléphone est hors connexion.</div></div><div class="btns"><button class="btn line" id="sh">Partager le compte rendu</button><button class="btn primary" id="nv">Revenir à la liste</button></div>`,
     after:()=>{$('sh').onclick=()=>partager(txtAction(x));$('nv').onclick=()=>show(vueBase());}}];render();};}};}
 function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML(esc(a.nom),`${TYPES[a.type]} · ${sttHTML(a)}`,true);
+ /* v30 (audit) : une action à faire (pied d'immeuble, diff en cours ou prévue) s'ouvre sur sa fiche, où sont « On y va », « C'est fait » et « On n'y va plus » */
+ if(a.statut==='a_faire'){h+=`<div class="meta2"><div><span>Lieu</span><b>${esc(e.lieu.id)}</b></div><div><span>GA</span><b>${esc(pourQui(a))}</b></div><div><span>${a.encours?'En cours':'Prévu'}</span><b>${a.encours?esc(depuis(a.encours)):esc(quandP(a.prevue)||'sans date')}</b></div></div>`;
+  return h+`<div class="btns"><button class="btn primary" id="mfi">${a.type==='diff_pied'?'Ouvrir le pied d\'immeuble':'Ouvrir la fiche du lieu'}</button></div>`+histoSaisies(a);}
  h+=`<div class="meta2"><div><span>Lieu</span><b>${esc(e.lieu.id)}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Passage':'Prévu'}</span><b>${fmtJH(a.statut==='faite'?a.faite_le:a.prevue)}</b></div></div>`;
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
-function lierActionDiff(a){$('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,DLT[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
+function lierActionDiff(a){const fi=$('mfi');if(fi){fi.onclick=()=>{const l=a.etapes[0].lieu;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>x.nom===l.id);if(s)ouvrirPied(s);return;}if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);};return;}
+ $('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,DLT[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
 /* ---------------- liste des actions : tri par date ou par GA, filtres type et GA (filtre statut retiré, JL 25/10/2026) */
 let FILTRE={type:'tous',ga:'tous',tri:'date'};
 function vueActions(f){if(f&&f.type){FILTRE.type=f.type;}
  return {id:'actions',html:()=>{const F=FILTRE;
-  let l=ACTIONS.filter(a=>a.type!=='equipe'&&(F.type==='tous'||(F.type==='diff'?a.type.startsWith('diff'):a.type===F.type))&&(F.ga==='tous'||a.ga.includes(F.ga)));
+  /* v30 (audit) : « Pieds d'immeuble » à part du tractage ; les actions sans GA gardées dans le tri par GA */
+  let l=ACTIONS.filter(a=>a.type!=='equipe'&&(F.type==='tous'||(F.type==='diff'?a.type.startsWith('diff')&&a.type!=='diff_pied':F.type==='pieds'?a.type==='diff_pied':a.type===F.type))&&(F.ga==='tous'||a.ga.includes(F.ga)));
   l.sort((a,b)=>{const x=a.statut==='faite'?a.faite_le:a.prevue||a.cree_le,y=b.statut==='faite'?b.faite_le:b.prevue||b.cree_le;return (y||'').localeCompare(x||'');});
   let h=headHTML('Actions',`${pl(l.length,'action')} dans le journal`,true);
-  h+=`<div class="seg" role="group" aria-label="Type">${[['tous','Toutes'],['pap','PAP'],['diff','Tractage']].concat(ACTIONS.some(a=>a.type==='boitage')?[['boitage','Boîtage']]:[]).map(([k,t])=>`<button data-ft="${k}" aria-pressed="${F.type===k}">${t}</button>`).join('')}</div>`;
+  h+=`<div class="seg" role="group" aria-label="Type">${[['tous','Toutes'],['pap','PAP'],['pieds','Pieds'],['diff','Tractage']].concat(ACTIONS.some(a=>a.type==='boitage')?[['boitage','Boîtage']]:[]).map(([k,t])=>`<button data-ft="${k}" aria-pressed="${F.type===k}">${t}</button>`).join('')}</div>`;
   h+=`<div class="frow2"><select id="fg" aria-label="GA"><option value="tous">Tous les GA</option>${REF.ga.map(g=>`<option value="${g.id}" ${F.ga===g.id?'selected':''}>${esc(g.nom)}${g.archive?' (archivé)':''}</option>`).join('')}</select><div class="seg sm" role="group" aria-label="Tri">${[['date','Par date'],['ga','Par GA']].map(([k,t])=>`<button data-fo="${k}" aria-pressed="${F.tri===k}">${t}</button>`).join('')}</div></div>`;
   if(!l.length)return h+'<div class="empty">Aucune action pour ces filtres.</div>';
-  if(F.tri==='ga'){const gs=REF.ga.filter(g=>l.some(a=>a.ga.includes(g.id)));gs.forEach(g=>{const m=l.filter(a=>a.ga.includes(g.id));h+=`<div class="side">${esc(g.nom)} · ${m.length}</div>`+m.map(rowAction).join('');});}
+  if(F.tri==='ga'){const gs=REF.ga.filter(g=>l.some(a=>a.ga.includes(g.id)));gs.forEach(g=>{const m=l.filter(a=>a.ga.includes(g.id));h+=`<div class="side">${esc(g.nom)} · ${m.length}</div>`+m.map(rowAction).join('');});
+   const sg=l.filter(a=>!a.ga.some(id=>REF.ga.some(g=>g.id===id)));if(sg.length)h+=`<div class="side">Sans GA · ${sg.length}</div>`+sg.map(rowAction).join('');}
   else h+=l.map(rowAction).join('');
   return h;},
  after:()=>{body.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{FILTRE.type=b.dataset.ft;render(true);});
