@@ -170,7 +170,7 @@ function lierSemaine(i){const id=AID(i),ap=$('adp'),ak=$('adk'),ar=$('adr');
 function passagesHTML(id){const ps=PASS[id]||[];if(!ps.length)return '';
  return `<div class="h3">Passages</div>`+ps.slice(0,6).map(p=>{const a=actPar(p.aid),g=(p.ga||[]).map(gaNom).join(', '),q=parQui(a,id);
   const t=deListe(a)?`Validée depuis la liste${q?', par '+esc(q):''}`:`${esc(a?a.nom:'PAP')}${g?' · '+esc(g):''}${p.t?` · ${pl(p.t,'toquée')}, ${pl(p.o,'ouverte')}`:''}`;
-  return `<div class="tl"><i></i><div><b>${esc(semLong(p.q))}</b><span>${t}</span></div></div>`;}).join('')+(ps.length>6?`<div class="hs">et ${pl(ps.length-6,'passage')} plus ancien${ps.length-6>1?'s':''}</div>`:'');}
+  return `<div class="tl"><i></i><div><b>${esc(semLong(p.q))}</b><span>${t}${a&&a.vite?' · à refaire bientôt':''}</span>${comLigne(a)}</div></div>`;}).join('')+(ps.length>6?`<div class="hs">et ${pl(ps.length-6,'passage')} plus ancien${ps.length-6>1?'s':''}</div>`:'');}
 
 /* ---- pastille de l'onglet Liste : PAP dont la date est passée, pas encore tout validés */
 function majBadge(){const b=$('bdgL');if(!b||!D)return;b.hidden=true;return;const auj=isoD(new Date()).slice(0,10);
