@@ -783,6 +783,11 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .qtd{margin:12px 0 4px}
 .qtd .rw3{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-top:8px}
 .qtd input{height:44px;border-radius:10px;border:1px solid var(--line2);background:transparent;color:var(--ink);font:500 14px var(--f);padding:0 8px;min-width:0;width:100%;font-variant-numeric:tabular-nums;color-scheme:inherit}
+/* v30 (15/11/2026, audit) : résultats de la recherche du haut devant le panneau (ordinateur ; Suivi et Sondage au téléphone) ;
+   compte d'un GA : message d'accès ; mise en ligne */
+.top:has(#res:not([hidden])){z-index:1005}
+.msgacc{white-space:pre-wrap;font:500 14px/1.45 var(--f);background:var(--tint);border-radius:12px;padding:12px 14px;margin-top:12px;user-select:all}
+.mel .ok2{color:var(--ok)}.mel .ko2{color:var(--cta)}
 </style>
 
 <div id="app">
