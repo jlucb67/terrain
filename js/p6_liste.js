@@ -86,7 +86,7 @@ function etatAdr(i){const a=D.adresses[i],id=a[2],s=statutA(id),ps=PASS[id]||[],
  if(s==='fait')t=sem?(ps.length>1?pl(ps.length,'passage'):''):`<span class="g">faite ${relSem(ps[0].q)}</span>`;
  else if(s==='ferme')t=`<span class="o">pas pu entrer ${relSem(FER[id].q)}</span>`;
  else if(s==='prevu'){const p=actPar(PREV[id].aid);t=p&&p.prevue?'prévue le '+fmtJ(p.prevue):'prévue dans un PAP';}
- else if(!isPr(a))t='non prioritaire';
+ else if(!isPr(a))t=(a[5]||0)>=crit.score?`hors priorité : moins de ${crit.ins} inscrits`:'non prioritaire';   /* v30 : la pastille dit la priorité, le texte dit pourquoi elle ne compte pas */
  return {k:sem?'f':s==='fait'?'p':'v',t,s,ps};}
 /* pastille d'une adresse : faite (✓ ou nombre de passages), pas pu entrer (!), sinon sa priorité de 0 à 100, dans la couleur du dégradé */
 function avAdr(i){const a=D.adresses[i],e=etatAdr(i),v=a[5]||0;
