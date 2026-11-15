@@ -20,7 +20,7 @@ function bandeHTML(x,titre,extra,grand,larg){const w=larg!=null?larg:x.pct;
   `<small>${extra||`<b>${n0(x.fi)}</b> inscrits faits sur ${n0(x.tot)} dans les adresses prioritaires · ${x.sem>0?`<b>+${pc1(x.sem)} %</b> cette semaine`:'rien encore cette semaine'}`}</small></div>`;}
 function parBureau(){const B={};D.adresses.forEach(a=>{if(!isPr(a))return;const o=B[a[8]]=B[a[8]]||{b:a[8],tot:0,fi:0};o.tot+=a[3];if(statutA(a[2])==='fait')o.fi+=a[3];});
  return Object.values(B).map(o=>Object.assign(o,{p:o.tot?100*o.fi/o.tot:0}));}
-const papsFaits=()=>ACTIONS.filter(a=>a.type==='pap'&&a.statut==='faite'&&!deListe(a));
+const papsFaits=()=>ACTIONS.filter(a=>a.type==='pap'&&a.statut==='faite'&&!deListe(a)&&!(a.origine&&a.origine.lot==='historique'));   /* v30 : sans l'ancien passage ni l'import */
 /* ---- v27 (14/11/2026, JL) : taux d'ouverture des portes d'un PAP, facultatif : portes toquées et ouvertes (le taux se calcule),
    ou le taux noté directement */
 const tauxA=a=>a.taux!=null&&a.taux!==''?Math.max(0,Math.min(100,Math.round(+a.taux))):a.portes&&a.portes.t>0?Math.round(100*Math.min(a.portes.o||0,a.portes.t)/a.portes.t):null;
@@ -45,7 +45,7 @@ function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.
 let TRTOUT=false;
 function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
  let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « On y va » puis « C'est fait » enregistrent le passage.</div>`;
- h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
+ h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu','lieux')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
  const n=TRTOUT?R.length:Math.min(6,R.length);
  h+=R.slice(0,n).map((o,j)=>`<div class="lr">${avH('ok',o.n>1?o.n:I.check)}<button class="tx" data-tr="${j}"><b>${esc(o.id)}</b><small>${esc(TYPES_C[o.type])} · dernier passage ${esc(fmtJH(o.der.faite_le).replace(/^./,c=>c.toLowerCase()))}${o.der.ga&&o.der.ga.length?' · '+esc(o.der.ga.map(gaNom).join(', ')):''}</small></button><span class="trn">${pl(o.n,'passage')}</span></div>`).join('');
  if(R.length>6)h+=`<button class="lnk9" id="trT">${TRTOUT?'Moins de lieux':`Voir les ${R.length} lieux`}</button>`;
@@ -53,7 +53,7 @@ function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
 function lierTractage(){const R=recapTractage();body.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const o=R[+b.dataset.tr];if(!o)return;setMode('tractage');ouvrirLieuEq(o.t,o.id);});
  const t=$('trT');if(t)t.onclick=()=>{TRTOUT=!TRTOUT;render(true);};}
 function chiffresHTML(x){const B=parBureau();
- const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,`bureaux commencés (ceux qui ont des adresses prioritaires, sur ${n0((D.bureaux||[]).length||B.length)})`]])+(t=>t?`<div class="sub txo">Taux d'ouverture des portes : <b>${t.v} %</b> en moyenne, sur ${pl(t.n,'PAP renseigné','PAP renseignés')}</div>`:'')(tauxMoyen());}
+ const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés, parmi ceux qui ont des adresses prioritaires']])+(t=>t?`<div class="sub txo">Taux d'ouverture des portes : <b>${t.v} %</b> en moyenne, sur ${pl(t.n,'PAP renseigné','PAP renseignés')}</div>`:'')(tauxMoyen());}
 
 /* ---- en cours : « On y va » ; « C'est fait » valide. Un pied d'immeuble lancé = une action « pied d'immeuble » et une
    action PAP par équipe, reliées par « groupe » */
@@ -80,6 +80,8 @@ function oterAction(l,quoi){const pos=l.map(a=>[ACTIONS.indexOf(a),a]).filter(x=
  toast(quoi,{t:'Annuler',fn:()=>{pos.slice().reverse().forEach(([k,a])=>ACTIONS.splice(k,0,a));sauverA();dessinerParcours();render(true);}});}
 const sansToast=()=>{const t=$('toast');if(t)t.hidden=true;clearTimeout(toast.k);};
 const pourQui=a=>(a.ga||[]).map(gaNom).join(', ')||'sans GA';
+/* v30 (audit) : « et N autres … : voir le Suivi », d'une touche */
+const voirSuivi=(n,s,p)=>n>0?`<button class="lnk9" data-vsu="1" style="margin:-4px 0 10px">et ${pl(n,s,p)} : voir le Suivi</button>`:'';
 function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a)||diffEC(a),l=a.etapes[0]?a.etapes[0].lieu:{t:'',id:''},s=(p||d)?l.id:'',n=p?duGroupe(a.groupe||'').filter(x=>x.type==='pap').length:0;
  const t=p?`Pied d'immeuble ${esc(s)}`:d?esc(l.t==='station'?'Métro '+s:s):esc((a.nom||'PAP').replace(/^PAP /,''));
  const q=a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date',due=!a.encours&&!p&&dueP(a);
@@ -87,17 +89,17 @@ function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a)||diffEC(a),l=a.
  return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${a.encours?'En cours':due?'À valider':'Prévu'} : ${t}</b><small>${sub}</small></span><span class="ecb">${a.encours||due?'Terminer':'Voir'}</span></button>`;}
 function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}
  if(diffPrevue(a)||diffEC(a)){const l=a.etapes[0].lieu;if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);return;}   /* v29 : la fiche du lieu, avec « C'est fait » */detail(vueEnCours(id));}
-const lierEC=()=>body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));
+const lierEC=()=>{body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));body.querySelectorAll('[data-vsu]').forEach(b=>b.onclick=()=>setMode('suivi'));};
 
 /* ---- accueil du porte-à-porte : en cours, avancement, taille, 3 PAP proposés */
 let TMODE=LS.get('tmode','ins'),EQN=LS.get('eqN',2),EQH=LS.get('eqH',2),VIS=false;
 const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[1,'1'],[2,'2'],[3,'3'],[4,'4'],[5,'5 et +']];
 const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
-function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.encours||(a.plan&&a.type==='pap'));   /* les PAP prévus d'avant la v16 : dans le Suivi ; v28 : les PAP prévus plus tard ici */
+function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.type==='pap'&&(a.encours||a.plan));   /* les PAP prévus d'avant la v16 : dans le Suivi ; v28 : les PAP prévus plus tard ici */
   const mien=EC.filter(a=>a.cree_par===moi().id),autres=EC.filter(a=>a.cree_par!==moi().id);
   let h=`<div class="csh"><h1>Porte-à-porte</h1></div>`+mien.concat(autres).slice(0,3).map(carteEC).join('');
-  if(EC.length>3)h+=`<div class="sub" style="margin:-4px 0 10px">et ${pl(EC.length-3,'autre action')} en cours : voir le Suivi</div>`;
+  h+=voirSuivi(EC.length-3,'autre PAP','autres PAP');
   h+=`<div class="btns"><button class="btn line" id="autre">${I.target} Choisir un endroit sur la carte</button></div>`;
   h+=`<div class="tsw"><span>Choisir la taille par</span>${segH('data-tm',[['ins','Nombre d\'inscrits'],['eq','Personnes et temps']],TMODE)}</div>`;
   if(TMODE==='eq'){h+=`<div class="qq"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
@@ -119,19 +121,28 @@ function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='e
   $('autre').onclick=()=>viseur(true);}};}
 
 /* ---- un PAP en cours : on note « Pas pu entrer » là où c'est le cas, puis « C'est fait » */
-function vueEnCours(id){const ferm=new Set();return {id:'ec',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('PAP retiré','',true);
+/* v30 (audit) : un PAP prévu a « On y va » (il passe en cours), son jour et son heure se changent ici ; « C'est fait » dès l'heure passée */
+function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec',aid:id,html:()=>{const a=actPar(id);if(!a)return headHTML('PAP retiré','',true);
   if(a.statut==='faite')return headHTML(esc(a.nom),'Fait le '+fmtJ(a.faite_le),true)+portesHTML(a)+`<button class="lnk9" id="vact">Voir le détail</button>`;
   const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})).filter(x=>x.i!=null),ins=E.reduce((s,x)=>s+D.adresses[x.i][3],0);
   let h=headHTML(esc((a.nom||'PAP').replace(/^PAP /,'')),E.length?`Priorité ${prioMoyIds(E.map(x=>x.i))}`:'',true);
   h+=`<div class="sum2"><span><b>${E.length}</b>adresse${E.length>1?'s':''}</span><span><b>${n0(portesDe(ins))}</b>portes environ</span><span><b>${n0(ins)}</b>inscrits</span></div>`;
-  h+=E.map((x,j)=>`<div class="lr">${avH('br',j+1)}<button class="tx" data-i="${x.i}"><b>${esc(D.adresses[x.i][2])}</b><small>${pl(D.adresses[x.i][3],'inscrit')}</small></button>${pillH(ferm.has(x.k)?'kf':'k',`data-kf="${x.k}"`)}</div>`).join('');
+  const pv=!a.encours,due=pv&&dueP(a),fin=!pv||due;
+  h+=E.map((x,j)=>`<div class="lr">${avH('br',j+1)}<button class="tx" data-i="${x.i}"><b>${esc(D.adresses[x.i][2])}</b><small>${pl(D.adresses[x.i][3],'inscrit')}</small></button>${fin?pillH(ferm.has(x.k)?'kf':'k',`data-kf="${x.k}"`):'<span></span>'}</div>`).join('');
   h+=`<div class="encours"><b>${a.encours?'En cours':'Prévu'}</b> ${a.encours?depuis(a.encours):a.prevue?'le '+quandP(a.prevue):'sans date'} · ${esc(pourQui(a))}</div>`;
-  h+=`<button class="btnf stk" id="fini">${I.check} C'est fait</button>`;   /* v28 (JL) : phrase d'explication retirée */
+  if(pv){h+=`<button class="btnf go2" id="goP">On y va</button>`;
+   if(chg)h+=`<div class="qtd"><div class="rw3"><input type="date" id="pqD" min="${isoD(new Date()).slice(0,10)}" value="${nq.slice(0,10)}" aria-label="Jour"><input type="time" id="pqT" value="${nq.slice(11,16)}" aria-label="Heure"></div></div><button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;
+   else h+=`<button class="lnk9" id="pqC">Changer le jour ou l'heure</button>`;}
+  if(fin)h+=`<button class="btnf${pv?'':' stk'}" id="fini">${I.check} C'est fait</button>`;   /* v28 (JL) : phrase d'explication retirée */
   h+=`<button class="lnk9" id="annul">On n'y va plus</button>`;
   return h;},
  after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite')lierPortes(a);if(!a||a.statut==='faite')return;
   body.querySelectorAll('[data-kf]').forEach(b=>b.onclick=()=>{const k=+b.dataset.kf;if(ferm.has(k))ferm.delete(k);else ferm.add(k);render(true);});
-  $('fini').onclick=()=>{sansToast();const avant=avance(),snap=photo([a]);finirPAP(a,ferm);saisie(a,'C\'est fait'+(ferm.size?` (${ferm.size} pas pu entrer)`:''));sauverA();dessinerParcours();vibrer();stack=[vueBase(),vueNote(a,avant,'',snap)];render();};
+  const gp=$('goP');if(gp)gp.onclick=()=>{const snap=photo([a]);lancer(a);saisie(a,'PAP lancé : en cours');sauverA();dessinerParcours();vibrer();render(true);toast('PAP en cours',{t:'Annuler',fn:()=>{remettre(snap);render(true);}});};
+  const pc=$('pqC');if(pc)pc.onclick=()=>{chg=true;nq=a.prevue&&a.prevue.length>10?a.prevue:(a.prevue||demain10().slice(0,10))+'T10:00';render(true);};
+  const pd=$('pqD');if(pd)pd.onchange=()=>{if(pd.value)nq=pd.value+nq.slice(10);};const pt=$('pqT');if(pt)pt.onchange=()=>{if(pt.value)nq=nq.slice(0,11)+pt.value;};
+  const po=$('pqOk');if(po)po.onclick=()=>{if(!futurQ(nq)){toast('Choisissez un jour et une heure à venir.');return;}a.prevue=nq;a.plan=1;saisie(a,'jour et heure du PAP');sauverA();chg=false;render(true);toast('PAP prévu le '+quandP(nq));};
+  const fi=$('fini');if(fi)fi.onclick=()=>{sansToast();const avant=avance(),snap=photo([a]);finirPAP(a,ferm);saisie(a,'C\'est fait'+(ferm.size?` (${ferm.size} pas pu entrer)`:''));sauverA();dessinerParcours();vibrer();stack=[vueBase(),vueNote(a,avant,'',snap)];render();};
   $('annul').onclick=()=>{oterAction([a],'PAP retiré : '+(a.nom||''));show(vueBase());};}};}
 /* ---- « C'est noté » : ce que l'action fait gagner à la circo */
 /* v24 : une photo des actions avant « C'est fait », pour pouvoir annuler */
@@ -143,9 +154,9 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>C'est noté</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
   const B=parBureau();h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
   h+=portesHTML(a);
-  h+=`<button class="btnf" id="suite">Voir les propositions suivantes</button>`;
+  h+=`<button class="btnf" id="suite">${a.type==='diff_pied'?'Revenir aux pieds d\'immeuble':'Voir les propositions suivantes'}</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Annuler : ce n'était pas fini</button>`;
-  return h;},after:()=>{lierPortes(a);$('suite').onclick=()=>{if(ONG!=='pap')setMode('pap');else show(vueBase());};
+  return h;},after:()=>{lierPortes(a);$('suite').onclick=()=>{const m=a.type==='diff_pied'?'pieds':'pap';if(ONG!==m)setMode(m);else show(vueBase());};
   const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);toast('Remis en cours');const s=a.type==='diff_pied'&&(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);stack=[vueBase()];if(s)ouvrirPied(s);else detail(vueEnCours(a.id));};}};}
 
 /* ---- Suivi : avancement, en cours, par bureau de vote (liste et carte), toutes les adresses, outils */
@@ -158,7 +169,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, deux colonnes, les chiffres et les bureaux à gauche,
      toutes les adresses à droite (classes pg2, pgh, pcl, pc2) ; au téléphone, rien ne change */
   let h=`<div class="pg2 suiv"><div class="pgh"><div class="csh"><h1>Suivi</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div></div><div class="pcl">`+bandeHTML(x)+chiffresHTML(x);
-  if(EC.length)h+=`<h2>En cours · ${EC.length}</h2>`+EC.map(carteEC).join('');
+  if(EC.length)h+=`<h2>En cours et prévu · ${EC.length}</h2>`+EC.map(carteEC).join('');
   h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
   h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%;background:${bzCol(o.fi>0?Math.max(o.p,.1):0)}"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
@@ -254,7 +265,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="pga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
   h+=tardHTML(QT);
-  h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>${QT.tard?(pv?'Changer la date':'Prévoir'):'On y va'}</button>`;   /* v28 (JL) : phrase d'explication retirée */
+  h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>${QT.tard?(pv?'Changer la date':'Prévoir'):'On y va'}</button>${gaC?'':SANS_GA}`;   /* v28 (JL) : phrase d'explication retirée */
   if(pv)h+=`<button class="lnk9" id="pannul">On n'y va plus</button>`;
   return h;},
  after:()=>{dessinerPied(s,T);body.querySelectorAll('[data-eqa]').forEach(b=>b.onclick=()=>detail(vueEnCours(b.dataset.eqa)));
@@ -263,19 +274,20 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   body.querySelectorAll('[data-pi]').forEach(b=>b.onclick=()=>{pI=Math.max(50,Math.min(5000,pI+50*(+b.dataset.pi)));LS.set('pI',pI);render(true);});
   body.querySelectorAll('[data-ph]').forEach(b=>b.onclick=()=>{hh=+b.dataset.ph;LS.set('pH',hh);render(true);});
   const g=$('pga');if(g)g.onchange=()=>{gaC=g.value;};lierTard(QT);
-  const go=$('pgo');if(go)go.onclick=()=>{if(!gaC)return;const pv=pvPied(s);
+  const go=$('pgo');if(go)go.onclick=()=>{if(!gaC||!tardOk(QT))return;const pv=pvPied(s),snap=pv?photo([pv]):null;
    /* v28 : prévu plus tard (jour, heure, GA) : rien n'est réservé ; les équipes se feront à « On y va », le jour même */
-   if(QT.tard){if(pv){pv.prevue=QT.q;pv.ga=[gaC];saisie(pv,'date du pied d\'immeuble');}
-    else{const x=nouvelleAction('diff_pied',{ga:[gaC],nb:2+2*E,plan:1,prevue:QT.q,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
+   if(QT.tard){let x=null;if(pv){pv.prevue=QT.q;pv.ga=[gaC];saisie(pv,'date du pied d\'immeuble');}
+    else{x=nouvelleAction('diff_pied',{ga:[gaC],nb:2+2*E,plan:1,prevue:QT.q,origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
      x.nom=`Pied d'immeuble ${s.nom}`;ACTIONS.push(x);saisie(x,'pied d\'immeuble prévu');}
-    LS.set('dga',[gaC]);sauverA();QT.tard=false;render(true);toast(`Prévu : ${s.nom}, le ${quandP(QT.q)}`);return;}
+    LS.set('dga',[gaC]);sauverA();QT.tard=false;render(true);toast(`Prévu : ${s.nom}, le ${quandP(QT.q)}`,{t:'Annuler',fn:()=>{if(snap)remettre(snap);else if(x)oterSans(x);render(true);}});return;}
    const grp=uid();
    const st=pv||nouvelleAction('diff_pied',{origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
    Object.assign(st,{ga:[gaC],nb:2+2*T.length,groupe:grp});
    st.nom=`Pied d'immeuble ${s.nom}`;lancer(st);if(!pv)ACTIONS.push(st);saisie(st,'pied d\'immeuble lancé : en cours');
    T.forEach((e,k)=>{const a=nouvelleAction('pap',{ga:[gaC],nb:2,groupe:grp,origine:{lot:'pied',secteur:s.nom,equipe:k+1},etapes:e.ids.map(etapeAdr)});
     a.nom=`PAP ${e.rue} (équipe ${k+1}, ${s.nom})`;lancer(a);ACTIONS.push(a);saisie(a,'PAP lancé depuis un pied d\'immeuble');});
-   LS.set('dga',[gaC]);sauverA();dessinerParcours();vibrer();render(true);toast(`En cours : ${s.nom}${T.length?' et '+pl(T.length,'équipe'):''}`);};
+   LS.set('dga',[gaC]);sauverA();dessinerParcours();vibrer();render(true);
+   toast(`En cours : ${s.nom}${T.length?' et '+pl(T.length,'équipe'):''}`,{t:'Annuler',fn:()=>{const eq=duGroupe(grp).filter(a=>a!==st);eq.forEach(oterSans);if(snap){remettre(snap);}else oterSans(st);dessinerParcours();render(true);}});};
   const f=$('pfini');if(f)f.onclick=()=>{sansToast();const ec=ecPied(s);if(!ec)return;const avant=avance(),snap=photo(ec.groupe?duGroupe(ec.groupe):[ec]);finirPied(ec);sauverA();dessinerParcours();vibrer();
    stack=[vueBase(),vueNote(ec,avant,"Pied d'immeuble "+s.nom,snap)];render();};
   const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s)||pvPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Retiré : '+s.nom);render(true);};}};}
