@@ -45,9 +45,9 @@ function lierAjout(a){const b=$('aok');if(!b||!a)return;b.onclick=()=>{const n=(
 function vueRueOuvrir(v){const l=VOIES[v];if(!l)return;if(det==='peek')setDet('half');
  map.flyToBounds(L.latLngBounds(l.map(ptA)).pad(.15),{...pad(),maxZoom:17.5,duration:.5});detail(vueRue(v));}
 function vueRue(v){return {id:'rue',html:()=>{const l=VOIES[v],o=ordreRue(v),np=l.filter(i=>ADRP[i].num%2===0).length;
-  let h=headHTML(esc(v),`${pl(l.length,'numéro')} dans les listes · côté pair ${np}, côté impair ${l.length-np} · environ ${n0(insDe(l))} tracts`,true);
+  let h=headHTML(esc(v),`${pl(l.length,'numéro')} dans les listes · ${n0(insDe(l))} inscrits · côté pair ${np}, côté impair ${l.length-np}`,true);   /* v30 : plus de tracts (boîtage retiré) */
   h+=`<div class="btns"><button class="btn primary" id="rP">${I.plus} PAP dans cette rue</button></div><div class="hint">Les adresses prioritaires libres de la rue, dans l'ordre de la marche (toutes les adresses s'il n'y en a pas).</div>`;
-  let side='';o.forEach(i=>{const s=ADRP[i].num%2===0?'Côté pair, aller':'Côté impair, retour';if(s!==side){h+=`<div class="side">${s}</div>`;side=s;}
+  let side='';o.forEach(i=>{const s=ADRP[i].num%2===0?'Côté pair':'Côté impair';if(s!==side){h+=`<div class="side">${s}</div>`;side=s;}
    const b=BOI[AID(i)],f=faites[AID(i)];h+=`<div class="row p"><button class="tx" data-ri="${i}"><b>${esc(numTxt(i))}</b><small>${pl(D.adresses[i][3],'inscrit')}${b?` · ${b.st==='boite'?'boîté':'fermé'} le ${fmtJ(b.q)}`:''}${f?` · PAP fait le ${fmtJ(f)}`:''}</small></button></div>`;});
   return h;},after:()=>{body.querySelectorAll('[data-ri]').forEach(b=>b.onclick=()=>{const i=+b.dataset.ri;if(mode==='boitage'){voir(ptA(i),Math.max(map.getZoom(),17));sel(i);}else ouvrirAdresse(i);});
   $('rP').onclick=()=>{const o=ordreRue(v),lib=o.filter(libreP),ids=lib.length?lib:o;preparer(null,'',null,null,null,{lot:{ll:null,ids:ids.slice(),ins:insDe(ids),km:kmDe(ids),cible:insDe(ids),msg:'',rue:v}});};}};}
@@ -62,7 +62,7 @@ function ouvrirAdresseB(i){const a=D.adresses[i];sel(i);if(det==='peek')setDet('
    $('vr').onclick=()=>vueRueOuvrir(ADRP[i].voie);}});}
 
 /* ---------------- mon profil et console d'administration (profil administrateur seulement) */
-function vueMoi(){return {id:'moi',html:()=>{const u=moi(),t=themeDe();let h=headHTML(esc(u.nom),`${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${u.ga.map(gaNom).map(esc).join(', ')||'aucun GA'}`,true);
+function vueMoi(){return {id:'moi',html:()=>{const u=moi(),t=themeDe();let h=headHTML(esc(u.nom),`${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${(u.ga||[]).map(gaNom).map(esc).join(', ')||'aucun GA'}`,true);
   h+=`<div class="fl"><span>Affichage</span><div class="seg" role="group" aria-label="Affichage">${[['auto','Comme le téléphone'],['clair','Clair'],['sombre','Sombre']].map(([k,x])=>`<button data-th="${k}" aria-pressed="${t===k}">${x}</button>`).join('')}</div></div>`;
   if(estAdmin())h+=`<div class="btns"><button class="btn primary" id="cons">${I.grid} Console d'administration</button></div>`;
   h+=`<div class="btns"><button class="btn line" id="deco">Se déconnecter</button></div>`;
@@ -73,16 +73,16 @@ function aVerifier(){const l=[];ACTIONS.forEach(a=>{if(a.type==='diff_marche'&&a
  if(a.type==='pap'&&a.etapes.some(e=>e.toquees>0&&!e.portes))l.push([a,'portes non comptées']);
  if(a.statut==='a_faire'&&a.prevue&&ageJ(a.prevue.slice(0,10)+'T23:59')>1)l.push([a,'date prévue passée']);});return l;}
 function vueConsole(){if(!estAdmin())return vueMoi();return {id:'console',html:()=>{let h=headHTML('Administration','Listes de référence, accès et réglages',true);
-  const rows=[['users','Personnes et accès',`${pl(REF.users.length,'personne')} · ${REF.users.filter(u=>u.profil==='admin').length} administrateurs`],['ga','Groupes d\'action',pl(REF.ga.filter(g=>!g.archive).length,'actif')],['reglages','Réglages',`une adresse faite n'est plus proposée pendant ${REF.reglages.delaiFaite} jours, puis revient avec un quart de priorité en moins (${REF.reglages.delaiFerme} jours après « pas pu entrer »)`],['actions','Toutes les actions',pl(ACTIONS.length,'action')],['controles','Contrôles',(n=>n?`${pl(n,'saisie','saisies')} à vérifier`:'rien à vérifier')(aVerifier().length)],['donnees','Données','sources et dates des cartes et des chiffres']];
+  const rows=[['mel','Mise en ligne',(n=>n?pl(n,'point à régler','points à régler'):'tout est prêt')(etatMEL().n)],['users','Comptes et accès',`${pl(REF.users.length,'compte')} · ${REF.users.filter(u=>u.profil==='admin').length} administrateurs`],['ga','Groupes d\'action',pl(REF.ga.filter(g=>!g.archive).length,'actif')],['reglages','Réglages',`une adresse faite n'est plus proposée pendant ${REF.reglages.delaiFaite} jours, puis revient avec un quart de priorité en moins (${REF.reglages.delaiFerme} jours après « pas pu entrer »)`],['actions','Toutes les actions',pl(ACTIONS.length,'action')],['controles','Contrôles',(n=>n?`${pl(n,'saisie','saisies')} à vérifier`:'rien à vérifier')(aVerifier().length)],['donnees','Données','sources et dates des cartes et des chiffres']];
   h+=`<div style="margin-top:8px">${rows.map(([k,t,s])=>`<div class="row p"><button class="tx" data-cs="${k}"><b>${t}</b><small>${s}</small></button><span class="chev">${I.next}</span></div>`).join('')}</div>`;
   h+=`<div class="hint">Listes et actions sont enregistrées dans le journal partagé.</div>`;return h;},
  after:()=>{body.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>{const k=b.dataset.cs;
-  detail(k==='users'?vueUsers():k==='reglages'?vueReglages():k==='actions'?vueActions({type:'tous'}):k==='controles'?vueControles():k==='donnees'?vueDonnees():vueRef(k));});}};}
+  detail(k==='mel'?vueMiseEnLigne():k==='users'?vueUsers():k==='reglages'?vueReglages():k==='actions'?vueActions({type:'tous'}):k==='controles'?vueControles():k==='donnees'?vueDonnees():vueRef(k));});}};}
 const REFT={campagnes:['Campagnes','campagne'],ga:['Groupes d\'action','GA'],materiel:['Matériel','matériel']};
 function vueRef(k){return {id:'ref-'+k,html:()=>{const [t,u]=REFT[k];let h=headHTML(t,k==='campagnes'?'Liste fixe : les utilisateurs choisissent dedans, sans pouvoir la modifier.':'Liste de référence : les utilisateurs choisissent dedans, sans pouvoir la modifier.',true);
   if(k!=='campagnes')h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter ${k==='ga'?'un GA':'un matériel'}</button></div>`;
   if(k==='ga')h+=`<button class="lnk2 c" id="dem">Créer à partir d'une demande « Inscrire mon GA »</button>`;
-  h+=REF[k].map((x,j)=>`<div class="row p"><button class="tx" data-rj="${j}"><b>${esc(x.nom)}${x.defaut?' <span class="stt faite">par défaut</span>':''}</b><small>${k==='campagnes'?`${x.debut?'du '+fmtJ(x.debut):''}${x.fin?' au '+fmtJ(x.fin):''}`:k==='ga'?`${arrTxt(x.arr)} · circo ${(x.circos||[]).join(', ')||'à indiquer'}`:esc(x.campagne?campNom(x.campagne):'toutes campagnes')}${x.archive?' · archivé':''}</small></button><span class="chev">${I.next}</span></div>`).join('');
+  h+=REF[k].map((x,j)=>`<div class="row p"><button class="tx" data-rj="${j}"><b>${esc(x.nom)}${x.defaut?' <span class="stt faite">par défaut</span>':''}</b><small>${k==='campagnes'?`${x.debut?'du '+fmtJ(x.debut):''}${x.fin?' au '+fmtJ(x.fin):''}`:k==='ga'?`${arrTxt(x.arr)} · circo ${(x.circos||[]).join(', ')||'à indiquer'} · ${(c=>c&&c.login?'compte '+esc(c.login):'sans compte')(compteDuGA(x.id))}`:esc(x.campagne?campNom(x.campagne):'toutes campagnes')}${x.archive?' · archivé':''}</small></button><span class="chev">${I.next}</span></div>`).join('');
   return h;},after:()=>{const ad=$('add');if(ad)ad.onclick=()=>detail(vueRefEdit(k,-1));const dm=$('dem');if(dm)dm.onclick=()=>detail(vueDemandeGA());body.querySelectorAll('[data-rj]').forEach(b=>b.onclick=()=>detail(vueRefEdit(k,+b.dataset.rj)));}};}
 function vueRefEdit(k,j,pre){const x=j>=0?JSON.parse(JSON.stringify(REF[k][j])):{id:uid().slice(0,8),nom:'',archive:false,...(k==='ga'?{arr:null,circos:[D.k]}:k==='campagnes'?{debut:'',fin:'',defaut:false}:{campagne:''}),...(pre||{})};if(k==='ga'&&!x.circos)x.circos=[];
  return {id:'refedit',html:()=>{let h=headHTML(j>=0?'Modifier':'Ajouter',REFT[k][0],true);
@@ -90,16 +90,18 @@ function vueRefEdit(k,j,pre){const x=j>=0?JSON.parse(JSON.stringify(REF[k][j])):
   if(k==='campagnes')h+=`<div class="two-f"><label class="fld" for="rd">Début<input type="date" id="rd" value="${x.debut}"></label><label class="fld" for="rf">Fin<input type="date" id="rf" value="${x.fin}"></label></div><label class="ckb"><input type="checkbox" id="rdef" ${x.defaut?'checked':''}><span>Campagne proposée par défaut</span></label>`;
   if(k==='ga')h+=`<div class="fl"><span>Arrondissement (un seul)</span><select id="rarr" aria-label="Arrondissement"><option value="">À choisir</option>${[...Array(20)].map((_,i)=>`<option value="${i+1}" ${x.arr===i+1?'selected':''}>${i===0?'1er':(i+1)+'e'}</option>`).join('')}</select></div><div class="fl"><span>Circonscriptions (une ou plusieurs)</span><div class="ch2 num">${[...Array(18)].map((_,i)=>`<button data-cz="${i+1}" aria-pressed="${x.circos.includes(i+1)}">${i+1}</button>`).join('')}</div></div>`;
   if(k==='materiel')h+=`<div class="fl"><span>Campagne</span><div class="ch2"><button data-mc="" aria-pressed="${!x.campagne}">Toutes</button>${REF.campagnes.filter(c=>!c.archive).map(c=>`<button data-mc="${c.id}" aria-pressed="${x.campagne===c.id}">${esc(c.nom)}</button>`).join('')}</div></div>`;
+  if(k==='ga'&&j>=0){const c=compteDuGA(x.id);h+=`<div class="fl"><span>Compte du GA</span>${c?`<div class="sub">Identifiant <b>${esc(c.login||'à créer')}</b>${c.anim?' · '+esc(c.anim):''}</div><button class="lnk9" id="gaC" style="text-align:left;padding-left:0">Voir le compte</button>`:`<div class="sub">Pas encore de compte.</div><div class="btns"><button class="btn line" id="gaC">Créer le compte du GA</button></div>`}</div>`;}
   h+=`<label class="ckb"><input type="checkbox" id="rar" ${x.archive?'checked':''}><span>Archivé : n'est plus proposé, reste sur les anciennes actions</span></label>`;
   h+=`<div class="btns stick"><button class="btn primary" id="sv">${I.check} Enregistrer</button></div>`;return h;},
  after:()=>{$('rn').oninput=e=>{x.nom=e.target.value;};const rd=$('rd');if(rd){rd.onchange=()=>x.debut=rd.value;$('rf').onchange=e=>x.fin=e.target.value;$('rdef').onchange=e=>x.defaut=e.target.checked;}
   const ra=$('rarr');if(ra)ra.onchange=()=>{x.arr=parseInt(ra.value,10)||null;};body.querySelectorAll('[data-cz]').forEach(b=>b.onclick=()=>{const c=+b.dataset.cz,i=x.circos.indexOf(c);if(i>=0)x.circos.splice(i,1);else x.circos.push(c);x.circos.sort((a,b)=>a-b);render(true);});body.querySelectorAll('[data-mc]').forEach(b=>b.onclick=()=>{x.campagne=b.dataset.mc;render(true);});
   $('rar').onchange=e=>{x.archive=e.target.checked;};
+  const gc=$('gaC');if(gc)gc.onclick=()=>{const c=compteDuGA(x.id);detail(c?vueUserEdit(REF.users.indexOf(c)):vueUserEdit(-1,{nom:x.nom,ga:[x.id],circos:(x.circos||[]).slice()}));};
   $('sv').onclick=()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}if(k==='ga'&&(!x.arr||!x.circos.length)){toast('Indiquez l\'arrondissement et au moins une circonscription.');return;}if(k==='campagnes'&&x.defaut)REF.campagnes.forEach(c=>c.defaut=false);if(j>=0)REF[k][j]=x;else REF[k].push(x);sauverREF();back();toast('Liste mise à jour');};}};}
-function vueUsers(){return {id:'users',html:()=>{let h=headHTML('Personnes et accès','Seuls les administrateurs entrent dans la console.',true);
-  h+=`<div class="note">Chacun se connecte avec l'identifiant et le mot de passe que vous lui donnez ici. Pour retirer un accès : « Accès suspendu ».</div>`;
-  h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter une personne</button></div>`;
-  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':'Utilisateur'} · ${esc(circosTxt(u))} · ${u.login?'identifiant '+esc(u.login):'pas d\'identifiant'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
+function vueUsers(){return {id:'users',html:()=>{let h=headHTML('Comptes et accès','Seuls les administrateurs entrent dans la console.',true);
+  h+=`<div class="note">Un compte par groupe d'action, créé à sa demande (« Inscrire mon groupe d'action ») : il n'ouvre que la circonscription du GA. Un compte par administrateur. Pour retirer un accès : « Accès suspendu ».</div>`;
+  h+=`<div class="btns"><button class="btn primary" id="add">${I.plus} Ajouter un compte</button></div>`;
+  h+=REF.users.map((u,j)=>`<div class="row p"><button class="tx" data-uj="${j}"><b>${esc(u.nom)}</b><small>${u.profil==='admin'?'Administrateur':(u.ga||[]).length?'GA '+esc(gaNom(u.ga[0])):'Compte personnel'}${u.anim?' · '+esc(u.anim):''} · ${esc(circosTxt(u))} · ${u.login?'identifiant '+esc(u.login):'pas d\'identifiant'}${u.actif?'':' · suspendu'}</small></button><span class="chev">${I.next}</span></div>`).join('');return h;},
  after:()=>{$('add').onclick=()=>detail(vueUserEdit(-1));body.querySelectorAll('[data-uj]').forEach(b=>b.onclick=()=>detail(vueUserEdit(+b.dataset.uj)));}};}
 /* v24 (JL : « Inscrire mon GA ») : l'administrateur colle le message reçu ; l'appli remplit la fiche du GA, puis celle de l'animateur */
 function lireDemandeGA(t){const v=c=>{const m=t.match(new RegExp('^\\s*'+c+'\\s*:\\s*(.+)$','mi'));return m?m[1].trim():'';};
@@ -108,30 +110,45 @@ function vueDemandeGA(){let t='',d=null;return {id:'demga',html:()=>{let h=headH
   h+=`<textarea class="mq-ta" id="dgT" aria-label="Message reçu" placeholder="Groupe d'action : …">${esc(t)}</textarea><div class="btns"><button class="btn primary" id="dgL">Lire la demande</button></div>`;
   if(d){h+=d.nom?`<div class="gai">GA : ${esc(d.nom)}\nCirconscription : ${d.circo||'?'} · arrondissement : ${d.arr||'?'}\nAnimateur : ${esc(d.anim||'?')} · ${esc(d.contact||'?')}</div>`:`<div class="note">Le message ne ressemble pas à une demande : il manque la ligne « Groupe d'action : ».</div>`;
    if(d.nom){const g=REF.ga.find(x=>normA(x.nom)===normA(d.nom));
-    h+=`<div class="btns"><button class="btn ${g?'line':'primary'}" id="dg1">${g?I.check+' GA déjà créé':'1. Créer le GA'}</button><button class="btn ${g?'primary':'line'}" id="dg2"${d.anim?'':' disabled'}>2. Créer l'accès de l'animateur</button></div>`;}}
+    const c=g&&compteDuGA(g.id);h+=`<div class="btns"><button class="btn ${g?'line':'primary'}" id="dg1">${g?I.check+' GA déjà créé':'1. Créer le GA'}</button><button class="btn ${g&&!c?'primary':'line'}" id="dg2"${g?'':' disabled'}>${c?I.check+' Compte du GA créé':'2. Créer le compte du GA'}</button></div>`;}}
   return h;},after:()=>{$('dgT').oninput=e=>{t=e.target.value;};$('dgL').onclick=()=>{d=lireDemandeGA(t);render(true);};
   const b1=$('dg1');if(b1)b1.onclick=()=>{if(REF.ga.some(x=>normA(x.nom)===normA(d.nom)))return;detail(vueRefEdit('ga',-1,{nom:d.nom,arr:d.arr,circos:d.circo?[d.circo]:[D.k]}));};
-  const b2=$('dg2');if(b2)b2.onclick=()=>detail(vueUserEdit(-1,{nom:d.anim,contact:d.contact,circos:d.circo?[d.circo]:[D.k]}));}};}
-function vueUserEdit(j,pre){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',contact:'',login:'',profil:'utilisateur',circos:D?[D.k]:[],actif:true,...(pre||{})};let mdp='';
- if(!Array.isArray(x.circos))x.circos=TOUTES.slice();delete x.ga;
- return {id:'useredit',html:()=>{let h=headHTML(j>=0?esc(x.nom):'Ajouter une personne','',true);
-  h+=`<label class="fld" for="un">Nom<input id="un" value="${esc(x.nom)}" autocomplete="off"></label><label class="fld" for="uc">Contact (e-mail ou téléphone)<input id="uc" value="${esc(x.contact)}" autocomplete="off"></label>`;
+  const b2=$('dg2');if(b2)b2.onclick=()=>{const g=REF.ga.find(x=>normA(x.nom)===normA(d.nom));if(!g)return;const c=compteDuGA(g.id);
+   detail(c?vueUserEdit(REF.users.indexOf(c)):vueUserEdit(-1,{nom:g.nom,anim:d.anim,contact:d.contact,ga:[g.id],circos:(g.circos||[]).slice()}));};}};}
+/* v30 (JL, 15/11/2026 : « il y a un compte par GA, créé par un admin sur demande du GA ; compte avec mot de passe ; ensuite il n'a
+   accès qu'aux données de sa circo ») : un compte peut porter son GA (ga) ; il prend alors les circonscriptions du GA ; identifiant
+   proposé d'après le nom du GA, mot de passe proposé ; après l'enregistrement, le message à envoyer au GA (lien, identifiant, mot de passe) */
+const loginGA=n=>{let b='ga-'+normA(n).replace(/^(ga|groupe d ?action)\s+/,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,24);if(b==='ga-')b='ga-'+uid().slice(0,4);let l=b,k=2;while(REF.users.some(u=>u.login===l))l=b+'-'+(k++);return l;};
+const compteDuGA=id=>REF.users.find(u=>u.actif!==false&&(u.ga||[]).includes(id));
+function vueUserEdit(j,pre){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.parse(JSON.stringify(REF.users[j])):{id:uid().slice(0,8),nom:'',anim:'',contact:'',login:'',profil:'utilisateur',circos:D?[D.k]:[],ga:[],actif:true,...(pre||{})};let mdp=j>=0?'':mdpPropose();
+ if(!Array.isArray(x.circos))x.circos=TOUTES.slice();if(!Array.isArray(x.ga))x.ga=[];if(x.profil==='admin')x.ga=[];
+ if(j<0&&x.ga[0]&&!x.login)x.login=loginGA(gaNom(x.ga[0]));
+ return {id:'useredit',html:()=>{const g=x.profil!=='admin'&&x.ga[0]&&REF.ga.find(y=>y.id===x.ga[0]);let h=headHTML(j>=0?esc(x.nom):g?'Compte du GA':'Ajouter un compte','',true);
+  h+=`<div class="fl"><span>Profil</span><div class="seg" role="group"><button data-pf="utilisateur" aria-pressed="${x.profil==='utilisateur'}">Groupe d'action</button><button data-pf="admin" aria-pressed="${x.profil==='admin'}">Administrateur</button></div></div>`;
+  if(x.profil!=='admin')h+=`<div class="fl"><span>Groupe d'action</span><label class="chs"><select id="uga" aria-label="Groupe d'action"><option value="">Aucun (compte personnel)</option>${REF.ga.filter(y=>!y.archive||y.id===x.ga[0]).map(y=>`<option value="${y.id}"${y.id===x.ga[0]?' selected':''}>${esc(y.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
+  h+=`<label class="fld" for="un">${g?'Nom du compte':'Nom'}<input id="un" value="${esc(x.nom)}" autocomplete="off"></label>`;
+  if(g)h+=`<label class="fld" for="uan">Animateur ou animatrice (prénom et nom)<input id="uan" value="${esc(x.anim||'')}" autocomplete="off"></label>`;
+  h+=`<label class="fld" for="uc">Contact (e-mail ou téléphone)<input id="uc" value="${esc(x.contact)}" autocomplete="off"></label>`;
   h+=`<label class="fld" for="ul">Identifiant<input id="ul" value="${esc(x.login||'')}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></label>`;
   h+=`<label class="fld" for="up">${x.login&&ancien&&ancien.login?'Nouveau mot de passe (vide : inchangé)':'Mot de passe (7 caractères au moins)'}<span class="kw"><input id="up" type="text" value="${esc(mdp)}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"><button type="button" class="ib ug2" id="ug" aria-label="Proposer un mot de passe">${I.spark} Proposer</button></span></label>`;
-  h+=`<div class="hint">Donnez-les à la personne, de vive voix ou par message. L'appli ne les garde nulle part en clair.</div>`;
-  h+=`<div class="fl"><span>Profil</span><div class="seg" role="group"><button data-pf="utilisateur" aria-pressed="${x.profil==='utilisateur'}">Utilisateur</button><button data-pf="admin" aria-pressed="${x.profil==='admin'}">Administrateur</button></div></div>`;
+  h+=`<div class="hint">Après « Enregistrer », l'appli prépare le message à envoyer (lien, identifiant, mot de passe). Elle ne garde le mot de passe nulle part en clair.</div>`;
   h+=x.profil==='admin'?`<div class="fl"><span>Circonscriptions</span><div class="hint" style="margin:0">Un administrateur a accès aux 18 circonscriptions.</div></div>`
+   :g?`<div class="fl"><span>Circonscription</span><div class="hint" style="margin:0">${esc((g.circos||[]).map(n=>n===1?'1re':n+'e').join(', ')||'à indiquer sur la fiche du GA')}, celle${(g.circos||[]).length>1?'s':''} du GA : le compte n'ouvre qu'elle${(g.circos||[]).length>1?'s':''}.</div></div>`
    :`<div class="fl"><span>Circonscriptions (une ou plusieurs)</span><div class="ch2 num">${TOUTES.map(n=>`<button data-cz="${n}" aria-pressed="${x.circos.includes(n)}">${n}</button>`).join('')}</div><div class="ch2" style="margin-top:8px"><button data-czt="1">Toutes</button><button data-czt="0">Aucune</button></div></div>`;
   h+=`<label class="ckb"><input type="checkbox" id="ua" ${x.actif?'':'checked'}><span>Accès suspendu</span></label>`;
   h+=`<div class="btns stick"><button class="btn primary" id="sv">${I.check} Enregistrer</button></div>`;return h;},
  after:()=>{$('un').oninput=e=>{x.nom=e.target.value;};$('uc').oninput=e=>{x.contact=e.target.value;};
-  body.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{x.profil=b.dataset.pf;render(true);});
+  body.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{x.profil=b.dataset.pf;if(x.profil==='admin')x.ga=[];render(true);});
+  const an=$('uan');if(an)an.oninput=e=>{x.anim=e.target.value;};
+  const ug=$('uga');if(ug)ug.onchange=()=>{const y=REF.ga.find(z=>z.id===ug.value);x.ga=y?[y.id]:[];if(y){x.circos=(y.circos||[]).slice();if(!x.nom.trim())x.nom=y.nom;if(!x.login||(j<0&&x.login.startsWith('ga-')))x.login=loginGA(y.nom);}render(true);};
   body.querySelectorAll('[data-cz]').forEach(b=>b.onclick=()=>{const c=+b.dataset.cz,k=x.circos.indexOf(c);if(k>=0)x.circos.splice(k,1);else x.circos.push(c);x.circos.sort((a,b)=>a-b);render(true);});
   body.querySelectorAll('[data-czt]').forEach(b=>b.onclick=()=>{x.circos=b.dataset.czt==='1'?TOUTES.slice():[];render(true);});
   $('ua').onchange=e=>{x.actif=!e.target.checked;};
   $('ul').oninput=e=>{x.login=normLogin(e.target.value);};$('up').oninput=e=>{mdp=e.target.value;};$('ug').onclick=()=>{mdp=mdpPropose();$('up').value=mdp;};
   $('sv').onclick=async()=>{if(!x.nom.trim()){toast('Indiquez un nom.');return;}
-   if(x.profil!=='admin'&&!x.circos.length){toast('Cochez au moins une circonscription.');return;}
+   const gx=x.profil!=='admin'&&x.ga[0]&&REF.ga.find(y=>y.id===x.ga[0]);if(gx)x.circos=(gx.circos||[]).slice();
+   if(x.profil!=='admin'&&!x.circos.length){toast(gx?'Indiquez la circonscription sur la fiche du GA.':'Cochez au moins une circonscription.');return;}
+   if(gx&&REF.users.some((u,i)=>i!==j&&u.actif!==false&&(u.ga||[]).includes(gx.id))){toast('Ce GA a déjà un compte : modifiez-le plutôt.');return;}
    const admins=REF.users.filter((u,i)=>i!==j&&u.profil==='admin'&&u.actif).length+(x.profil==='admin'&&x.actif?1:0);if(admins<2){toast('Il faut toujours au moins deux administrateurs.');return;}
    if(x.login&&REF.users.some((u,i)=>i!==j&&u.login===x.login)){toast('Cet identifiant est déjà pris.');return;}
    const change=!ancien||ancien.login!==x.login||ancien.profil!==x.profil||(!ancien.actif&&x.actif);
@@ -140,8 +157,35 @@ function vueUserEdit(j,pre){const ancien=j>=0?REF.users[j]:null,x=j>=0?JSON.pars
    if(mdp&&!x.login){toast('Indiquez un identifiant.');return;}
    const sv=$('sv');sv.disabled=true;
    const r=await majCompte(x,ancien,mdp);sv.disabled=false;if(!r.ok){toast(msgAcces(r));return;}
-   const y=JSON.parse(JSON.stringify(x));if(y.profil==='admin')delete y.circos;
-   if(j>=0)REF.users[j]=y;else REF.users.push(y);sauverREF();back();toast(mdp?`Accès enregistré : identifiant « ${x.login} »`:j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');};}};}
+   const y=JSON.parse(JSON.stringify(x));if(y.profil==='admin'){delete y.circos;delete y.ga;}if(!y.ga||!y.ga.length)delete y.ga;if(!y.anim)delete y.anim;
+   if(j>=0)REF.users[j]=y;else REF.users.push(y);sauverREF();
+   /* le message remplace la fiche (le retour ramène à la liste) */
+   if(mdp&&x.login&&x.actif){stack[stack.length-1]=vueMsgAcces(y,mdp);render();toast(`Accès enregistré : identifiant « ${x.login} »`);}else{back();toast(j>=0?'Fiche modifiée':x.nom+' ajouté à la liste');}};}};}
+/* le message à envoyer : lien de l'appli, identifiant, mot de passe, trois étapes ; montré une seule fois */
+function texteAcces(u,mdp){const g=(u.ga||[]).map(gaNom)[0],url=location.href.split('#')[0].split('?')[0];
+ return (g?`Bonjour,\nVoici l'accès de votre groupe d'action « ${g} » à l'appli Terrain 2027 :`:`Bonjour,\nVoici votre accès à l'appli Terrain 2027 :`)+
+  `\n${url}\nIdentifiant : ${u.login}\nMot de passe : ${mdp}\n1. Ouvrez le lien sur votre téléphone.\n2. Connectez-vous avec l'identifiant et le mot de passe (une seule fois sur ce téléphone).\n3. Ajoutez l'appli à l'écran d'accueil (menu du navigateur, « Ajouter à l'écran d'accueil »).\nCe message donne accès à l'appli : ne le transférez pas.`;}
+function vueMsgAcces(u,mdp){const t=texteAcces(u,mdp);
+ return {id:'msgacc',html:()=>headHTML('Message à envoyer',esc(u.nom),true)+`<div class="hint">Le mot de passe n'est montré qu'ici : envoyez ce message maintenant${u.contact?' ('+esc(u.contact)+')':''}.</div><div class="msgacc" id="maT"></div><div class="btns">${navigator.share?'<button class="btn primary" id="maS">Envoyer (Telegram, SMS…)</button>':''}<button class="btn line" id="maK">Copier le message</button></div>`,
+  after:()=>{$('maT').textContent=t;const s=$('maS');if(s)s.onclick=()=>{navigator.share({text:t}).catch(()=>{});};$('maK').onclick=async()=>{toast(await copier(t)?'Message copié':'Copie impossible : sélectionnez le texte.');};}};}
+/* v30 (JL : « prévoir la mise en ligne et la création de compte ») : ce qui reste à faire avant d'ouvrir l'appli aux GA */
+function etatMEL(){const adm=REF.users.filter(u=>u.profil==='admin'&&u.actif&&u.login),ex=[...REF.ga.filter(g=>!g.archive&&/exemple/i.test(g.nom)).map(g=>['ga',g]),...REF.users.filter(u=>u.actif&&(/exemple/i.test(u.nom)||u.nom==='Vous')).map(u=>['user',u])]   /* « Vous » : la personne d'exemple de la première version */,
+  gs=REF.ga.filter(g=>!g.archive&&!/exemple/i.test(g.nom)),sansC=gs.filter(g=>{const c=compteDuGA(g.id);return !(c&&c.login);});
+ return {adm,ex,gs,sansC,n:(adm.length<2?1:0)+(ex.length?1:0)+(gs.length?0:1)+(sansC.length?1:0)};}
+function vueMiseEnLigne(){return {id:'mel',html:()=>{const E=etatMEL(),url=location.href.split('#')[0].split('?')[0];
+  let h=headHTML('Mise en ligne',E.n?pl(E.n,'point à régler','points à régler'):'Tout est prêt',true);
+  const L=(ok,t,s)=>`<div class="row p mel"><div class="tx"><b class="${ok?'ok2':'ko2'}">${ok?'Fait':'À faire'} : ${t}</b>${s?`<small>${s}</small>`:''}</div></div>`;
+  h+=`<h2>1. Les administrateurs</h2>`+L(E.adm.length>=2,`${pl(E.adm.length,'administrateur')} avec un identifiant`,'Au moins deux, chacun avec son propre compte.');
+  h+=`<h2>2. Les exemples</h2>`+(E.ex.length?L(false,'retirer les exemples','Archivez les GA d\'exemple et suspendez les comptes d\'exemple, une fois vos propres comptes créés.')+E.ex.map(([k,o])=>`<div class="row p"><button class="tx" data-mx="${k}|${o.id}"><b>${esc(o.nom)}</b><small>${k==='ga'?'groupe d\'action':'compte'}</small></button><span class="chev">${I.next}</span></div>`).join(''):L(true,'plus aucun exemple actif',''));
+  const cz=[...new Set(E.gs.flatMap(g=>g.circos||[]))].sort((a,b)=>a-b);
+  h+=`<h2>3. Les groupes d'action et leurs comptes</h2>`+L(E.gs.length>0,E.gs.length?pl(E.gs.length,'groupe d\'action enregistré','groupes d\'action enregistrés'):'enregistrer les vrais groupes d\'action',cz.map(c=>`${c===1?'1re':c+'e'} : ${E.gs.filter(g=>(g.circos||[]).includes(c)).length}`).join(' · '));
+  if(E.sansC.length)h+=L(false,pl(E.sansC.length,'GA sans compte','GA sans compte'),'Touchez un GA pour créer son compte.')+E.sansC.map(g=>`<div class="row p"><button class="tx" data-mg="${g.id}"><b>${esc(g.nom)}</b><small>Créer le compte du GA</small></button><span class="chev">${I.next}</span></div>`).join('');
+  else if(E.gs.length)h+=L(true,'chaque GA a son compte','');
+  h+=`<h2>4. Le lien à donner</h2><div class="msgacc">${esc(url)}</div><div class="btns"><button class="btn line" id="mlK">Copier le lien</button></div>`;
+  return h;},
+ after:()=>{body.querySelectorAll('[data-mx]').forEach(b=>b.onclick=()=>{const [k,id]=b.dataset.mx.split('|');if(k==='ga')detail(vueRefEdit('ga',REF.ga.findIndex(g=>g.id===id)));else detail(vueUserEdit(REF.users.findIndex(u=>u.id===id)));});
+  body.querySelectorAll('[data-mg]').forEach(b=>b.onclick=()=>{const g=REF.ga.find(x=>x.id===b.dataset.mg);if(g)detail(vueUserEdit(-1,{nom:g.nom,ga:[g.id],circos:(g.circos||[]).slice()}));});
+  $('mlK').onclick=async()=>{toast(await copier(location.href.split('#')[0].split('?')[0])?'Lien copié':'Copie impossible : sélectionnez le lien.');};}};}
 function vueReglages(){const R=JSON.parse(JSON.stringify(REF.reglages));R.scrutins=R.scrutins||[];let nd='';
  return {id:'reglages',html:()=>{let h=headHTML('Réglages','',true);
   h+=`<div class="cpts one">${cptHTML('delaiFaite','Jours avant de reproposer une adresse faite',R.delaiFaite)}${cptHTML('delaiFerme','Jours avant de reproposer une adresse fermée',R.delaiFerme)}</div><div class="hint">Passé ce délai, une adresse faite revient dans les PAP proposés avec un quart de priorité en moins. Le 1er mars 2027, tout repart à zéro pour les propositions (le Suivi garde ce qui a été fait).</div>`;
@@ -185,10 +229,10 @@ function vueLegende(){return {id:'leg',html:()=>{let h=headHTML('Légende','',tr
  h+=`<h2>Adresses</h2><div class="leg"><i style="background:${prioCol(100)}"></i><div>Couleur d'un rond : la priorité de l'adresse, du jaune pâle (0, la moins prioritaire) au rouge foncé (100, la plus prioritaire). Plus c'est rouge, plus il faut y aller. Dans le Suivi, le nombre est écrit dans la pastille. Gros rond cerclé de blanc : adresse prioritaire (priorité de ${crit.score} et plus, ${pl(crit.ins,'inscrit')} ou plus) ; petit rond : les autres.</div></div><div class="leg"><span></span><div>Le score est le rang de l'adresse dans la circonscription : 70 veut dire plus prioritaire que 70 % des adresses de la circo. Il combine la situation sociale du quartier (40 %), l'âge des inscrits (30 %) et la participation dans le bureau (30 %).</div></div><div class="leg"><i style="background:var(--ok)"></i><div>Rond violet : adresse faite. Une adresse peut être faite plusieurs fois : le Suivi et la fiche de l'adresse donnent le nombre de passages. Pour les PAP proposés, une adresse faite revient au bout de ${REF.reglages.delaiFaite} jours, avec un quart de priorité en moins ; le 1er mars 2027, tout repart à zéro pour les propositions.</div></div><div class="leg"><i style="background:var(--ko)"></i><div>Rond gris : pas pu entrer.</div></div><div class="leg"><i class="anneau"></i><div>Rond blanc cerclé : adresse prévue dans un PAP à faire.</div></div><div class="leg"><span></span><div>La taille du point dit le nombre d'inscrits.</div></div>`;
  h+=`<h2>Tractage</h2>${[['mk-m','M','Station de métro, RER ou tram',14],['mk-ma',I.basket,'Marché',20],['mk-c g',I.cart,'Magasin',20]].map(([c,x,t,s])=>`<div class="leg"><div class="mk ${c}" style="width:${s}px;height:${s}px;margin:2px 0 0 ${(22-s)/2}px">${x}</div><div>${t}</div></div>`).join('')}
   <div class="leg"><span></span><div>Le cercle autour d'une station dit le nombre d'entrées au moment choisi. Les marchés fermés et les magasins vides à ce moment s'estompent.</div></div>
-  <div class="leg"><span></span><div>Priorité d'un lieu, de 0 à 100 : priorité moyenne des adresses de sa zone de chalandise, pondérée par leurs inscrits ; Zone de chalandise : le secteur lui-même pour un pied d'immeuble, 500 m autour d'un marché, 400 m autour d'une station, 300 m autour d'un magasin, 100 m autour d'un parcours (150 m autour d'un bar).</div></div>
+  <div class="leg"><span></span><div>Priorité d'un lieu, de 0 à 100 : priorité moyenne des adresses de sa zone de chalandise, pondérée par leurs inscrits. Zone de chalandise : le secteur lui-même pour un pied d'immeuble, 500 m autour d'un marché, 400 m autour d'une station, 300 m autour d'un magasin, 100 m autour d'un parcours (150 m autour d'un bar).</div></div>
   <div class="leg"><span></span><div>Magasins : affluence habituelle, en % du moment le plus chargé de la semaine (relevé Google) ; inconnue pour les magasins repris de l'Apur. Pieds d'immeuble : aucune mesure n'existe ; l'animation du quartier est estimée d'après l'affluence des supermarchés proches.</div></div>
   <div class="leg"><span></span><div>Parcours : déambulation, le tronçon le plus commerçant d'une rue (1 km au plus) ; barathon, 6 bars, cafés ou brasseries à 200 m au plus l'un de l'autre, pour le soir. Proposés par l'appli, modifiables par l'équipe. Ni passants ni affluence des bars mesurés.</div></div>
-  <div class="leg"><span></span><div>Pieds d'immeuble retenus : quartier prioritaire, ou au moins 200 logements sociaux (40 % des ménages) dans un carré de 200 m, ou 60 % des inscrits dans des adresses prioritaires.</div></div>`;
+  <div class="leg"><span></span><div>Pieds d'immeuble : zones tirées des adresses prioritaires (au moins 800 inscrits prioritaires, 450 m entre deux zones), coupées à la circonscription, au périphérique et à l'eau. Le stand : un endroit vérifié sur photo (place, square ou trottoir le long d'un square, 4,50 m libres) ; sinon, au pied des immeubles.</div></div>`;
  if(QS&&QS.paris_max)h+=`<h2>Ce quartier par rapport à la circonscription</h2><div class="bar j lj"><div class="jv"><b style="left:46%">le quartier</b></div><div class="tr"><i style="width:46%"></i><u style="left:30%"></u></div><div class="jl"><em class="md" style="left:30%">médiane de la circo</em><em class="mx">max de la circo</em></div></div>
   <ul class="puces"><li>La barre et le chiffre au-dessus : le quartier de l'adresse.</li><li>Le trait : la médiane de la circonscription ; la moitié de ses inscrits vivent dans un quartier à ce niveau ou en dessous.</li><li>Le bout de la jauge : le quartier le plus touché de la circonscription.</li><li>Maximum à Paris : ${QN.map((t,j)=>`${t.toLowerCase()} ${QS.paris_max[j]} %`).join(', ')}.</li><li>Quartiers de moins de ${QS.seuil} inscrits écartés des maximums.</li></ul>`;
  h+=`<h2>Sources</h2><div class="src">Ville de Paris (bureaux de vote, voirie, espaces verts, voies d'eau, marchés), IGN (bâti), Île-de-France Mobilités (entrées par heure, 2e trimestre 2026), Google (affluence des supermarchés, relevée les 10 et 11 octobre 2026), Apur (commerces 2023, dont les magasins absents du relevé Google, Action et Gifi, et les parcours), Ville de Paris (quartiers prioritaires), Insee (quartiers, carrés de 200 m), modèle Paris 2027 v5.7. ${esc(D.ni_src||'')}</div>`;
@@ -246,6 +290,10 @@ const H0=(()=>{const m=/#(?:pap|act)=(\d+):(\d+):(?:(pap|boitage):)?([\d.]+)/.ex
 function demarrer(){fetch('d/quartiers.json').then(r=>r.json()).then(q=>{QS=q;}).catch(()=>{});fetch('d/paris.json').then(r=>r.json()).then(p=>{P=p;
  if(H0&&H0.circo>=1&&H0.circo<=18&&!peutCirco(H0.circo)){ecranParis();choisir(H0.circo);toast('Ce lien concerne une circonscription qui n\'est pas dans les vôtres.');}
  else if(H0&&H0.circo>=1&&H0.circo<=18)ouvrir(H0.circo,()=>{try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
-  if(H0.n!==D.adresses.length){toast('Ce lien vient d\'une autre version des données : action non chargée.');return;}const ids=H0.ids.filter(i=>D.adresses[i]);if(ids.length)preparer(null,'',null,ids,H0.type==='boitage'?'Boîtage reçu':'Action reçue');});
+  if(H0.n!==D.adresses.length){toast('Ce lien vient d\'une autre version des données : action non chargée.');return;}const ids=H0.ids.filter(i=>D.adresses[i]);if(!ids.length)return;
+  /* v30 (audit) : le PAP du lien est déjà dans le journal : on l'ouvre, sans en créer un second */
+  const meme=H0.type==='pap'&&ACTIONS.filter(a=>a.type==='pap'&&!deListe(a)).find(a=>{const s=a.etapes.map(idxE).filter(i=>i!=null);return s.length===ids.length&&s.every(i=>ids.includes(i));});
+  if(meme){setMode('pap');detail(meme.statut==='a_faire'?vueEnCours(meme.id):vueAction(meme.id));toast(meme.statut==='a_faire'?'Ce PAP est déjà prévu : le voici.':'Ce PAP est déjà fait : le voici.');return;}
+  preparer(null,'',null,ids,H0.type==='boitage'?'Boîtage reçu':'Action reçue');});
  else{ecranParis();const c=circoDepart();if(c)choisir(c);}}).catch(()=>{body.innerHTML='<div class="load">La carte de Paris n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';});}
 /* lancement : a la fin de js5/p5_journal.js */
