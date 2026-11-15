@@ -156,7 +156,7 @@ const jourTxt=q=>{const x=toD(q+'T12:00');return JL7[x.getDay()]+' '+pad2(x.getD
 const dLong=x=>JL7[x.getDay()].toLowerCase()+' '+x.getDate()+(x.getDate()===1?'er':'')+' '+MOIS7[x.getMonth()];
 /* v23 (JL, 01/11/2026 : « pas besoin de RDV ») : le lieu porte le numéro de la 1re adresse du PAP, ou le stand ; plus de champ RDV */
 const ligneS=o=>[o.d?jourTxt(o.d):'',o.h,o.t,o.l,o.p].map(x=>String(x||'').trim()).filter(Boolean).join(' - ');
-const prenomTel=u=>{const p=(u.nom||'').trim().split(/\s+/)[0]||'',c=String(u.contact||'').replace(/[\s.]/g,'');return (p+(/^\+?\d{9,}$/.test(c)?' '+c:'')).trim();};
+const prenomTel=u=>{const p=(u.anim||u.nom||'').trim().split(/\s+/)[0]||'',c=String(u.contact||'').replace(/[\s.]/g,'');return (p+(/^\+?\d{9,}$/.test(c)?' '+c:'')).trim();};
 /* v23 (JL : « référent et téléphone : pouvoir en ajouter au fur et à mesure, seulement pour son GA, et supprimer ») : les membres
    du GA et ceux ajoutés à la main, gardés sur cet appareil (refs_<GA>) ; un membre retiré est caché (refsX_<GA>) */
 const refsGA=ga=>{const H=new Set(LS.get('refsX_'+ga,[])),M=REF.users.filter(u=>u.actif!==false&&(u.ga||[]).includes(ga)).sort((x,y)=>(x.profil==='admin')-(y.profil==='admin')).map(prenomTel).filter(Boolean);
@@ -189,7 +189,13 @@ function prerempliS(ga,deb){const J=semaineS(deb),fin=J[6],L=[];
 function lieuS(a){const id=(a.etapes[0]||{lieu:{id:''}}).lieu.id;if(a.type==='pap')return id||(a.nom||'').replace(/^PAP /,'');
  const s=(D.pieds||[]).find(x=>x.nom===id);return s&&s.poste?s.poste.txt:id;}
 function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:isoD(lundiS(new Date())).slice(0,10)};const S=SOND;
- const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const N=prerempliS(S.ga,S.deb).L,vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));let n=0;N.forEach(o=>{if(o.aid&&!vu.has(o.aid)){S.b.L.push(o);n++;}});if(n)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));
+ /* v30 (audit) : un brouillon retouché suit toujours les actions : une ligne d'action suit son jour, son heure, son lieu (sauf ce
+    qu'on a tapé soi-même : o.m), disparaît si l'action est retirée, faite ou sortie de la semaine ; une ligne retirée à la main
+    ne revient pas (S.b.x) */
+ const cle=()=>`sond${D.k}_${S.ga}_${S.deb}`,charge=()=>{const g=LS.get(cle(),null);S.b=g||prerempliS(S.ga,S.deb);if(g){const N=prerempliS(S.ga,S.deb).L,parA=new Map(N.filter(o=>o.aid).map(o=>[o.aid,o])),X=new Set(S.b.x||[]);
+  const n0=S.b.L.length;let chg=false;S.b.L=S.b.L.filter(o=>!o.aid||parA.has(o.aid));if(S.b.L.length!==n0)chg=true;
+  S.b.L.forEach(o=>{const z=o.aid&&parA.get(o.aid);if(z)['d','h','t','l'].forEach(f=>{if(!(o.m&&o.m[f])&&o[f]!==z[f]){if(f==='d')chg=true;o[f]=z[f];}});});
+  const vu=new Set(S.b.L.map(o=>o.aid).filter(Boolean));N.forEach(o=>{if(o.aid&&!vu.has(o.aid)&&!X.has(o.aid)){S.b.L.push(o);chg=true;}});if(chg)S.b.L.sort((x,y)=>x.d.localeCompare(y.d));
   /* brouillons d'avant la v23 : phrase des tracts retirée, rue remplacée par l'adresse avec son numéro, plus de RDV */
   S.b.q=S.b.q.replace(PHRASE_V22,'');S.b.L.forEach(o=>{delete o.r;if(o.t==='Porte-à-porte')o.t='PAP';const z=o.aid&&N.find(x=>x.aid===o.aid);if(z&&z.l!==o.l&&z.l.endsWith(o.l))o.l=z.l;});}},garde=()=>LS.set(cle(),S.b);charge();
  const opt=(o,k)=>{const J=semaineS(S.deb),t=ligneS(o),R=refsGA(S.ga);
@@ -217,10 +223,10 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
   body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>{const t=refsGA(S.ga)[+b.dataset.rx];if(!t)return;retirerRef(S.ga,t);render(true);toast(t+' retiré de la liste',{t:'Annuler',fn:()=>{ajouterRef(S.ga,t);render(true);}});});
   $('rfA').onclick=()=>{const n=$('rfN').value.trim(),tel=$('rfT').value.replace(/[\s.]/g,'');if(!n){toast('Indiquez le prénom du référent.');$('rfN').focus();return;}const t=(n+(tel?' '+tel:'')).trim();ajouterRef(S.ga,t);render(true);toast(t+' ajouté à la liste');};
   $('sQ').oninput=e=>{B.q=e.target.value;garde();const c=$('sQc');c.innerHTML=`<b>${B.q.length}</b> / 300 signes`;c.classList.toggle('over',B.q.length>300);};
-  body.querySelectorAll('.sl [data-f]').forEach(inp=>{const ev=inp.tagName==='SELECT'?'onchange':'oninput';inp[ev]=()=>{const r=inp.closest('.sl'),o=B.L[+r.dataset.k];o[inp.dataset.f]=inp.value;
+  body.querySelectorAll('.sl [data-f]').forEach(inp=>{const ev=inp.tagName==='SELECT'?'onchange':'oninput';inp[ev]=()=>{const r=inp.closest('.sl'),o=B.L[+r.dataset.k];o[inp.dataset.f]=inp.value;if(o.aid&&inp.dataset.f!=='p'){o.m=o.m||{};o.m[inp.dataset.f]=1;}
    if(inp.dataset.f==='d'){B.L.sort((x,y)=>x.d.localeCompare(y.d));garde();render(true);return;}
    garde();const t=ligneS(o);r.querySelector('.tx2').textContent=t;const c=r.querySelector('.cn');c.textContent=t.length+' / 100';c.classList.toggle('over',t.length>100);};});
-  body.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const k=+b.dataset.sx,o=B.L.splice(k,1)[0];garde();render(true);toast('Ligne retirée',{t:'Annuler',fn:()=>{B.L.splice(k,0,o);garde();render(true);}});});
+  body.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const k=+b.dataset.sx,o=B.L.splice(k,1)[0];if(o.aid)B.x=[...new Set((B.x||[]).concat([o.aid]))];garde();render(true);toast('Ligne retirée',{t:'Annuler',fn:()=>{B.L.splice(k,0,o);if(o.aid)B.x=(B.x||[]).filter(x=>x!==o.aid);garde();render(true);}});});
   $('sA').onclick=()=>{B.L.push({d:'',h:'',t:'',l:'',p:''});garde();render(true);const l=body.querySelectorAll('.sl');if(l.length){const z=l[l.length-1];z.scrollIntoView({block:'center'});z.querySelector('[data-f="t"]').focus();}};
   $('sR').onclick=()=>{const av=S.b;LS.set(cle(),null);charge();render(true);toast('Lignes reprises des actions prévues',{t:'Annuler',fn:()=>{S.b=av;garde();render(true);}});};
   const c=$('sC');if(c)c.onclick=()=>detail(vueCopierS(B));}};}
