@@ -50,9 +50,10 @@ const ageJ=s=>{const d=toD(s);return d?(Date.now()-d.getTime())/864e5:1e9;};
 const qOf=x=>x.quand||x.debut||(x.date&&isoD(toD(x.date)))||'';
 /* v28 (14/11/2026, JL : « il faut pouvoir mettre comme date plus tard dans la diff faite ») : futur = un jour à venir est permis,
    avec « Demain » ; une diff datée plus tard est une diff prévue */
-function quandHTML(q,lab,futur){const auj=isoD(new Date()).slice(0,10),hier=isoD(new Date(Date.now()-864e5)).slice(0,10),dem=isoD(new Date(Date.now()+864e5)).slice(0,10),dv=q.slice(0,10),autre=dv!==auj&&dv!==hier&&(!futur||dv!==dem);
- const bj=(j,t)=>`<button data-qj="${j}" aria-pressed="${dv===j}">${t}</button>`;
- return `<div class="qd"><span>${lab||'Quand'}</span><div class="rw${futur?' f4':''}">${futur?bj(hier,'Hier')+bj(auj,'Aujourd\'hui')+bj(dem,'Demain'):bj(auj,'Aujourd\'hui')+bj(hier,'Hier')}<input type="date" id="qD" class="${autre?'on':''}" value="${dv}"${futur?'':` max="${auj}"`} aria-label="Autre jour"></div><div class="rw2"><label for="qT">Heure</label><input type="time" id="qT" value="${q.slice(11,16)}"></div></div>`;}
+/* v32 (21/11/2026, JL : « toujours le même mode de choix d'horaire, où on met la date et l'heure ») : le jour et l'heure, sans
+   boutons Hier, Aujourd'hui, Demain (mêmes champs que « Quand ») */
+function quandHTML(q,lab,futur){const auj=isoD(new Date()).slice(0,10),dv=q.slice(0,10);
+ return `<div class="qtd"><span class="qlab">${lab||'Quand'}</span><div class="rw3"><input type="date" id="qD" value="${dv}"${futur?'':` max="${auj}"`} aria-label="Jour"><input type="time" id="qT" value="${q.slice(11,16)}" aria-label="Heure"></div></div>`;}
 const futurQ=q=>{const d=toD(q);return !!d&&d.getTime()>Date.now();};
 /* jour et heure d'une action prévue, en court : « 21 nov., 10 h » */
 const quandP=s=>s?fmtJ(s)+(/T\d/.test(s)?', '+fmtH(toD(s)).replace(/ /g,String.fromCharCode(160)):''):'';
