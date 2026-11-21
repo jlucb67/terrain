@@ -63,6 +63,8 @@ const lieuCal=a=>{const e=a.etapes&&a.etapes[0];if(a.type==='pap')return (a.nom|
 const hhmm=q=>{const d=toD(q);return d&&/T\d/.test(q)?pad2(d.getHours())+':'+pad2(d.getMinutes()):'';};
 const MOIS_L=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 function semaineTxt(l){const f=new Date(l);f.setDate(f.getDate()+6);return l.getMonth()===f.getMonth()?`Semaine du ${l.getDate()} au ${f.getDate()} ${MOIS_L[f.getMonth()]}`:`Semaine du ${l.getDate()} ${MOIS_L[l.getMonth()]} au ${f.getDate()} ${MOIS_L[f.getMonth()]}`;}
+/* le lundi de la semaine en cours, à 0 h (toD met midi quand l'heure manque : une action du lundi matin tombait hors de sa semaine) */
+const lun0=()=>{const l=toD(lundiDe(isoD(new Date())));l.setHours(0,0,0,0);return l;};
 const memeJour=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
 function ligneCal(a){const [c]=TCOUL(a),q=quandCal(a),f=a.statut==='faite',due=!f&&aValider(a);
  const n=a.type==='diff_pied'&&a.groupe?duGroupe(a.groupe).filter(x=>x.type==='pap').length:0;
@@ -91,7 +93,7 @@ function friseHTML(lun,S){const auj=new Date(),col=wide?'minmax(0,1fr)':'calc(10
 /* la frise s'ouvre sur aujourd'hui (s'il est dans la semaine affichée) */
 function caleFrise(lun){const s=$('fzs'),c=s&&s.querySelector('.fcol');if(!c)return;const k=Math.floor((new Date()-lun)/864e5);if(k>0&&k<7)s.scrollLeft=k*c.getBoundingClientRect().width;}
 function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'frise':'liste');
-  const lun=toD(lundiDe(isoD(new Date())));lun.setDate(lun.getDate()+7*CALW);const fin=new Date(lun);fin.setDate(fin.getDate()+7);
+  const lun=lun0();lun.setDate(lun.getDate()+7*CALW);const fin=new Date(lun);fin.setDate(fin.getDate()+7);
   const A=actsCal(),dans=a=>{const d=toD(quandCal(a));return !!d&&d>=lun&&d<fin;},S=A.filter(dans).sort((x,y)=>String(quandCal(x)).localeCompare(String(quandCal(y))));
   const G=gaActifs();
   let h=`<div class="calp"><div class="calh"><h1>Calendrier</h1><div class="sgc t2" role="group" aria-label="Affichage">${[['liste','Liste'],['frise','Frise']].map(([k,t])=>`<button data-cvw="${k}" aria-pressed="${CALV===k}">${t}</button>`).join('')}</div></div>`;
@@ -109,10 +111,10 @@ function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'
   return h;},
  after:()=>{majCouches();body.querySelectorAll('[data-cvw]').forEach(b=>b.onclick=()=>{CALV=b.dataset.cvw;LS.set('calV',CALV);render(true);});
   $('cwP').onclick=()=>{CALW--;render(true);};$('cwN').onclick=()=>{CALW++;render(true);};
-  if(CALV==='frise'&&!wide){const l=toD(lundiDe(isoD(new Date())));l.setDate(l.getDate()+7*CALW);caleFrise(l);}
+  if(CALV==='frise'&&!wide){const l=lun0();l.setDate(l.getDate()+7*CALW);caleFrise(l);}
   const g=$('calG');if(g)g.onchange=()=>{CALG=g.value;render(true);};
   /* le sondage s'ouvre sur la semaine affichée (au plus tôt, celle qu'il propose d'habitude), pour le GA choisi */
-  $('calSond').onclick=()=>{const l=toD(lundiDe(isoD(new Date())));l.setDate(l.getDate()+7*CALW);const m=lundiS(new Date()),G=gaActifs();
+  $('calSond').onclick=()=>{const l=lun0();l.setDate(l.getDate()+7*CALW);const m=lundiS(new Date()),G=gaActifs();
    if(!SOND||SOND.k!==D.k)SOND={k:D.k,ga:gaDefaut()[0]||((G[0]||{}).id)||'',deb:''};SOND.deb=isoD(l>m?l:m).slice(0,10);if(CALG)SOND.ga=CALG;setMode('sondage');};
   body.querySelectorAll('[data-ca]').forEach(b=>b.onclick=()=>ouvrirCal(b.dataset.ca));
   body.querySelectorAll('[data-cv]').forEach(b=>b.onclick=()=>validerCal(b.dataset.cv));}};}
