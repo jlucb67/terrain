@@ -26,7 +26,7 @@ const SANS_GA=`<div class="hint">Aucun groupe d'action dans cette circonscriptio
    « Annuler l'action » la retire ; plus de « en cours » */
 const aValDe=nom=>ACTIONS.filter(a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&a.etapes[0]&&a.etapes[0].lieu.id===nom&&aValider(a)).sort((x,y)=>String(quandA(x)).localeCompare(String(quandA(y))))[0];
 function lancerDiffHTML(nom){const ec=aValDe(nom),nt=noteLieuHTML(diffsDe(nom).filter(a=>!deListe(a)))+(aRefaire(nom)&&!ec?`<div class="pcs"><span class="pc ar"><i></i>À refaire</span></div>`:'');   /* v31 */
- if(ec)return nt+`<div class="pcs"><span class="pc pv"><i></i>À valider · le ${esc(quandP(quandA(ec)))} · ${esc(pourQui(ec))}</span></div><button class="btnf go2" id="dOk">${I.check} Valider</button><button class="lnk9" id="dMod">Changer le GA ou l'heure</button><button class="lnk9" id="dNon">Annuler l'action</button>`;
+ if(ec)return nt+`<button class="btnf go2" id="dOk">${I.check} Valider</button><button class="lnk9" id="dNon">Annuler l'action</button>`;   /* v32 (JL, 21/11) : ni la ligne « À valider · le … · GA », ni « Changer le GA ou l'heure » ici */
  const S=etatL(nom),G=gaActifs(),q=TQ.q||maintenant(),hors=D.marches.some(m=>m.nom===nom)&&!!q&&!seanceLe(nom,q);
  return nt+`<div class="pour"><label class="chs">${G.length?`<select id="tga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`+tardHTML(TQ)+
   (hors?`<div class="note">Le marché n'a pas lieu le ${JOURS[toD(q).getDay()]}. Vérifiez le jour.</div>`:'')+
