@@ -137,8 +137,9 @@ function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec'
   const fin=aValider(a);   /* v32 : programmé, puis à valider l'heure passée */
   h+=notesAvantHTML(E.map(x=>x.i),a.id);   /* v31 */
   h+=E.map((x,j)=>`<div class="lr">${avH('br',j+1)}<button class="tx" data-i="${x.i}"><b>${esc(D.adresses[x.i][2])}</b><small>${pl(D.adresses[x.i][3],'inscrit')}</small></button>${fin?pillH(ferm.has(x.k)?'kf':'k',`data-kf="${x.k}"`):'<span></span>'}</div>`).join('');
-  h+=`<div class="encours"><b>${fin?'À valider':'Programmé'}</b> ${quandA(a)?'le '+quandP(quandA(a)):'sans date'} · ${esc(pourQui(a))}</div>`;
-  {if(chg)h+=`<div class="qtd"><div class="rw3"><input type="date" id="pqD" value="${nq.slice(0,10)}" aria-label="Jour"><input type="time" id="pqT" value="${nq.slice(11,16)}" aria-label="Heure"></div></div><button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;
+  /* v32 (JL, 21/11) : à valider, seulement « Valider » et « Annuler l'action » ; programmé, son jour et son heure, qu'on peut changer */
+  if(!fin){h+=`<div class="encours"><b>Programmé</b> ${quandA(a)?'le '+quandP(quandA(a)):'sans date'} · ${esc(pourQui(a))}</div>`;
+   if(chg)h+=`<div class="qtd"><div class="rw3"><input type="date" id="pqD" value="${nq.slice(0,10)}" aria-label="Jour"><input type="time" id="pqT" value="${nq.slice(11,16)}" aria-label="Heure"></div></div><button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;
    else h+=`<button class="lnk9" id="pqC">Changer le jour ou l'heure</button>`;}
   if(fin)h+=`<button class="btnf go2 stk" id="fini">${I.check} Valider</button>`;
   h+=`<button class="lnk9" id="annul">Annuler l'action</button>`;
@@ -287,7 +288,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
  const pv0=pvPied(s);if(pv0&&pv0.ga&&pv0.ga[0])gaC=pv0.ga[0];const QT={q:pv0&&String(pv0.prevue).length>10?pv0.prevue:'',m:pv0&&String(pv0.prevue).length>10?1:0},QC={q:''};let chg=false;
  return {id:'pi',html:()=>{const o=infoPied(s),ec=o.ec,pv=o.pv;
   let h=headHTML(esc(s.nom),s.qpv&&s.qpv.length?esc(s.qpv.map(q=>q.nom).join(', ')):"Pied d'immeuble",true);
-  h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${ec?`<span class="pc pv"><i></i>${aValider(ec)?'À valider':'Programmé'} · le ${esc(quandP(quandA(ec)))} · ${esc(pourQui(ec))}</span>`:pv?`<span class="pc pv"><i></i>Programmé le ${esc(quandP(pv.prevue))} · ${esc(pourQui(pv))}</span>`:o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
+  h+=`<div class="pcs"><span class="prs" style="${prioStyle(o.v)}">Priorité ${o.v}/100</span>${ec&&aValider(ec)?'':ec?`<span class="pc pv"><i></i>Programmé · le ${esc(quandP(quandA(ec)))} · ${esc(pourQui(ec))}</span>`:pv?`<span class="pc pv"><i></i>Programmé le ${esc(quandP(pv.prevue))} · ${esc(pourQui(pv))}</span>`:o.fait&&!ec?`<span class="pc ok"><i></i>Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</div>`;
   h+=`<div class="sub" style="margin-top:10px;color:var(--ink);font-size:14px">Stand : <b>${esc(standTxt(s))}</b></div>`+noteLieuHTML(passPied(s.nom));   /* v31 */
   /* v26 : sans endroit vérifié, au pied des immeubles ; v28 (JL) : la phrase « Endroit vérifié sur photo » est retirée */
   if(s.poste&&!s.poste.verif&&s.poste.type!=='square')h+=`<div class="hint">Endroit repéré sur les plans : à confirmer sur place.</div>`;
@@ -297,7 +298,8 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
    h+=`<h2>Qui fait quoi</h2><div class="eqx"><span class="av2 eqS">${I.pied}</span><div><b>Stand</b><small>${esc(standTxt(s))}</small></div></div>`;
    nomsEq(T);h+=G.map((a,k)=>`<button class="eqx bt" data-eqa="${a.id}"><span class="av2" ${eqSt(k)}>${k+1}</span><div><b>Équipe ${k+1} · ${esc(T[k].rue||'')}</b><small>${pl(T[k].ids.length,'adresse')} · environ ${n0(portesDe(T[k].ins))} portes · voir ses adresses</small></div><span class="cv">${I.next}</span></button>`).join('');
    const av=aValider(ec);   /* v32 : programmé, puis à valider (dit par la pastille du haut : v28, pas de cadre) */
-   if(chg){if(!QC.q){QC.q=quandA(ec).length>10?quandA(ec):maintenant();QC.m=1;}h+=tardHTML(QC)+`<button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;}
+   if(av){}   /* v32 (JL, 21/11) : à valider, seulement « Valider » et « Annuler l'action » */
+   else if(chg){if(!QC.q){QC.q=quandA(ec).length>10?quandA(ec):maintenant();QC.m=1;}h+=tardHTML(QC)+`<button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;}
    else h+=`<button class="lnk9" id="pqC">Changer le jour ou l'heure</button>`;
    if(av)h+=`<button class="btnf go2 stk" id="pfini">${I.check} Valider</button>`;
    h+=`<button class="lnk9" id="pannul">Annuler l'action</button>`;
