@@ -151,7 +151,7 @@ function dessinerLot(){if(!lotL)return;lotL.clearLayers();if(!lot)return;
  if(lot.ll)L.marker(lot.ll,{pane:'pap',interactive:false,icon:L.divIcon({className:'',html:'<div class="start-pin"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(lotL);
  const ll=lot.ids.map(i=>ptA(i));
  L.polyline(lot.ll?[lot.ll,...ll]:ll,{renderer:rP,color:tok('--accent'),weight:2,opacity:.9,dashArray:'1 5',lineCap:'round',interactive:false}).addTo(lotL);
- if(lot.type!=='boitage')lot.ids.forEach((i,k)=>L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin lot">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',()=>ouvrirAdresse(i)).addTo(lotL));}
+ if(lot.type!=='boitage')lot.ids.forEach((i,k)=>L.marker(ll[k],{pane:'pap',icon:L.divIcon({className:'',html:`<div class="pin lot">${k+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).on('click',e=>{if(tapProg(ll[k],i,e))return;ouvrirAdresse(i);}).addTo(lotL));}
 /* validerTout : toutes les adresses d'un PAP faites d'un coup (v15 : au choix du PAP ; v16 : « C'est fait » passe par finirPAP, p9_v16.js) */
 function validerTout(a){const now=isoD(new Date());a.etapes.forEach(e=>{if(idxE(e)!=null&&stE(e)==='afaire'){e.st='faite';e.le=now;}});a.statut='faite';a.faite_le=now;a.prevue='';}
 /* choisir un PAP : autour d'une adresse ou d'un point, ou un PAP proposé ; on retire des adresses, on choisit le GA,
@@ -171,13 +171,13 @@ function preparer(ll,nom,i0,ids,titre,cons){if(ONG!=='pap')setMode('pap');
   if(!lot.ids.length)return h+`<div class="empty">Aucune adresse prioritaire libre assez proche. Choisissez un autre endroit.</div>`;
   h+=`<div class="sum2"><span><b>${lot.ids.length}</b>adresse${lot.ids.length>1?'s':''}</span><span><b>${n0(portesDe(lot.ins))}</b>portes environ</span><span><b>${n0(lot.ins)}</b>inscrits</span></div>`;
   h+=notesAvantHTML(lot.ids);   /* v31 : les commentaires des PAP d'avant sur ces adresses */
-  if(!lot.recu)h+=`<div class="agr"><button class="btn line" id="agr">${I.plus} Agrandir</button><small>ajoute l'adresse prioritaire libre la plus proche</small></div>`;
+  if(!lot.recu)h+=`<div class="agt">${wide?'Cliquez sur':'Touchez'} une adresse sur la carte pour l'ajouter au PAP ou l'enlever.</div><div class="agr"><button class="btn line" id="agr">${I.plus} Agrandir</button><small>ajoute l'adresse prioritaire libre la plus proche</small></div>`;   /* v32 (JL) : agrandir où l'on veut */
   if(!lot.recu&&lot.ins<lot.cible*.9)h+=`<div class="note">Pas assez d'adresses prioritaires proches les unes des autres pour atteindre ${n0(lot.cible)} inscrits.</div>`;
   h+=lot.ids.map((i,k)=>`<div class="lr">${avH('br',k+1)}<button class="tx" data-i="${i}"><b>${esc(D.adresses[i][2])}</b><small>${pl(D.adresses[i][3],'inscrit')}</small></button><button class="xb" data-lx="${k}" aria-label="Retirer ${esc(D.adresses[i][2])}">${I.x}</button></div>`).join('');
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="lga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
   h+=tardHTML(QT);
-  h+=`<button class="btnf go2" id="cree" ${gaC?'':'disabled'}>Programmer</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}`;
+  h+=`<button class="btnf go2 stk" id="cree" ${gaC?'':'disabled'}>Programmer</button>${gaC?'':'<div class="hint">Aucun groupe d\'action dans cette circonscription : voyez avec un administrateur.</div>'}`;
   return h;},
  after:()=>{lierRows();
   body.querySelectorAll('[data-lx]').forEach(b=>b.onclick=()=>{lot.ids.splice(+b.dataset.lx,1);lot.ins=insDe(lot.ids);lot.km=kmDe(lot.ids);dessinerLot();render(true);});
@@ -291,7 +291,7 @@ function papActionHTML(a,ordre){const E=a.etapes.map((e,k)=>({e,k,i:idxE(e)})),i
  E.forEach(x=>{if(x.i==null)return;const ad=D.adresses[x.i],s=stE(x.e),sub=etatE(a,x.e);
   const right=ordre?`<span class="ord"><button data-up="${x.k}" aria-label="Monter" ${x.k===0?'disabled':''}>${I.up}</button><button data-dn="${x.k}" aria-label="Descendre" ${x.k===a.etapes.length-1?'disabled':''}>${I.down}</button></span>`:pillH(s==='fait'?'f':'v',`data-ae="${x.k}"`);
   h+=`<div class="lr">${s==='fait'?avH('ok',I.check):s==='ferme'?avH('ko','!'):avH('br',x.k+1)}<button class="tx" data-e="${x.k}"><b>${esc(ad[2])}</b><small>${pl(ad[3],'inscrit')}${s==='ferme'?' · <span class="o">pas pu entrer</span>':x.e.toquees>0?' · '+esc(sub):''}</small></button>${right}</div>`;});
- if(a.statut==='a_faire')h+=`<div class="btns"><button class="btn primary" id="tv">${aValider(a)?I.check+' Valider':'Ouvrir le PAP'}</button></div>`;
+ if(a.statut==='a_faire')h+=`<div class="btns"><button class="btn ${aValider(a)?'cta':'primary'}" id="tv">${aValider(a)?I.check+' Valider':'Ouvrir le PAP'}</button></div>`;
  h+=`<div class="btns two"><button class="btn line" id="mod">${a.statut==='a_faire'&&!a.encours?'GA, jour, heure':'GA'}</button><button class="btn line" id="sh">Partager</button></div>`;
  /* v30 (audit) : une action à faire, chacun peut la retirer (comme « On n'y va plus ») ; une action faite, son auteur ou un administrateur */
  if(a.statut==='a_faire'||peutSupprimer(a))h+=`<div class="btns"><button class="btn line danger" id="del">${a.statut==='a_faire'?'Annuler l\'action':'Supprimer le PAP'}</button></div>`;
