@@ -26,7 +26,7 @@ const SANS_GA=`<div class="hint">Aucun groupe d'action dans cette circonscriptio
    « Annuler l'action » la retire ; plus de « en cours » */
 const aValDe=nom=>ACTIONS.filter(a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&a.etapes[0]&&a.etapes[0].lieu.id===nom&&aValider(a)).sort((x,y)=>String(quandA(x)).localeCompare(String(quandA(y))))[0];
 function lancerDiffHTML(nom){const ec=aValDe(nom),nt=noteLieuHTML(diffsDe(nom).filter(a=>!deListe(a)))+(aRefaire(nom)&&!ec?`<div class="pcs"><span class="pc ar"><i></i>À refaire</span></div>`:'');   /* v31 */
- if(ec)return nt+`<div class="pcs"><span class="pc pv"><i></i>À valider · le ${esc(quandP(quandA(ec)))} · ${esc(pourQui(ec))}</span></div><button class="btnf" id="dOk">${I.check} Valider</button><button class="lnk9" id="dMod">Changer le GA ou l'heure</button><button class="lnk9" id="dNon">Annuler l'action</button>`;
+ if(ec)return nt+`<div class="pcs"><span class="pc pv"><i></i>À valider · le ${esc(quandP(quandA(ec)))} · ${esc(pourQui(ec))}</span></div><button class="btnf go2" id="dOk">${I.check} Valider</button><button class="lnk9" id="dMod">Changer le GA ou l'heure</button><button class="lnk9" id="dNon">Annuler l'action</button>`;
  const S=etatL(nom),G=gaActifs(),q=TQ.q||maintenant(),hors=D.marches.some(m=>m.nom===nom)&&!!q&&!seanceLe(nom,q);
  return nt+`<div class="pour"><label class="chs">${G.length?`<select id="tga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===S.ga?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`+tardHTML(TQ)+
   (hors?`<div class="note">Le marché n'a pas lieu le ${JOURS[toD(q).getDay()]}. Vérifiez le jour.</div>`:'')+
@@ -35,7 +35,7 @@ function lierLancerDiff(nom,t){const S=etatL(nom),k=TDE[t]||'marché';lierTard(T
  const g=$('tga');if(g)g.onchange=()=>{S.ga=g.value;};
  const df=$('dFait');if(df)df.onclick=()=>detail(vueDiff(nom,k));
  const ok=$('dOk');if(ok)ok.onclick=()=>{const a=aValDe(nom);if(a)validerDiff(a.id);};
- const non=$('dNon');if(non)non.onclick=()=>{const a=aValDe(nom);if(!a)return;oterAction([a],'Action annulée : '+nom);render(true);};
+ const non=$('dNon');if(non)non.onclick=()=>{const a=aValDe(nom);if(!a)return;oterAction([a],'Action annulée : '+nom);if(ONG==='cal')show(vueBase());else render(true);};   /* v32, 2e temps : du Calendrier, retour au calendrier */
  const md=$('dMod');if(md)md.onclick=()=>{const a=aValDe(nom);if(a)detail(vueDiff(nom,k,a.id));};
  /* « Programmer » : la diff au jour et à l'heure de « Quand » ; retour à la liste du tractage */
  const go=$('dGo');if(go)go.onclick=()=>{if(!S.ga)return;const q=quandDe(TQ);LS.set('dga',[S.ga]);
@@ -45,7 +45,7 @@ function lierLancerDiff(nom,t){const S=etatL(nom),k=TDE[t]||'marché';lierTard(T
 function oterSans(a){const k=ACTIONS.indexOf(a);if(k>=0){ACTIONS.splice(k,1);sauverA();if(typeof dessinerParcours==='function')dessinerParcours();}}
 const derniereDiff=nom=>{const d=diffsDe(nom)[0];return d?` · diff faite le ${fmtJ(d.faite_le)}`:'';};
 function histoHTML(nom){const P=prevuesDe(nom),v=diffsDe(nom).filter(a=>!deListe(a));let h='';
- if(P.length)h+=`<h2>Diffs programmées ici</h2>`+P.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.prevue)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}${dueP(a)?' · à valider':''}</small></button>${dueP(a)?`<button class="addb" data-hf="${a.id}">Valider</button>`:`<button class="addb" data-hk="${a.id}">Modifier</button>`}</div>`).join('');
+ if(P.length)h+=`<h2>Diffs programmées ici</h2>`+P.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.prevue)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}${dueP(a)?' · à valider':''}</small></button>${dueP(a)?`<button class="addb vgo" data-hf="${a.id}">Valider</button>`:`<button class="addb" data-hk="${a.id}">Modifier</button>`}</div>`).join('');
  if(v.length)h+=`<h2>Diffs faites ici</h2>`+v.map(a=>`<div class="row p"><button class="tx" data-hk="${a.id}"><b>${fmtJH(a.faite_le)}</b><small>${esc(a.ga.map(gaNom).join(', ')||'sans GA')}${a.vite?' · à refaire bientôt':''}</small>${comLigne(a)}</button><button class="addb" data-hk="${a.id}">Modifier</button></div>`).join('');   /* v31 */
  return h;}
 const lierHisto=(nom,type)=>{body.querySelectorAll('[data-hk]').forEach(b=>b.onclick=()=>detail(vueDiff(nom,type,b.dataset.hk)));
@@ -133,10 +133,9 @@ const TTAB=[['su','Magasins'],['me','Métro'],['ma','Marchés'],['pa','Déambula
 function appliquerTT(){chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';if(TT==='pa')EXP.pc=true;if(D){lieux();noms();majBulles();majMoment();}}
 function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';const m=mom(),L_=lieuxTract(m);
   /* v30 (audit) : toutes les diffs en cours, puis les 3 prévues les plus proches ; le reste, d'une touche, dans le Suivi */
-  const DP=diffsPrevues(),EC=DP.filter(aValider),PV=DP.filter(a=>!aValider(a));let h=headHTML('Tractage','');
-  /* v32 : « Quand » d'abord (jour et heure), puis la sorte de lieu ; seuls les lieux ouverts à ce moment sont listés */
-  h+=tardHTML(TQ);
-  h+=EC.concat(PV.slice(0,3)).map(carteEC).join('')+voirSuivi(PV.length-3,'autre diff programmée','autres diffs programmées');
+  /* v32 : « Quand » d'abord (jour et heure), puis la sorte de lieu ; seuls les lieux ouverts à ce moment sont listés ;
+     2e temps : plus de cartes d'actions ici (Calendrier) */
+  let h=tardHTML(TQ);
   h+=`<div class="seg tt" role="group" aria-label="Sorte de lieu">${TTAB.map(([k,t])=>`<button data-tt="${k}" aria-pressed="${TT===k}">${t}</button>`).join('')}</div>`;
   h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
   if(TT==='pa')h+=parcHTML()||`<div class="empty">Pas de déambulation proposée dans cette circonscription.</div>`;
@@ -144,9 +143,8 @@ function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe
   if(TT!=='pa')SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
    h+=`<div class="tsec"><h2>${t}</h2>${l.length>4?`<button class="more" data-ex="${k}">${EXP[k]?'Moins':`Voir les ${l.length}`}</button>`:''}</div>`+l.slice(0,n).map(rowTract).join('');});
   if(vide)h+=`<div class="empty">Aucun lieu de cette sorte ouvert à ce moment.</div>`;
-  h+=lienCR();
   return h;},
- after:()=>{appliquerTT();lierEC();body.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>{TT=b.dataset.tt;LS.set('ttab',TT);if(TT==='pa')EXP.pc=true;effParc();render(true);});
+ after:()=>{appliquerTT();body.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>{TT=b.dataset.tt;LS.set('ttab',TT);if(TT==='pa')EXP.pc=true;effParc();render(true);});
   lierTard(TQ,()=>{majMoment();render(true);});
   body.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>{TRI=b.dataset.tri;render(true);});
   body.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{EXP[b.dataset.ex]=!EXP[b.dataset.ex];render(true);});
@@ -279,7 +277,7 @@ function vueActionDiffHTML(a){const e=a.etapes[0]||{lieu:{id:''}};let h=headHTML
  h+=`<div class="meta2"><div><span>Lieu</span><b>${esc(e.lieu.id)}</b></div><div><span>GA</span><b>${a.ga.map(g=>esc(gaNom(g))).join(', ')}</b></div><div><span>${a.statut==='faite'?'Passage':'Programmé'}</span><b>${fmtJH(a.statut==='faite'?a.faite_le:a.prevue)}</b></div></div>`;
  if(a.com||a.vite)h+=`<div class="pnote"><b>Commentaire${a.vite?' · à refaire bientôt':''}</b>${a.com?`<span class="pcom">« ${esc(a.com)} »</span>`:''}</div>`;   /* v31 */
  h+=`<div class="btns"><button class="btn primary" id="mdiff">Modifier ce compte rendu</button><button class="btn line" id="sh">Partager</button></div>`+histoSaisies(a);return h;}
-function lierActionDiff(a){const fi=$('mfi');if(fi){fi.onclick=()=>{const l=a.etapes[0].lieu;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>x.nom===l.id);if(s)ouvrirPied(s);return;}if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);};return;}
+function lierActionDiff(a){const fi=$('mfi');if(fi){fi.onclick=()=>{const l=a.etapes[0].lieu;if(a.type==='diff_pied'){const s=piedDe(l.id);if(s)ouvrirPied(s);return;}if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);};return;}
  $('mdiff').onclick=()=>detail(vueDiff(a.etapes[0].lieu.id,DLT[a.type],a.id));$('sh').onclick=()=>partager(txtAction(a));}
 
 /* ---------------- liste des actions : tri par date ou par GA, filtres type et GA (filtre statut retiré, JL 25/10/2026) */
