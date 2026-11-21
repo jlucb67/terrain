@@ -16,8 +16,8 @@ function poserArrets(p,l){const v=l.map(b=>[b.nom,b.adr]),m=LS.get('parc'+D.k,{}
 const modifie=p=>{const m=(LS.get('parc'+D.k,{})||{})[p.nom],e=eqDe(p.nom);return !!((e&&e.arrets)||(m&&m.length));};
 const longArrets=l=>{let s=0;for(let k=1;k<l.length;k++)s+=dist(l[k-1].ll,l[k].ll);return s;};
 const kmTxt=m=>m<1000?m10(m)+' m':(m/1000).toFixed(1).replace('.',',')+' km';
-function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom),ec=ecDiff(p.nom),pv=!ec&&prevuesDe(p.nom)[0],df=diffsDe(p.nom)[0],ar=aRefaire(p.nom);
- return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span>${df?`<small>fait le ${fmtJ(df.faite_le)}</small>`:''}</button>${ec?`<span class="eqp">En cours</span>`:pv?`<span class="eqp">Prévu le ${esc(quandP(pv.prevue))}</span>`:ar?`<span class="eqp ar">À refaire</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
+function rowParc(p){const b=estBar(p),l=b?arretsDe(p):null,eq=eqDe(p.nom),ec=aValDe(p.nom),pv=!ec&&prevuesDe(p.nom)[0],df=diffsDe(p.nom)[0],ar=aRefaire(p.nom);
+ return `<div class="row p"><button class="tx" data-pc="${esc(p.nom)}"><b>${esc(p.nom)}</b><small>${b?`${pl(l.length,'bar')} et cafés sur ${kmTxt(longArrets(l))} · le soir`:`${pl(p.n,'commerce')} sur ${kmTxt(p.long)}`}</small><span class="prs" style="${prioStyle(p.prio)}">Priorité ${p.prio}/100</span>${df?`<small>fait le ${fmtJ(df.faite_le)}</small>`:''}</button>${ec?`<span class="eqp">À valider</span>`:pv?`<span class="eqp">Programmé le ${esc(quandP(pv.prevue))}</span>`:ar?`<span class="eqp ar">À refaire</span>`:eq?`<span class="eqp">${esc(eqTxt(eq))}</span>`:''}</div>`;}
 function parcHTML(){const P=D&&D.parc;if(!P||(!P.deamb.length&&!P.bar.length))return '';const tous=P.deamb.concat(P.bar),n=tous.length;
  if(TRI==='prio')tous.sort((x,y)=>y.prio-x.prio);
  /* v31 : un parcours coché « À refaire bientôt » passe en tête, jusqu'à la prochaine diff */
@@ -50,11 +50,11 @@ function ouvrirParcours(nom){const p=parcDe(nom);if(!p)return;sel(null);if(det==
   /* une équipe y va : elle emporte les arrêts modifiés sur ce téléphone (journal partagé) */
   const tg=$('eqT');if(b&&tg){const f=tg.onclick;tg.onclick=()=>{const m=(LS.get('parc'+D.k,{})||{})[p.nom];f();const e=eqDe(p.nom);if(e&&!e.arrets&&m&&m.length){e.arrets=m;saisie(e,'arrêts du barathon');sauverA();}};}
   if(b){tracer(l.map(s=>s.ll),l.map(s=>s.ll));
-   body.querySelectorAll('[data-bx]').forEach(x=>x.onclick=()=>{const k=+x.dataset.bx,av=l.slice(),n=l.slice();const s=n.splice(k,1)[0];poserArrets(p,n);render(true);toast(s.nom+' retiré du parcours',{t:'Annuler',fn:()=>{poserArrets(p,av);render(true);}});});
+   body.querySelectorAll('[data-bx]').forEach(x=>x.onclick=()=>{const k=+x.dataset.bx,av=l.slice(),n=l.slice();const s=n.splice(k,1)[0];poserArrets(p,n);render(true);toast(s.nom+' retiré du parcours',{t:'Défaire',fn:()=>{poserArrets(p,av);render(true);}});});
    const a=$('bAj');if(a)a.onclick=()=>{aj=true;render(true);};const f=$('bFin');if(f)f.onclick=()=>{aj=false;render(true);};
    if(aj){const pris=new Set(l.map(s=>s.nom+'|'+s.adr)),dern=l[l.length-1].ll;
     const c=D.parc.bars.filter(s=>!pris.has(s.nom+'|'+s.adr)&&l.some(x=>dist(x.ll,s.ll)<=250)).map(s=>[dist(dern,s.ll),s]).sort((x,y)=>x[0]-y[0]).slice(0,8);
     body.querySelectorAll('[data-ba]').forEach(x=>x.onclick=()=>{const s=c[+x.dataset.ba][1];poserArrets(p,l.concat([s]));render(true);toast(s.nom+' ajouté au parcours');});}
    const r=$('bRz');if(r)r.onclick=()=>{const m=LS.get('parc'+D.k,{})||{},av=m[p.nom];delete m[p.nom];LS.set('parc'+D.k,m);const e=eqDe(p.nom),ae=e&&e.arrets;if(e){delete e.arrets;saisie(e,'arrêts : proposition de l\'appli');sauverA();}render(true);
-    toast('Proposition de l\'appli remise',{t:'Annuler',fn:()=>{if(av){m[p.nom]=av;LS.set('parc'+D.k,m);}if(e&&ae){e.arrets=ae;sauverA();}render(true);}});};}
+    toast('Proposition de l\'appli remise',{t:'Défaire',fn:()=>{if(av){m[p.nom]=av;LS.set('parc'+D.k,m);}if(e&&ae){e.arrets=ae;sauverA();}render(true);}});};}
   else tracer(p.trace,[p.trace[0],p.trace[p.trace.length-1]]);}});}
