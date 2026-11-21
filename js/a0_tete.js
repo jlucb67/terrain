@@ -44,7 +44,10 @@ const PEEK=170;
 /* porte-à-porte, accueil : le tiroir bas montre en entier une carte des PAP conseillés */
 const pk=()=>{try{return ONG==='pap'&&stack.length===1&&stack[0].id==='base'?300:PEEK;}catch(e){return PEEK;}};
 const TB=()=>$('tabbar').hidden||wide?0:$('tabbar').offsetHeight;
-function hOf(d){const H=app.clientHeight-TB();if(app.classList.contains('tabs')){if(d==='half'||d==='fit')return Math.round(H*.58);if(d==='peek')return 112;}return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
+function hOf(d){const H=app.clientHeight-TB();if(app.classList.contains('tabs')){if(d==='half'||d==='fit'){const mx=Math.round(H*.58);
+  /* v32 (JL : « un petit encart ») : l'accueil de Programmer prend la hauteur de son contenu, la carte le reste */
+  if(app.classList.contains('enc')){const ex=sheet.offsetHeight-body.clientHeight,r=body.getBoundingClientRect();let c=0;for(const e of body.children){const q=e.getBoundingClientRect();c=Math.max(c,q.bottom-r.top+body.scrollTop);}
+   c+=parseFloat(getComputedStyle(body).paddingBottom)||0;return Math.max(150,Math.min(mx,Math.ceil(c+ex)));}return mx;}if(d==='peek')return 112;}return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
 function setDet(d){try{if(app.classList.contains('page'))d='full';}catch(e){}det=d;if(wide){app.style.setProperty('--sh','0px');return;}const h=hOf(d);app.style.setProperty('--sh',h+'px');sheet.style.height=h+'px';}
 matchMedia('(min-width:900px)').addEventListener('change',e=>{wide=e.matches;sheet.style.height='';setDet(det);});
 addEventListener('resize',()=>setDet(det));
