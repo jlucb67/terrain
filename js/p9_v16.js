@@ -44,7 +44,7 @@ function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.
  return Object.values(P).sort((x,y)=>String(y.der.faite_le).localeCompare(String(x.der.faite_le)));}
 let TRTOUT=false;
 function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
- let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Dans l'onglet Tractage, « Programmer » puis « Valider » enregistrent le passage.</div>`;
+ let h=`<h2>Tractage</h2>`;if(!R.length)return h+`<div class="sub">Aucun passage noté pour l'instant. Programmez un tractage dans l'onglet Programmer, puis validez-le au Calendrier : le passage s'enregistre ici.</div>`;
  h+=`<div class="sub" style="margin-bottom:4px">${pl(sem,'passage')} cette semaine · ${pl(R.length,'lieu','lieux')} ${R.length>1?'faits':'fait'} depuis le début</div>`;
  const n=TRTOUT?R.length:Math.min(6,R.length);
  h+=R.slice(0,n).map((o,j)=>`<div class="lr">${avH('ok',o.n>1?o.n:I.check)}<button class="tx" data-tr="${j}"><b>${esc(o.id)}</b><small>${esc(TYPES_C[o.type])} · dernier passage ${esc(fmtJH(o.der.faite_le).replace(/^./,c=>c.toLowerCase()))}${o.der.ga&&o.der.ga.length?' · '+esc(o.der.ga.map(gaNom).join(', ')):''}</small></button><span class="trn">${pl(o.n,'passage')}</span></div>`).join('');
@@ -79,11 +79,11 @@ function tardHTML(o){if(!o.m||!o.q||o.q.length<16)o.q=maintenant();   /* pas enc
 function lierTard(o,apres){const d=$('qtD'),t=$('qtT');const fait=()=>{if(apres)apres();else render(true);};
  if(d)d.onchange=()=>{if(d.value){o.q=d.value+o.q.slice(10);o.m=1;fait();}};if(t)t.onchange=()=>{if(t.value){o.q=o.q.slice(0,11)+t.value;o.m=1;fait();}};}
 const duGroupe=g=>ACTIONS.filter(a=>a.groupe===g);
-function finirPAP(a,ferm){const now=isoD(new Date());
+function finirPAP(a,ferm){const now=isoD(new Date());if(!a.quand&&quandA(a))a.quand=quandA(a);   /* v32 : le calendrier la garde à son heure */
  a.etapes.forEach((e,k)=>{if(idxE(e)==null)return;if(ferm&&ferm.has(k)){e.st='ferme';e.le=now;}else if(stE(e)==='afaire'){e.st='faite';e.le=now;}});
  a.statut='faite';a.faite_le=now;a.prevue='';delete a.encours;}
 function finirPied(st){const now=isoD(new Date()),l=st.groupe?duGroupe(st.groupe):[st];
- l.forEach(a=>{if(a.statut!=='a_faire')return;if(a.type==='pap')finirPAP(a);else{a.statut='faite';a.faite_le=now;a.prevue='';delete a.encours;(a.etapes||[]).forEach(e=>{e.st='faite';e.le=now;});}
+ l.forEach(a=>{if(a.statut!=='a_faire')return;if(a.type==='pap')finirPAP(a);else{if(!a.quand&&quandA(a))a.quand=quandA(a);a.statut='faite';a.faite_le=now;a.prevue='';delete a.encours;(a.etapes||[]).forEach(e=>{e.st='faite';e.le=now;});}
   saisie(a,'C\'est fait');});}
 function oterAction(l,quoi){const pos=l.map(a=>[ACTIONS.indexOf(a),a]).filter(x=>x[0]>=0).sort((x,y)=>y[0]-x[0]);pos.forEach(([k])=>ACTIONS.splice(k,1));sauverA();dessinerParcours();
  toast(quoi,{t:'Défaire',fn:()=>{pos.slice().reverse().forEach(([k,a])=>ACTIONS.splice(k,0,a));sauverA();dessinerParcours();render(true);}});}
@@ -95,8 +95,8 @@ function carteEC(a){const p=a.type==='diff_pied',d=diffPrevue(a)||diffEC(a),l=a.
  const t=p?`Pied d'immeuble ${esc(s)}`:d?esc(l.t==='station'?'Métro '+s:s):esc((a.nom||'PAP').replace(/^PAP /,''));
  const q=quandA(a)?'le '+quandP(quandA(a)):'sans date',due=aValider(a);   /* v32 */
  const sub=p?`${n?pl(n,'équipe')+' de PAP · ':''}${q} · ${esc(pourQui(a))}`:d?`${esc(TYPES[a.type])} · ${q} · ${esc(pourQui(a))}`:`${pl(a.etapes.length,'adresse')} · ${q} · ${esc(pourQui(a))}`;
- return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${due?'À valider':'Programmé'} : ${t}</b><small>${sub}</small></span><span class="ecb">${due?'Valider':'Ouvrir'}</span></button>`;}
-function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}
+ return `<button class="ecc" data-ec="${a.id}"><span class="dot"></span><span><b>${due?'À valider':'Programmé'} : ${t}</b><small>${sub}</small></span><span class="ecb${due?' go':''}">${due?'Valider':'Ouvrir'}</span></button>`;}
+function ouvrirEC(id){const a=actPar(id);if(!a)return;if(a.type==='diff_pied'){const s=a.etapes[0]&&piedDe(a.etapes[0].lieu.id);if(s){ouvrirPied(s);return;}}
  if(diffPrevue(a)||diffEC(a)){const l=a.etapes[0].lieu;if(ONG!=='tractage')setMode('tractage');ouvrirLieuEq(l.t,l.id);return;}   /* v29 : la fiche du lieu, avec « C'est fait » */detail(vueEnCours(id));}
 const lierEC=()=>{body.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>ouvrirEC(b.dataset.ec));body.querySelectorAll('[data-vsu]').forEach(b=>b.onclick=()=>setMode('suivi'));};
 
@@ -106,23 +106,20 @@ if(![2,4,6,8,10].includes(EQN))EQN=Math.min(10,Math.max(2,Math.ceil((+EQN||2)/2)
 const DUREES=[[1,'1 h'],[1.5,'1 h 30'],[2,'2 h'],[3,'3 h'],[4,'4 h'],[5,'5 h']],GENS=[[2,'2'],[4,'4'],[6,'6'],[8,'8'],[10,'10']];   /* v31 (JL) : 2, 4, 6, 8, 10 */
 const tailleEq=()=>Math.round(EQN*EQH*PORTES_H*INS_PORTE);
 const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button ${attr}="${x}" aria-pressed="${x===v}">${t}</button>`).join('')}</div>`;
-function vueAccueil(){return {id:'base',html:()=>{const x=avance();if(TMODE==='eq')taille=tailleEq();const C=conseilles(),EC=enCours().filter(a=>a.type==='pap'&&(a.encours||a.plan));   /* les PAP prévus d'avant la v16 : dans le Suivi ; v28 : les PAP prévus plus tard ici */
-  const mien=EC.filter(a=>a.cree_par===moi().id),autres=EC.filter(a=>a.cree_par!==moi().id);
-  let h=`<div class="csh"><h1>Porte-à-porte</h1></div>`+mien.concat(autres).slice(0,3).map(carteEC).join('');
-  h+=voirSuivi(EC.length-3,'autre PAP','autres PAP');
-  h+=`<div class="btns"><button class="btn primary" id="autre">${I.target} Choisir un endroit sur la carte</button></div>`;   /* v32 : un vrai bouton */
+function vueAccueil(){return {id:'base',html:()=>{if(TMODE==='eq')taille=tailleEq();const C=conseilles();
+  /* v32, 2e temps (JL : « un petit encart » ; « il ne faut plus qu'il y ait le suivi des actions » ici, tout est au Calendrier) :
+     on touche la carte là où l'on veut le PAP ; la cible reste au choix ; les propositions en pastilles */
+  let h=`<div class="tap1"><span class="ti">${I.target}</span><span><b>${wide?'Cliquez sur':'Touchez'} la carte</b><small>là où vous voulez faire le PAP</small></span><button class="btn line sm" id="autre">Viser</button></div>`;
   h+=`<div class="tsw"><span>Taille du PAP, selon</span>${segH('data-tm',[['ins','Nombre d\'inscrits'],['eq','Personnes et temps']],TMODE)}</div>`;
   if(TMODE==='eq'){h+=`<div class="qq"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
    h+=`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`;}
   else h+=`<div class="tsz"><span>Taille du PAP<small>environ ${n0(portesDe(taille))} portes</small></span><div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)}<small>inscrits</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div></div>`;
-  h+=`<h2>Suggestions de PAP${C.length&&C[0].cq?' · une par quartier':''}</h2>`;
   if(!C.length)h+=`<div class="empty">Aucune adresse prioritaire libre pour cette taille. Essayez une autre taille.</div>`;
-  h+=C.map((z,k)=>{const pr=prioMoyIds(z.ids);
-   return `<button class="pk" data-cs="${k}">${z.cq?`<span class="cqn">${esc(z.cq)}</span>`:''}<div class="t"><span class="rk2">${k+1}</span><b>${esc(ruesDe(z.ids)[0]||z.rue)}</b><span class="prs" style="${prioStyle(pr)}">Priorité ${pr}</span><span class="cv">${I.next}</span></div>`+
-    `<small>${esc(z.nums)}</small><div class="st"><span><b>${z.ids.length}</b>adresse${z.ids.length>1?'s':''}</span><span><b>${n0(portesDe(z.ins))}</b>portes environ</span><span><b>${n0(z.ins)}</b>inscrits</span></div></button>`;}).join('');
+  else h+=`<div class="prl">Ou une proposition${C[0].cq?', une par quartier':''}</div><div class="chp">${C.map((z,k)=>{const pr=prioMoyIds(z.ids);
+   return `<button class="pkc" data-cs="${k}" title="${esc((z.cq?z.cq+' · ':'')+'priorité '+pr+' · '+pl(z.ids.length,'adresse')+' · '+n0(z.ins)+' inscrits')}"><i style="background:${prioCol(pr)}"></i><b>${k+1}</b>${esc(ruesDe(z.ids)[0]||z.rue)}</button>`;}).join('')}</div>`;
   h+=selBar();
   return h;},
- after:()=>{lierEC();const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
+ after:()=>{const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
   body.querySelectorAll('[data-cs]').forEach(b=>b.onclick=()=>preparer(null,'',null,null,null,{r:+b.dataset.cs+1}));
   body.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{taille=Math.max(25,Math.min(1000,taille+25*(+b.dataset.tp)));LS.set('taille16',taille);render(true);});
   body.querySelectorAll('[data-en]').forEach(b=>b.onclick=()=>{EQN=+b.dataset.en;LS.set('eqN',EQN);render(true);});
@@ -143,7 +140,7 @@ function vueEnCours(id){const ferm=new Set();let chg=false,nq='';return {id:'ec'
   h+=`<div class="encours"><b>${fin?'À valider':'Programmé'}</b> ${quandA(a)?'le '+quandP(quandA(a)):'sans date'} · ${esc(pourQui(a))}</div>`;
   {if(chg)h+=`<div class="qtd"><div class="rw3"><input type="date" id="pqD" value="${nq.slice(0,10)}" aria-label="Jour"><input type="time" id="pqT" value="${nq.slice(11,16)}" aria-label="Heure"></div></div><button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;
    else h+=`<button class="lnk9" id="pqC">Changer le jour ou l'heure</button>`;}
-  if(fin)h+=`<button class="btnf stk" id="fini">${I.check} Valider</button>`;
+  if(fin)h+=`<button class="btnf go2 stk" id="fini">${I.check} Valider</button>`;
   h+=`<button class="lnk9" id="annul">Annuler l'action</button>`;
   return h;},
  after:()=>{lierRows(true);const a=actPar(id);const v=$('vact');if(v)v.onclick=()=>detail(vueAction(id));if(a&&a.statut==='faite'){lierPortes(a);lierComVite(a,{cibles:[a]});}if(!a||a.statut==='faite')return;
@@ -185,10 +182,10 @@ function noteLieuHTML(l){const d=l.find(a=>a.com);if(!d)return '';
 /* « C'est fait » d'une diff : « C'est noté », avec le commentaire et la case */
 function vueNoteDiff(a,snap){const nom=a.etapes[0]?a.etapes[0].lieu.id:'';return {id:'note',aid:a.id,html:()=>{
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>Validé</h1><div class="sub">${esc(nom)} · ${esc(fmtJH(a.faite_le).replace(/^./,c=>c.toLowerCase()))}${a.ga.length?' · '+esc(a.ga.map(gaNom).join(', ')):''}</div></div>`;
-  h+=comViteHTML(a,'diff')+`<button class="btnf" id="suite">Revenir au lieu</button>`;
+  h+=comViteHTML(a,'diff')+`<button class="btnf" id="suite">${ONG==='cal'?'Retour au calendrier':'Revenir au lieu'}</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Défaire : ce n'était pas fini</button>`;
-  return h;},after:()=>{lierComVite(a,{cibles:[a]});$('suite').onclick=()=>back();
-  const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);back();toast('Défait : l\'action est de nouveau à valider');};}};}
+  return h;},after:()=>{lierComVite(a,{cibles:[a]});$('suite').onclick=()=>{if(ONG==='cal')show(vueBase());else back();};
+  const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);if(ONG==='cal')show(vueBase());else back();toast('Défait : l\'action est de nouveau à valider');};}};}
 
 /* ---- « C'est noté » : ce que l'action fait gagner à la circo */
 /* v24 : une photo des actions avant « C'est fait », pour pouvoir annuler */
@@ -200,22 +197,22 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>Validé</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
   const B=parBureau();h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
   h+=portesHTML(a)+comViteHTML(a,a.type==='diff_pied'?'pied':'pap');   /* v31 */
-  h+=`<button class="btnf" id="suite">${a.type==='diff_pied'?'Revenir aux pieds d\'immeuble':'Voir les propositions suivantes'}</button>`;
+  h+=`<button class="btnf" id="suite">${ONG==='cal'?'Retour au calendrier':a.type==='diff_pied'?'Revenir aux pieds d\'immeuble':'Voir les propositions suivantes'}</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Défaire : ce n'était pas fini</button>`;
-  return h;},after:()=>{lierPortes(a);lierComVite(a,{cibles:[a].concat(a.groupe?duGroupe(a.groupe).filter(y=>y.type==='pap'&&y!==a):[])});$('suite').onclick=()=>{const m=a.type==='diff_pied'?'pieds':'pap';if(ONG!==m)setMode(m);else show(vueBase());};
-  const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);toast('Défait : l\'action est de nouveau à valider');const s=a.type==='diff_pied'&&(D.pieds||[]).find(x=>a.etapes[0]&&x.nom===a.etapes[0].lieu.id);stack=[vueBase()];if(s)ouvrirPied(s);else detail(vueEnCours(a.id));};}};}
+  return h;},after:()=>{lierPortes(a);lierComVite(a,{cibles:[a].concat(a.groupe?duGroupe(a.groupe).filter(y=>y.type==='pap'&&y!==a):[])});$('suite').onclick=()=>{if(ONG==='cal'){show(vueBase());return;}const m=a.type==='diff_pied'?'pieds':'pap';if(ONG!==m)setMode(m);else show(vueBase());};
+  const n=$('nAnn');if(n)n.onclick=()=>{remettre(snap);toast('Défait : l\'action est de nouveau à valider');const s=a.type==='diff_pied'&&a.etapes[0]&&piedDe(a.etapes[0].lieu.id);stack=[vueBase()];if(s){if(ONG==='cal')detail(vuePied(s));else ouvrirPied(s);}else detail(vueEnCours(a.id));};}};}
 
 /* ---- Suivi : avancement, en cours, par bureau de vote (liste et carte), toutes les adresses, outils */
 let BZTOUT=false;
 const BZCOL=[[0,'transparent'],[10,'#D9C8F0'],[25,'#A784DC'],[50,'#7537C2'],[101,'#4C0297']];
 const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3][1]:BZCOL[4][1];
-function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot),EC=enCours();
+function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot);
   /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
   /* v19 (JL : « dans le Suivi, l'import doit être discret, en mode trois petits points ») */
   /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, deux colonnes, les chiffres et les bureaux à gauche,
      toutes les adresses à droite (classes pg2, pgh, pcl, pc2) ; au téléphone, rien ne change */
-  let h=`<div class="pg2 suiv"><div class="pgh"><div class="csh"><h1>Suivi</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div></div><div class="pcl">`+chiffresHTML(x);   /* v32 (JL) : plus de part des inscrits en haut du Suivi */
-  if(EC.length)h+=`<h2>Programmé · ${EC.length}</h2>`+EC.map(carteEC).join('');
+  let h=`<div class="pg2 suiv"><div class="pgh"><div class="csh"><h1>Bilan</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div></div><div class="pcl">`+chiffresHTML(x);   /* v32 (JL) : plus de part des inscrits en haut du Suivi */
+  h+=faitHTML();   /* v32, 2e temps : le programmé est au Calendrier ; ici, tout ce qui a été fait */
   h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite.</div>`;
   const n=BZTOUT?B.length:Math.min(6,B.length);
   h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%;background:${bzCol(o.fi>0?Math.max(o.p,.1):0)}"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
@@ -224,7 +221,7 @@ function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().s
   h+=tractageHTML();
   h+=`</div><div class="pc2"><h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div></div></div>`;
   return h;},
- after:()=>{lierEC();majCouches();
+ after:()=>{lierFait();majCouches();
   const q=$('lq');let qT=0;q.oninput=()=>{LQT=q.value;clearTimeout(qT);qT=setTimeout(()=>{LQ=normA(LQT.trim());LN=LPAS;majRes(true);},150);};
   body.querySelectorAll('[data-lo]').forEach(b=>b.onclick=()=>{LTRI=b.dataset.lo;LS.set('ltri',LTRI);LN=LPAS;body.querySelectorAll('[data-lo]').forEach(x=>x.setAttribute('aria-pressed',x===b));majRes(true);});
   $('lfa').onclick=()=>{LFAITES=!LFAITES;LN=LPAS;$('lfa').setAttribute('aria-pressed',LFAITES);majRes(true);};
@@ -255,14 +252,14 @@ const standTxt=s=>s.poste?s.poste.txt:'Au pied des immeubles';
 const ecPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&(a.encours||(a.plan&&a.groupe))&&a.etapes[0]&&a.etapes[0].lieu.id===s.nom);
 const pvPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&a.plan&&!a.groupe&&!a.encours&&a.etapes[0]&&a.etapes[0].lieu.id===s.nom);
 function infoPied(s){const r=prioLieu([s.lat,s.lon],'pi',s.geo);return {s,v:r.t?r.v:0,fait:passPied(s.nom)[0],ec:ecPied(s),pv:pvPied(s)};}
-function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPied).sort((x,y)=>y.v-x.v),nf=S.filter(o=>o.fait).length;
-  let h=S.filter(o=>o.ec).map(o=>carteEC(o.ec)).join('')+S.filter(o=>o.pv&&!o.ec).sort((x,y)=>String(x.pv.prevue).localeCompare(String(y.pv.prevue))).map(o=>carteEC(o.pv)).join('');
-  h+=`<div class="csh"><h1>Pieds d'immeuble</h1></div>`;
+function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPied).sort((x,y)=>y.v-x.v);
+  /* v32, 2e temps : plus de cartes d'actions ici (Calendrier) ; une zone proposée, ou n'importe où sur la carte */
+  let h=`<div class="tap1"><span class="ti">${I.pied}</span><span><b>${wide?'Cliquez sur':'Touchez'} une zone, ou n'importe où</b><small>l'appli place le stand et fait les équipes autour</small></span></div>`;
   if(!S.length)return h+`<div class="empty">Aucun secteur de pied d'immeuble dans cette circonscription.</div>`;
   h+=S.map((o,k)=>{const c=prioCol(o.v);return `<button class="sect" data-ps="${D.pieds.indexOf(o.s)}"><span class="pv" style="background:${c};color:${encreSur(c)}">${o.v}</span><span><b>${esc(o.s.nom)}</b>`+
    `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">${aValider(o.ec)?'À valider':'Programmé le '+esc(quandP(quandA(o.ec)))}</span>`:o.pv?`<span class="tg ec">Programmé le ${esc(quandP(o.pv.prevue))}</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
   return h;},
- after:()=>{lierEC();if(pfL){map.removeLayer(pfL);pfL=null;}majCouches();body.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>ouvrirPied(D.pieds[+b.dataset.ps]));}};}
+ after:()=>{if(pfL){map.removeLayer(pfL);pfL=null;}majCouches();body.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>ouvrirPied(D.pieds[+b.dataset.ps]));}};}
 function ouvrirPied(s){if(!s)return;if(ONG!=='pieds')setMode('pieds');sel(null);if(!wide&&det==='peek')setDet('half');detail(vuePied(s));}
 /* équipes de 2 qui partent de la tente, chacune dans sa direction, de proche en proche, avec de quoi tenir le temps choisi */
 function equipes(ll,E,cible){if(!E)return [];const A=D.adresses,cosl=Math.cos(ll[0]*Math.PI/180),libre=new Set();
@@ -302,7 +299,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
    const av=aValider(ec);   /* v32 : programmé, puis à valider (dit par la pastille du haut : v28, pas de cadre) */
    if(chg){if(!QC.q){QC.q=quandA(ec).length>10?quandA(ec):maintenant();QC.m=1;}h+=tardHTML(QC)+`<button class="btn primary" id="pqOk" style="width:100%;margin-top:10px">Enregistrer le jour et l'heure</button>`;}
    else h+=`<button class="lnk9" id="pqC">Changer le jour ou l'heure</button>`;
-   if(av)h+=`<button class="btnf stk" id="pfini">${I.check} Valider</button>`;
+   if(av)h+=`<button class="btnf go2 stk" id="pfini">${I.check} Valider</button>`;
    h+=`<button class="lnk9" id="pannul">Annuler l'action</button>`;
    return h;}
   const cible=PM==='i'?(E?pI/E:0):2*hh*PORTES_H*INS_PORTE;T=equipes(standLL(s),E,cible);
@@ -316,7 +313,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   const G=gaActifs();
   h+=`<div class="pour"><label class="chs">${G.length?`<select id="pga" aria-label="Groupe d'action">${G.map(g=>`<option value="${g.id}"${g.id===gaC?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>`:'Aucun GA'}${I.down}</label></div>`;
   h+=tardHTML(QT);
-  h+=`<button class="btnf go2" id="pgo" ${gaC?'':'disabled'}>Programmer</button>${gaC?'':SANS_GA}`;
+  h+=`<button class="btnf go2 stk" id="pgo" ${gaC?'':'disabled'}>Programmer</button>${gaC?'':SANS_GA}`;   /* v32, 2e temps : toujours en vue */
   if(pv)h+=`<button class="lnk9" id="pannul">Annuler l'action</button>`;
   return h;},
  after:()=>{dessinerPied(s,T);body.querySelectorAll('[data-eqa]').forEach(b=>b.onclick=()=>detail(vueEnCours(b.dataset.eqa)));
@@ -327,7 +324,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
   const g=$('pga');if(g)g.onchange=()=>{gaC=g.value;};if(ecPied(s))lierTard(QC,()=>{});else lierTard(QT);
   /* v32 : « Programmer » : le pied d'immeuble et ses équipes de PAP, au jour et à l'heure de « Quand » ; retour à la liste */
   const go=$('pgo');if(go)go.onclick=()=>{if(!gaC)return;const pv=pvPied(s),snap=pv?photo([pv]):null,q=quandDe(QT),grp=uid();
-   const st=pv||nouvelleAction('diff_pied',{origine:{lot:'pied'},etapes:[{lieu:{t:'secteur',id:s.nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
+   const st=pv||nouvelleAction('diff_pied',{origine:{lot:s.libre?'pied_libre':'pied'},etapes:[{lieu:Object.assign({t:'secteur',id:s.nom},s.libre?{lat:+s.lat.toFixed(6),lon:+s.lon.toFixed(6)}:{}),portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''}]});
    Object.assign(st,{ga:[gaC],nb:2+2*T.length,groupe:grp});st.nom=`Pied d'immeuble ${s.nom}`;lancer(st,q);if(!pv)ACTIONS.push(st);saisie(st,'pied d\'immeuble programmé');
    T.forEach((e,k)=>{const a=nouvelleAction('pap',{ga:[gaC],nb:2,groupe:grp,origine:{lot:'pied',secteur:s.nom,equipe:k+1},etapes:e.ids.map(etapeAdr)});
     a.nom=`PAP ${e.rue} (équipe ${k+1}, ${s.nom})`;lancer(a,q);ACTIONS.push(a);saisie(a,'PAP programmé avec un pied d\'immeuble');});
@@ -338,7 +335,7 @@ function vuePied(s){let E=LS.get('pE',3),PM=LS.get('pM','h'),hh=LS.get('pH',2),p
    sauverA();chg=false;render(true);toast('Programmé le '+quandP(QC.q));};
   const f=$('pfini');if(f)f.onclick=()=>{sansToast();const ec=ecPied(s);if(!ec)return;const avant=avance(),snap=photo(ec.groupe?duGroupe(ec.groupe):[ec]);finirPied(ec);sauverA();dessinerParcours();vibrer();
    stack=[vueBase(),vueNote(ec,avant,"Pied d'immeuble "+s.nom,snap)];render();};
-  const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s)||pvPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Action annulée : '+s.nom);render(true);};}};}
+  const an=$('pannul');if(an)an.onclick=()=>{const ec=ecPied(s)||pvPied(s);if(!ec)return;oterAction(ec.groupe?duGroupe(ec.groupe):[ec],'Action annulée : '+s.nom);if(ONG==='cal')show(vueBase());else render(true);};}};}
 
 /* ---------------- v17 (31/10/2026, arbitrages JL) : le pourcentage seulement dans le Suivi ; un choix clair « par inscrits »
    ou « par personnes et temps » ; jusqu'à 5 h ; pieds d'immeuble : 1 à 10 équipes de 2 et le stand, réglés par le temps ou
