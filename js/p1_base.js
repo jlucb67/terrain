@@ -253,7 +253,7 @@ function construire(){
  BZ={};D.bureaux.forEach(f=>BZ[f.properties.id]=f.properties);BYID={};D.adresses.forEach((a,i)=>BYID[a[2]]=i);rangCirco();
  D.marches.forEach(s=>{s.nom=s.nom.replace(/[A-Za-z]+/g,w=>ACCENTS[w]||w);});
  fondL=new Fond([D.bounds[0][0],D.bounds[0][1]]);fondL.couche('verts','--green',D.fond.verts);fondL.couche('chaussees','--road',D.fond.chaussees);
- zonesL=L.geoJSON({type:'FeatureCollection',features:D.bureaux},{renderer:rA,onEachFeature:(f,l)=>l.on('click',e=>{if(tapProg([e.latlng.lat,e.latlng.lng],null,e))return;if(mode==='pap')ouvrirBureau(f.properties.id);})});
+ zonesL=L.geoJSON({type:'FeatureCollection',features:D.bureaux},{renderer:rA,onEachFeature:(f,l)=>l.on('click',e=>{tapProg([e.latlng.lat,e.latlng.lng],null,e);})});   /* v32 (JL, 21/11) : toucher un bureau de vote n'ouvre plus de page */
  contourL=L.layerGroup([L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:4.5,opacity:.95,fill:false}}),L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:1.4,opacity:1,fill:false}})]);
  AM=D.adresses.map((a,i)=>{const m=L.circleMarker([a[1],a[0]],{renderer:rA,radius:3});m.i=i;m.on('click',e=>{if(tapProg([a[1],a[0]],i,e))return;if(mode==='pap')ouvrirAdresse(i);else if(mode==='boitage')ouvrirAdresseB(i);});return m;});
  adrL=L.layerGroup();nomsL=L.layerGroup();bvlL=L.layerGroup();stnL=L.layerGroup();papL=L.layerGroup();lotL=L.layerGroup();selL=L.layerGroup();
