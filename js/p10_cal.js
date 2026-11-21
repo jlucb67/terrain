@@ -74,21 +74,22 @@ function listeCal(lun,S){if(!S.length)return `<div class="cvide">Aucune action c
   const j=d.toLocaleDateString('fr-FR',{weekday:'long'})+' '+d.getDate();
   h+=`<div class="cday${memeJour(d,auj)?' auj':''}">${memeJour(d,auj)?'Aujourd\'hui, ':''}${esc(j)}</div>`+l.map(ligneCal).join('');}
  return h;}
-/* la frise : 7 colonnes, de 8 h à 22 h ; un bloc par action à son heure (hauteur fixe d'une heure : la durée n'est pas notée) ;
-   deux actions à moins d'une heure d'écart se partagent la largeur */
-const FZ0=8,FZ1=22;
-function friseHTML(lun,S){const hh=wide?40:30,auj=new Date();
- let h=`<div class="frz" style="--hh:${hh}px"><div class="fh"><span></span>`;
- for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);h+=`<span class="${memeJour(d,auj)?'auj':''}">${d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','')}<b>${d.getDate()}</b></span>`;}
- h+=`</div><div class="fg"><div>`;for(let x=FZ0;x<FZ1;x++)h+=`<div class="fhr">${x===FZ0?'':x+' h'}</div>`;h+=`</div>`;
- for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);
-  const l=S.map(a=>({a,t:toD(quandCal(a))})).filter(o=>o.t&&memeJour(o.t,d)).sort((x,y)=>x.t-y.t);
-  const cl=[];l.forEach(o=>{const c=cl[cl.length-1];if(c&&o.t-c[0].t<3600e3)c.push(o);else cl.push([o]);});
-  h+=`<div class="fcol${memeJour(d,auj)?' auj':''}" style="height:${(FZ1-FZ0)*hh}px">`;
-  cl.forEach(c=>c.forEach((o,j)=>{const a=o.a,[bg,ink]=TCOUL(a),f=a.statut==='faite',due=!f&&aValider(a),y=Math.max(0,Math.min((FZ1-FZ0-1)*hh,(o.t.getHours()+o.t.getMinutes()/60-FZ0)*hh)),w=100/c.length;
-   h+=`<button class="fb${f?' fait':''}${due?' due':''}" data-ca="${a.id}" style="top:${y+1}px;height:${hh-2}px;left:calc(${j*w}% + 2px);width:calc(${w}% - 4px);right:auto;--c:${bg};--ci:${ink}" aria-label="${esc(typeCal(a)+' '+lieuCal(a)+', '+fmtJH(quandCal(a))+(f?', validé':due?', à valider':''))}">${c.length>1&&!wide?esc(initCal(a)):esc(courtCal(a))}${f?' ✓':due?' !':''}${c.length>1&&!wide?'':`<small>${hhmm(quandCal(a))}${wide?' · '+esc(lieuCal(a)):''}</small>`}</button>`;}));
-  h+=`</div>`;}
- return h+`</div></div>`;}
+/* la frise (v32, 2e temps ; JL : « plus zoomé, pas toutes les heures mais juste les blocs où il y a les actions ; on défile en
+   swipant à droite ou à gauche, pas toute la semaine à l'écran en même temps », puis « l'heure peut être sur le bloc, pas de
+   blanc ») : une colonne par jour, les actions du jour empilées dans l'ordre des heures, l'heure écrite sur chaque bloc, sans
+   grille d'heures ni vide entre les blocs ; au téléphone, 3 jours à l'écran, on glisse le doigt pour voir les autres, la frise
+   s'ouvre sur aujourd'hui ; à l'ordinateur, les 7 jours. */
+function friseHTML(lun,S){const auj=new Date(),col=wide?'minmax(0,1fr)':'calc(100% / 3)';
+ const T=S.map(a=>({a,t:toD(quandCal(a))})).filter(o=>o.t);
+ if(!T.length)return `<div class="cvide">Aucune action cette semaine. Programmez-en dans l'onglet Programmer.</div>`;
+ let h=`<div class="frz z"><div class="fzs" id="fzs"><div class="fzg" style="grid-template-columns:repeat(7,${col})">`;
+ for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);h+=`<span class="fzh${memeJour(d,auj)?' auj':''}">${d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','')}<b>${d.getDate()}</b></span>`;}
+ for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);const c=T.filter(o=>memeJour(o.t,d)).sort((p,q)=>p.t-q.t);
+  h+=`<div class="fcol${memeJour(d,auj)?' auj':''}">`+c.map(o=>{const a=o.a,[bg,ink]=TCOUL(a),f=a.statut==='faite',due=!f&&aValider(a);
+   return `<button class="fb${f?' fait':''}${due?' due':''}" data-ca="${a.id}" style="--c:${bg};--ci:${ink}" aria-label="${esc(typeCal(a)+' '+lieuCal(a)+', '+fmtJH(quandCal(a))+(f?', validé':due?', à valider':''))}"><span class="fbh">${hhmm(quandCal(a))}${f?' ✓':due?' !':''}</span>${esc(courtCal(a))}<small>${esc(lieuCal(a))}</small></button>`;}).join('')+`</div>`;}
+ return h+`</div></div></div>`;}
+/* la frise s'ouvre sur aujourd'hui (s'il est dans la semaine affichée) */
+function caleFrise(lun){const s=$('fzs'),c=s&&s.querySelector('.fcol');if(!c)return;const k=Math.floor((new Date()-lun)/864e5);if(k>0&&k<7)s.scrollLeft=k*c.getBoundingClientRect().width;}
 function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'frise':'liste');
   const lun=toD(lundiDe(isoD(new Date())));lun.setDate(lun.getDate()+7*CALW);const fin=new Date(lun);fin.setDate(fin.getDate()+7);
   const A=actsCal(),dans=a=>{const d=toD(quandCal(a));return !!d&&d>=lun&&d<fin;},S=A.filter(dans).sort((x,y)=>String(quandCal(x)).localeCompare(String(quandCal(y))));
@@ -108,6 +109,7 @@ function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'
   return h;},
  after:()=>{majCouches();body.querySelectorAll('[data-cvw]').forEach(b=>b.onclick=()=>{CALV=b.dataset.cvw;LS.set('calV',CALV);render(true);});
   $('cwP').onclick=()=>{CALW--;render(true);};$('cwN').onclick=()=>{CALW++;render(true);};
+  if(CALV==='frise'&&!wide){const l=toD(lundiDe(isoD(new Date())));l.setDate(l.getDate()+7*CALW);caleFrise(l);}
   const g=$('calG');if(g)g.onchange=()=>{CALG=g.value;render(true);};
   /* le sondage s'ouvre sur la semaine affichée (au plus tôt, celle qu'il propose d'habitude), pour le GA choisi */
   $('calSond').onclick=()=>{const l=toD(lundiDe(isoD(new Date())));l.setDate(l.getDate()+7*CALW);const m=lundiS(new Date()),G=gaActifs();
