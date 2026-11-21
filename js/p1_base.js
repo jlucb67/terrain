@@ -18,7 +18,8 @@ function render(keep){const v=stack[stack.length-1],y=body.scrollTop;if(v.id!=='
  if(D)majOuverte();
  if(D&&typeof dessinerCons==='function')dessinerCons();
  if(!wide&&det==='peek'){const h=hOf('peek');if(Math.abs(sheet.getBoundingClientRect().height-h)>2)setDet('peek');}
- if(v.after)v.after();}
+ if(v.after)v.after();
+ app.classList.toggle('enc',!!v.enc);if(!wide&&(det==='half'||det==='fit'))setDet(det);}
 const headHTML=(title,sub,canBack)=>`<div class="head">${canBack?`<button class="ib back" aria-label="Retour">${I.back}</button>`:''}<div class="tt"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
 const kpis=a=>`<div class="kpis">${a.map(([v,t])=>`<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('')}</div>`;
 const zTag=z=>`<span class="ztag" style="--zc:var(--quiet)"><i></i>Zone n°${z}</span>`;
@@ -252,9 +253,9 @@ function construire(){
  BZ={};D.bureaux.forEach(f=>BZ[f.properties.id]=f.properties);BYID={};D.adresses.forEach((a,i)=>BYID[a[2]]=i);rangCirco();
  D.marches.forEach(s=>{s.nom=s.nom.replace(/[A-Za-z]+/g,w=>ACCENTS[w]||w);});
  fondL=new Fond([D.bounds[0][0],D.bounds[0][1]]);fondL.couche('verts','--green',D.fond.verts);fondL.couche('chaussees','--road',D.fond.chaussees);
- zonesL=L.geoJSON({type:'FeatureCollection',features:D.bureaux},{renderer:rA,onEachFeature:(f,l)=>l.on('click',()=>{if(mode==='pap')ouvrirBureau(f.properties.id);})});
+ zonesL=L.geoJSON({type:'FeatureCollection',features:D.bureaux},{renderer:rA,onEachFeature:(f,l)=>l.on('click',e=>{if(tapProg([e.latlng.lat,e.latlng.lng],null,e))return;if(mode==='pap')ouvrirBureau(f.properties.id);})});
  contourL=L.layerGroup([L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:4.5,opacity:.95,fill:false}}),L.geoJSON(D.contour,{renderer:rC,interactive:false,style:{weight:1.4,opacity:1,fill:false}})]);
- AM=D.adresses.map((a,i)=>{const m=L.circleMarker([a[1],a[0]],{renderer:rA,radius:3});m.i=i;m.on('click',()=>{if(mode==='pap')ouvrirAdresse(i);else if(mode==='boitage')ouvrirAdresseB(i);});return m;});
+ AM=D.adresses.map((a,i)=>{const m=L.circleMarker([a[1],a[0]],{renderer:rA,radius:3});m.i=i;m.on('click',e=>{if(tapProg([a[1],a[0]],i,e))return;if(mode==='pap')ouvrirAdresse(i);else if(mode==='boitage')ouvrirAdresseB(i);});return m;});
  adrL=L.layerGroup();nomsL=L.layerGroup();bvlL=L.layerGroup();stnL=L.layerGroup();papL=L.layerGroup();lotL=L.layerGroup();selL=L.layerGroup();
  const mk=(ll,cls,html,sz,fn,lab,st)=>{const m=L.marker(ll,{pane:'lieux',icon:L.divIcon({className:'',html:lab?`<div class="mkl"><div class="mk ${cls}" style="width:${sz}px;height:${sz}px;${st||''}">${html}</div><span>${esc(lab)}</span></div>`:`<div class="mk ${cls}" style="width:${sz}px;height:${sz}px;${st||''}">${html}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]}),keyboard:true});m.on('click',fn);return m;};
  lieuxL={metro:L.layerGroup(D.metro.map(s=>(s._m=mk([s.lat,s.lon],'mk-m','M',14,()=>ouvrirStation(s))))),
@@ -349,20 +350,25 @@ let mvT=0;map.on('moveend',()=>{if(!D||!adrL)return;noms();clearTimeout(mvT);mvT
 /* missions */
 /* quatre onglets depuis la v16 (31/10/2026) : Porte-à-porte, Pieds d'immeuble, Tractage et Suivi (qui remplace la Liste).
    La carte reste en mode « pap » pour les trois onglets autres que le tractage ; majCouches dit ce qu'elle montre. */
-function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(!['pap','pieds','tractage','suivi','sondage'].includes(m))m='tractage';ONG=m;m=m==='tractage'?'tractage':'pap';mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
- $('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ONG));app.classList.toggle('page',ONG==='suivi'||ONG==='sondage');
+/* v32, 2e temps (21/11/2026, JL) : trois onglets, Programmer (PAP, pied d'immeuble ou tractage, choisis en haut de l'encart),
+   Calendrier (communiquer, valider, annuler ; le sondage s'y ouvre) et Bilan (l'ancien Suivi). ONG garde le détail. */
+const PROGM=['pap','pieds','tractage'],PAGES=['suivi','sondage','cal'];
+const ongTab=o=>o==='suivi'?'suivi':o==='cal'||o==='sondage'?'cal':'prog';
+function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(m==='prog')m=LS.get('progM','pap');if(![...PROGM,...PAGES].includes(m))m='tractage';if(m==='cal'&&ONG!=='cal'&&ONG!=='sondage')CALW=0;ONG=m;   /* le calendrier revient à la semaine en cours quand on y entre */if(PROGM.includes(m))LS.set('progM',m);m=m==='tractage'?'tractage':'pap';mode=m;LS.set('mode',ONG);$('q').value='';$('res').hidden=true;$('qx').hidden=true;
+ document.documentElement.dataset.ong=ONG;
+ $('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===ongTab(ONG)));app.classList.toggle('page',PAGES.includes(ONG));
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
  ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();if(typeof majCouches==='function')majCouches();
- if(!wide)setDet(ONG==='suivi'||ONG==='sondage'?'full':'half');
- show(vueBase());if(!first&&ONG!=='suivi'&&ONG!=='sondage'){setTimeout(()=>{map.invalidateSize();map.flyToBounds(D.bounds,{...pad(),duration:.4});},60);}}
+ if(!wide)setDet(PAGES.includes(ONG)?'full':'half');
+ show(vueBase());if(!first&&!PAGES.includes(ONG)){setTimeout(()=>{map.invalidateSize();map.flyToBounds(D.bounds,{...pad(),duration:.4});},60);}}
 /* toucher l'onglet où l'on est ramène à son accueil (v16) */
-$('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{if(b.dataset.m!==ONG)setMode(b.dataset.m);else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);show(vueBase());}});
+$('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{const t=b.dataset.m;if(t!==ongTab(ONG))setMode(t);else if(ONG==='sondage')setMode('cal');else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);viseur(false);show(vueBase());}});
 function dessinerChips(){const c=$('chips');c.classList.toggle('t4',mode==='tractage');c.innerHTML=(CHIPS[mode]||[]).map(([k,t,col])=>{
  const sw=k==='prio'?`<i style="background:linear-gradient(90deg,var(--p1),var(--p4))"></i>`:`<i style="background:${col&&col.startsWith('--')?`var(${col})`:col}"></i>`;
  return `<button class="chip glass" data-k="${k}" aria-pressed="${chips[k]}">${sw}${t}</button>`;}).join('');
  c.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const k=b.dataset.k;chips[k]=!chips[k];b.setAttribute('aria-pressed',chips[k]);
   if(k==='prio'||k==='faites')filtrer();else if(k==='zones'){styler();noms();}else{lieux();noms();majBulles();}
   const v=stack[stack.length-1];if(v&&v.id==='base'&&mode==='pap'&&ONG==='pap')majListe();if(v&&v.id==='base'&&mode==='tractage')render(true);});}
-const vueBase=()=>ONG==='sondage'?vueSondage(true):ONG==='suivi'?vueSuivi():ONG==='pieds'?vuePieds():mode==='tractage'?vueTractage():vueAccueil();
+const vueBase=()=>ONG==='sondage'?vueSondage(true):ONG==='cal'?vueCal():ONG==='suivi'?vueSuivi():avecSeg(ONG==='pieds'?vuePieds():mode==='tractage'?vueTractage():vueAccueil());
 const lienCR=()=>`<button class="lnk" id="vCR">${I.list} Toutes les actions (${ACTIONS.filter(a=>a.type!=='equipe').length})</button>`;
