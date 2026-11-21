@@ -214,21 +214,21 @@ function vueSondage(base){const G=gaActifs();if(!SOND||SOND.k!==D.k)SOND={k:D.k,
   const R=refsGA(S.ga);
   h+=`<div class="fl"><span>Référents du GA</span><div class="rfl">${R.length?R.map((t,k)=>`<span class="rfc">${esc(t)}<button data-rx="${k}" aria-label="Retirer ${esc(t)}">${I.x}</button></span>`).join(''):'<small class="sub">Aucun référent pour ce GA : ajoutez-en un.</small>'}</div>`+
    `<div class="rfa"><input class="mq-in" id="rfN" placeholder="Prénom" autocomplete="off" aria-label="Prénom du référent"><input class="mq-in" id="rfT" placeholder="Téléphone" inputmode="tel" autocomplete="off" aria-label="Téléphone du référent"><button class="btn" id="rfA">${I.plus} Ajouter</button></div><small class="sub">Liste gardée sur cet appareil.</small></div></div>`;
-  const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Remettre les actions prévues (efface vos lignes)</button></div>`;
+  const pc3=`<div class="pc3"><div class="btns"><button class="btn primary" id="sC"${B.L.length?'':' disabled'}>${I7.copy} Copier pour Telegram</button></div><button class="lnk2 c" id="sR">Remettre les actions programmées (efface vos lignes)</button></div>`;
   h+=pc3+`</div><div class="pc2"><h2>Options : ${B.L.length} sur 12</h2>`+(B.L.length>12?`<div class="note">Telegram n'accepte que 12 options : retirez-en ${B.L.length-12}.</div>`:'');
   h+=B.L.length?`<div id="sL">${B.L.map(opt).join('')}</div>`:`<div class="empty">Aucune action prévue pour ce GA cette semaine. Ajoutez des lignes.</div>`;
   h+=`<button class="lnk2 c" id="sA" style="margin-top:10px">+ Ajouter une ligne (manif, réunion…)</button></div></div>`;return h;},
  after:()=>{const B=S.b;$('sG').onchange=e=>{S.ga=e.target.value;charge();render(true);};
   const dec=n=>{const z=toD(S.deb+'T12:00');z.setDate(z.getDate()+n);S.deb=isoD(z).slice(0,10);charge();render();};$('sP').onclick=()=>dec(-7);$('sN').onclick=()=>dec(7);
-  body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>{const t=refsGA(S.ga)[+b.dataset.rx];if(!t)return;retirerRef(S.ga,t);render(true);toast(t+' retiré de la liste',{t:'Annuler',fn:()=>{ajouterRef(S.ga,t);render(true);}});});
+  body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>{const t=refsGA(S.ga)[+b.dataset.rx];if(!t)return;retirerRef(S.ga,t);render(true);toast(t+' retiré de la liste',{t:'Défaire',fn:()=>{ajouterRef(S.ga,t);render(true);}});});
   $('rfA').onclick=()=>{const n=$('rfN').value.trim(),tel=$('rfT').value.replace(/[\s.]/g,'');if(!n){toast('Indiquez le prénom du référent.');$('rfN').focus();return;}const t=(n+(tel?' '+tel:'')).trim();ajouterRef(S.ga,t);render(true);toast(t+' ajouté à la liste');};
   $('sQ').oninput=e=>{B.q=e.target.value;garde();const c=$('sQc');c.innerHTML=`<b>${B.q.length}</b> / 300 signes`;c.classList.toggle('over',B.q.length>300);};
   body.querySelectorAll('.sl [data-f]').forEach(inp=>{const ev=inp.tagName==='SELECT'?'onchange':'oninput';inp[ev]=()=>{const r=inp.closest('.sl'),o=B.L[+r.dataset.k];o[inp.dataset.f]=inp.value;if(o.aid&&inp.dataset.f!=='p'){o.m=o.m||{};o.m[inp.dataset.f]=1;}
    if(inp.dataset.f==='d'){B.L.sort((x,y)=>x.d.localeCompare(y.d));garde();render(true);return;}
    garde();const t=ligneS(o);r.querySelector('.tx2').textContent=t;const c=r.querySelector('.cn');c.textContent=t.length+' / 100';c.classList.toggle('over',t.length>100);};});
-  body.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const k=+b.dataset.sx,o=B.L.splice(k,1)[0];if(o.aid)B.x=[...new Set((B.x||[]).concat([o.aid]))];garde();render(true);toast('Ligne retirée',{t:'Annuler',fn:()=>{B.L.splice(k,0,o);if(o.aid)B.x=(B.x||[]).filter(x=>x!==o.aid);garde();render(true);}});});
+  body.querySelectorAll('[data-sx]').forEach(b=>b.onclick=()=>{const k=+b.dataset.sx,o=B.L.splice(k,1)[0];if(o.aid)B.x=[...new Set((B.x||[]).concat([o.aid]))];garde();render(true);toast('Ligne retirée',{t:'Défaire',fn:()=>{B.L.splice(k,0,o);if(o.aid)B.x=(B.x||[]).filter(x=>x!==o.aid);garde();render(true);}});});
   $('sA').onclick=()=>{B.L.push({d:'',h:'',t:'',l:'',p:''});garde();render(true);const l=body.querySelectorAll('.sl');if(l.length){const z=l[l.length-1];z.scrollIntoView({block:'center'});z.querySelector('[data-f="t"]').focus();}};
-  $('sR').onclick=()=>{const av=S.b;LS.set(cle(),null);charge();render(true);toast('Lignes reprises des actions prévues',{t:'Annuler',fn:()=>{S.b=av;garde();render(true);}});};
+  $('sR').onclick=()=>{const av=S.b;LS.set(cle(),null);charge();render(true);toast('Lignes reprises des actions programmées',{t:'Défaire',fn:()=>{S.b=av;garde();render(true);}});};
   const c=$('sC');if(c)c.onclick=()=>detail(vueCopierS(B));}};}
 async function copier(t){try{await navigator.clipboard.writeText(t);return true;}catch(e){const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand('copy');}catch(x){}a.remove();return ok;}}
 function vueCopierS(B){const fait=new Set();
