@@ -96,14 +96,14 @@ function ligneA(i){const a=D.adresses[i],e=etatAdr(i);
 
 /* ---- une touche : valider, annuler, un passage de plus */
 function basculerAdr(i){const id=AID(i),ps=PASS[id]||[];
- if(ps.length&&cetteSem(ps[0].q)){if(!retirerPassage(i)){ouvrirAdresse(i);return;}vibrer();rafr();toast(id+' : passage retiré',{t:'Annuler',fn:()=>{ajouterPassage(i);rafr();}});return;}
- ajouterPassage(i);vibrer();rafr();toast(id+(ps.length?' : un passage de plus':' : faite'),{t:'Annuler',fn:()=>{retirerPassage(i);rafr();}});}
+ if(ps.length&&cetteSem(ps[0].q)){if(!retirerPassage(i)){ouvrirAdresse(i);return;}vibrer();rafr();toast(id+' : passage retiré',{t:'Défaire',fn:()=>{ajouterPassage(i);rafr();}});return;}
+ ajouterPassage(i);vibrer();rafr();toast(id+(ps.length?' : un passage de plus':' : faite'),{t:'Défaire',fn:()=>{retirerPassage(i);rafr();}});}
 function basculerEtape(aid,k){const a=actPar(aid);if(!a)return;const e=a.etapes[k],i=idxE(e);if(i==null)return;const id=D.adresses[i][2];
- if(stE(e)==='fait'){if(e.toquees>0){ouvrirAdresse(i);return;}setE(a,k,{st:''});vibrer();rafr();toast(id+' : retirée',{t:'Annuler',fn:()=>{setE(a,k,{st:'faite'});rafr();}});return;}
- const av=e.st;setE(a,k,{st:'faite'});vibrer();rafr();toast(id+' : faite',{t:'Annuler',fn:()=>{setE(a,k,{st:av});rafr();}});}
+ if(stE(e)==='fait'){if(e.toquees>0){ouvrirAdresse(i);return;}setE(a,k,{st:''});vibrer();rafr();toast(id+' : retirée',{t:'Défaire',fn:()=>{setE(a,k,{st:'faite'});rafr();}});return;}
+ const av=e.st;setE(a,k,{st:'faite'});vibrer();rafr();toast(id+' : faite',{t:'Défaire',fn:()=>{setE(a,k,{st:av});rafr();}});}
 function toutValider(aid){const a=actPar(aid);if(!a)return;const avant=a.etapes.map(e=>[e.st,e.le]),now=isoD(new Date());
  a.etapes.forEach(e=>{if(idxE(e)!=null&&stE(e)==='afaire'){e.st='faite';e.le=now;}});saisie(a,'toutes les adresses validées');finAuto(a);sauverA();dessinerParcours();vibrer();rafr();
- toast((a.nom||'PAP')+' : tout est validé',{t:'Annuler',fn:()=>{a.etapes.forEach((e,k)=>{e.st=avant[k][0];e.le=avant[k][1];});finAuto(a);saisie(a,'validation annulée');sauverA();dessinerParcours();rafr();}});}
+ toast((a.nom||'PAP')+' : tout est validé',{t:'Défaire',fn:()=>{a.etapes.forEach((e,k)=>{e.st=avant[k][0];e.le=avant[k][1];});finAuto(a);saisie(a,'validation annulée');sauverA();dessinerParcours();rafr();}});}
 /* un PAP dont toutes les adresses sont validées passe en « faite » ; il revient « à faire » si on en retire une */
 function finAuto(a){if(!a||a.type!=='pap'||deListe(a))return;const E=a.etapes.filter(e=>idxE(e)!=null),tout=E.length>0&&E.every(e=>stE(e)!=='afaire');
  if(tout&&a.statut==='a_faire'){a.statut='faite';a.faite_le=isoD(new Date());a.fin='liste';saisie(a,'PAP fait : toutes les adresses validées');}
@@ -139,8 +139,8 @@ function validerPied(j){const s=D.pieds[j],now=isoD(new Date());
  x.nom=`Pied d'immeuble ${s.nom}`;ACTIONS.push(x);saisie(x,'validé depuis la liste');sauverA();return x;}
 function retirerPied(j){const x=passPied(D.pieds[j].nom)[0];if(!x||!cetteSem(x.faite_le)||!deListe(x))return false;ACTIONS.splice(ACTIONS.indexOf(x),1);sauverA();return true;}
 function basculerPied(j){const s=D.pieds[j],e=etatPied(s);
- if(e.k==='f'){if(!retirerPied(j)){ouvrirPied(s);return;}vibrer();rafr();toast(s.nom+' : passage retiré',{t:'Annuler',fn:()=>{validerPied(j);rafr();}});return;}
- const x=validerPied(j);vibrer();rafr();toast(s.nom+(e.l.length?' : un passage de plus':' : fait'),{t:'Annuler',fn:()=>{const k=ACTIONS.indexOf(x);if(k>=0){ACTIONS.splice(k,1);sauverA();}rafr();}});}
+ if(e.k==='f'){if(!retirerPied(j)){ouvrirPied(s);return;}vibrer();rafr();toast(s.nom+' : passage retiré',{t:'Défaire',fn:()=>{validerPied(j);rafr();}});return;}
+ const x=validerPied(j);vibrer();rafr();toast(s.nom+(e.l.length?' : un passage de plus':' : fait'),{t:'Défaire',fn:()=>{const k=ACTIONS.indexOf(x);if(k>=0){ACTIONS.splice(k,1);sauverA();}rafr();}});}
 /* fiche d'un pied d'immeuble : la même ligne « Cette semaine » qu'une adresse */
 function semPiedHTML(j){const s=D.pieds[j],e=etatPied(s),x=e.l[0];
  let h=`<div class="sem"><div><b>Cette semaine</b>${e.k==='f'?`<small>Validé${x&&x.cree_par?' par '+(x.cree_par===moi().id?'toi':esc(userNom(x.cree_par))):''}</small>`:''}</div>${pillH(e.k,'id="pdv"')}</div>`;
@@ -162,11 +162,11 @@ function semaineHTML(i){const id=AID(i),ps=PASS[id]||[],f=FER[id],semP=ps.length
  else right=pillH(ps.length?'p':'v','id="adp"')+pillH('k','id="adk"');
  return `<div class="sem"><div><b>Cette semaine</b>${sub?`<small>${sub}</small>`:''}</div><div class="ps2">${right}</div></div>`+(semP?`<button class="lnk2" id="adr">Retirer le passage de cette semaine</button>`:'');}
 function lierSemaine(i){const id=AID(i),ap=$('adp'),ak=$('adk'),ar=$('adr');
- if(ar)ar.onclick=()=>{if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Annuler',fn:()=>{ajouterPassage(i);rafr();}});};
- if(ap)ap.onclick=()=>{const ps=PASS[id]||[];if(ps.length&&cetteSem(ps[0].q)){if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Annuler',fn:()=>{ajouterPassage(i);rafr();}});return;}
-  ajouterPassage(i);vibrer();render(true);toast(id+(ps.length?' : un passage de plus':' : faite'),{t:'Annuler',fn:()=>{retirerPassage(i);rafr();}});};
+ if(ar)ar.onclick=()=>{if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Défaire',fn:()=>{ajouterPassage(i);rafr();}});};
+ if(ap)ap.onclick=()=>{const ps=PASS[id]||[];if(ps.length&&cetteSem(ps[0].q)){if(!retirerPassage(i)){toast('Passage noté pendant le PAP : à modifier dans l\'action.');return;}vibrer();render(true);toast(id+' : passage retiré',{t:'Défaire',fn:()=>{ajouterPassage(i);rafr();}});return;}
+  ajouterPassage(i);vibrer();render(true);toast(id+(ps.length?' : un passage de plus':' : faite'),{t:'Défaire',fn:()=>{retirerPassage(i);rafr();}});};
  if(ak)ak.onclick=()=>{const f=FER[id];if(f&&cetteSem(f.q)&&statutA(id)==='ferme'){retirerFerme(i);vibrer();render(true);return;}
-  marquerFerme(i);vibrer();render(true);toast(id+' : pas pu entrer',{t:'Annuler',fn:()=>{retirerFerme(i);rafr();}});};}
+  marquerFerme(i);vibrer();render(true);toast(id+' : pas pu entrer',{t:'Défaire',fn:()=>{retirerFerme(i);rafr();}});};}
 function passagesHTML(id){const ps=PASS[id]||[];if(!ps.length)return '';
  return `<div class="h3">Passages</div>`+ps.slice(0,6).map(p=>{const a=actPar(p.aid),g=(p.ga||[]).map(gaNom).join(', '),q=parQui(a,id);
   const t=deListe(a)?`Validée depuis la liste${q?', par '+esc(q):''}`:`${esc(a?a.nom:'PAP')}${g?' · '+esc(g):''}${p.t?` · ${pl(p.t,'toquée')}, ${pl(p.o,'ouverte')}`:''}`;
@@ -195,7 +195,7 @@ function equipeHTML(nom,jours){const a=eqDe(nom),G=gaActifs();
  return h;}
 function lierEquipe(nom,t){lierLancerDiff(nom,t);const tg=$('eqT');if(!tg)return;
  tg.onclick=()=>{const a=eqDe(nom);
-  if(a){const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();render(true);toast('Plus d\'équipe : '+nom,{t:'Annuler',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});return;}
+  if(a){const k=ACTIONS.indexOf(a);ACTIONS.splice(k,1);sauverA();render(true);toast('Plus d\'équipe : '+nom,{t:'Défaire',fn:()=>{ACTIONS.splice(k,0,a);sauverA();render(true);}});return;}
   const g=gaDefaut()[0]||((gaActifs()[0]||{}).id);
   const x=nouvelleAction('equipe',{nom:'Équipe · '+nom,ga:g?[g]:[],jours:[],etapes:[{lieu:{t,id:nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:isoD(new Date())}]});
   ACTIONS.push(x);saisie(x,'une équipe y va');sauverA();vibrer();render(true);};
