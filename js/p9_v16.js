@@ -52,8 +52,9 @@ function tractageHTML(){const R=recapTractage(),sem=R.reduce((s,o)=>s+o.sem,0);
  return h;}
 function lierTractage(){const R=recapTractage();body.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{const o=R[+b.dataset.tr];if(!o)return;setMode('tractage');ouvrirLieuEq(o.t,o.id);});
  const t=$('trT');if(t)t.onclick=()=>{TRTOUT=!TRTOUT;render(true);};}
-function chiffresHTML(x){const B=parBureau();
- const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés, parmi ceux qui ont des adresses prioritaires']])+(t=>t?`<div class="sub txo">Taux d'ouverture des portes : <b>${t.v} %</b> en moyenne, sur ${pl(t.n,'PAP renseigné','PAP renseignés')}</div>`:'')(tauxMoyen());}
+/* v32 (JL, 21/11) : plus de chiffre par bureau de vote ; à la place, les diffs faites (tractage) */
+function chiffresHTML(x){const nD=ACTIONS.filter(a=>a.statut==='faite'&&TYPES_TR.includes(a.type)).length;
+ const nP=papsFaits().length;return kpis([[n0(nP),nP>1?'PAP faits depuis le début':'PAP fait depuis le début'],[n0(x.nf),'adresses prioritaires faites'],[n0(nD),nD>1?'diffs faites (tractage)':'diff faite (tractage)']])+(t=>t?`<div class="sub txo">Taux d'ouverture des portes : <b>${t.v} %</b> en moyenne, sur ${pl(t.n,'PAP renseigné','PAP renseignés')}</div>`:'')(tauxMoyen());}
 
 /* ---- en cours : « On y va » ; « C'est fait » valide. Un pied d'immeuble lancé = une action « pied d'immeuble » et une
    action PAP par équipe, reliées par « groupe » */
@@ -109,13 +110,14 @@ const segH=(attr,l,v)=>`<div class="seg" role="group">${l.map(([x,t])=>`<button 
 function vueAccueil(){return {id:'base',html:()=>{if(TMODE==='eq')taille=tailleEq();const C=conseilles();
   /* v32, 2e temps (JL : « un petit encart » ; « il ne faut plus qu'il y ait le suivi des actions » ici, tout est au Calendrier) :
      on touche la carte là où l'on veut le PAP ; la cible reste au choix ; les propositions en pastilles */
-  let h=`<div class="tap1"><span class="ti">${I.target}</span><span><b>${wide?'Cliquez sur':'Touchez'} la carte</b><small>là où vous voulez faire le PAP</small></span><button class="btn line sm" id="autre">Viser</button></div>`;
-  h+=`<div class="tsw"><span>Taille du PAP, selon</span>${segH('data-tm',[['ins','Nombre d\'inscrits'],['eq','Personnes et temps']],TMODE)}</div>`;
-  if(TMODE==='eq'){h+=`<div class="qq"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
-   h+=`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`;}
-  else h+=`<div class="tsz"><span>Taille du PAP<small>environ ${n0(portesDe(taille))} portes</small></span><div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)}<small>inscrits</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div></div>`;
+  /* v32 (JL, 21/11 : « ce n'est pas un encart, ça prend trop de place ») : trois lignes serrées au téléphone : toucher la carte
+     (ou viser), la taille du PAP (inscrits, ou personnes et temps) sur une seule ligne, les propositions en pastilles */
+  let h=`<div class="tap2"><span class="ti">${I.target}</span><b>${wide?'Cliquez sur':'Touchez'} la carte pour placer un PAP</b><button class="btn line sm" id="autre">Viser</button></div>`;
+  h+=`<div class="tsz c2"><div class="tsw"><span>Taille du PAP, selon</span>${segH('data-tm',[['ins','inscrits'],['eq','temps']],TMODE)}</div>`+
+   (TMODE==='eq'?`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`:`<div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)} inscrits<small>environ ${n0(portesDe(taille))} portes</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div>`)+`</div>`;
+  if(TMODE==='eq')h+=`<div class="qq c2"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq c2"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
   if(!C.length)h+=`<div class="empty">Aucune adresse prioritaire libre pour cette taille. Essayez une autre taille.</div>`;
-  else h+=`<div class="prl">Ou une proposition${C[0].cq?', une par quartier':''}</div><div class="chp">${C.map((z,k)=>{const pr=prioMoyIds(z.ids);
+  else h+=`<div class="chp" aria-label="Ou une proposition${C[0].cq?', une par quartier':''}"><span class="prl">Ou :</span>${C.map((z,k)=>{const pr=prioMoyIds(z.ids);
    return `<button class="pkc" data-cs="${k}" title="${esc((z.cq?z.cq+' · ':'')+'priorité '+pr+' · '+pl(z.ids.length,'adresse')+' · '+n0(z.ins)+' inscrits')}"><i style="background:${prioCol(pr)}"></i><b>${k+1}</b>${esc(ruesDe(z.ids)[0]||z.rue)}</button>`;}).join('')}</div>`;
   h+=selBar();
   return h;},
@@ -196,7 +198,7 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
   let nf=0,ins=0;l.forEach(y=>y.etapes.forEach(e=>{const i=idxE(e);if(i!=null&&e.st==='faite'){nf++;ins+=D.adresses[i][3];}}));
   const g=x.pct-avant.pct,sem=papsFaits().filter(y=>cetteSem(y.faite_le)&&(y.ga||[]).some(id=>(a.ga||[]).includes(id))).length;
   let h=`<div class="okb"><span>${I.check}</span></div><div class="ctr"><h1>Validé</h1><div class="sub">${esc(titre||(a.nom||'PAP').replace(/^PAP /,''))}${nf?` : ${pl(nf,'adresse faite','adresses faites')}, environ ${n0(portesDe(ins))} portes`:''}</div></div>`;
-  const B=parBureau();h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites'],[`${B.filter(o=>o.fi>0).length}/${B.length}`,'bureaux de vote commencés']]);
+  h+=kpis([[n0(sem),sem>1?'PAP faits cette semaine par le GA':'PAP fait cette semaine par le GA'],[n0(x.nf),'adresses prioritaires faites']]);   /* v32 (JL, 21/11) : plus de chiffre par bureau de vote */
   h+=portesHTML(a)+comViteHTML(a,a.type==='diff_pied'?'pied':'pap');   /* v31 */
   h+=`<button class="btnf" id="suite">${ONG==='cal'?'Retour au calendrier':a.type==='diff_pied'?'Revenir aux pieds d\'immeuble':'Voir les propositions suivantes'}</button>`;
   if(snap)h+=`<button class="lnk9" id="nAnn">Défaire : ce n'était pas fini</button>`;
@@ -207,18 +209,14 @@ function vueNote(a,avant,titre,snap){return {id:'note',html:()=>{const x=avance(
 let BZTOUT=false;
 const BZCOL=[[0,'transparent'],[10,'#D9C8F0'],[25,'#A784DC'],[50,'#7537C2'],[101,'#4C0297']];
 const bzCol=p=>p<=0?'transparent':p<10?BZCOL[1][1]:p<25?BZCOL[2][1]:p<50?BZCOL[3][1]:BZCOL[4][1];
-function vueSuivi(){return {id:'base',html:()=>{const x=avance(),B=parBureau().sort((p,q)=>q.p-p.p||q.tot-p.tot);
+function vueSuivi(){return {id:'base',html:()=>{const x=avance();
   /* v18 : les outils (ancien passage, importer, télécharger) et toutes les actions en haut, avant la longue liste d'adresses */
   /* v19 (JL : « dans le Suivi, l'import doit être discret, en mode trois petits points ») */
   /* v22 (JL : « en web, la page est mal utilisée ») : sur ordinateur, deux colonnes, les chiffres et les bureaux à gauche,
      toutes les adresses à droite (classes pg2, pgh, pcl, pc2) ; au téléphone, rien ne change */
   let h=`<div class="pg2 suiv"><div class="pgh"><div class="csh"><h1>Bilan</h1><button class="ib dots" id="sPlus" aria-label="Ancien passage, importer, télécharger" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div><div class="dmenu" id="sMenu" hidden>${qaHTML()}${lienCR()}</div></div><div class="pcl">`+chiffresHTML(x);   /* v32 (JL) : plus de part des inscrits en haut du Suivi */
   h+=faitHTML();   /* v32, 2e temps : le programmé est au Calendrier ; ici, tout ce qui a été fait */
-  h+=`<h2>Par bureau de vote</h2><div class="sub" style="margin-bottom:4px">Part des inscrits prioritaires déjà faite.</div>`;
-  const n=BZTOUT?B.length:Math.min(6,B.length);
-  h+=B.slice(0,n).map(o=>`<button class="bz" data-bv="${esc(o.b)}"><span>${esc(o.b)}</span><span class="jb" style="display:block"><i style="width:${o.fi>0?Math.max(2,o.p):0}%;background:${bzCol(o.fi>0?Math.max(o.p,.1):0)}"></i></span><em>${Math.round(o.p)} %</em></button>`).join('');
-  if(B.length>6)h+=`<button class="lnk9" id="bzT">${BZTOUT?'Moins de bureaux':`Voir les ${B.length} bureaux`}</button>`;
-  h+=`<div class="legb">${[['moins de 10 %',1],['10 à 25 %',2],['25 à 50 %',3],['50 % et plus',4]].map(([t,k])=>`<span><i style="background:${BZCOL[k][1]}"></i>${t}</span>`).join('')}</div>`;
+  /* v32 (JL, 21/11) : plus de statistiques par bureau de vote dans le Bilan */
   h+=tractageHTML();
   h+=`</div><div class="pc2"><h2>Toutes les adresses</h2><label class="srch2">${I.loupe}<input id="lq" type="search" enterkeyhint="search" placeholder="Chercher une adresse ou une rue" value="${esc(LQT)}" autocomplete="off" aria-label="Chercher une adresse ou une rue"></label><div class="sgc t3" role="group" aria-label="Trier">${[['rue','Par rue'],['prio','Par priorité'],['ins','Par taille']].map(([k,x])=>`<button data-lo="${k}" aria-pressed="${LTRI===k}">${x}</button>`).join('')}</div><button class="chf" id="lfa" aria-pressed="${LFAITES}">${I.check} Faites seulement</button><div id="lres">${resHTML()}</div></div></div>`;
   return h;},
