@@ -1,5 +1,5 @@
-const LT={'marché':'marche','station':'station','supermarché':'commerce','pied':'secteur','parcours':'parcours'};
-const TDE={marche:'marché',commerce:'supermarché',station:'station',parcours:'parcours'},DLT={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_parcours:'parcours',diff_pied:'pied'};
+const LT={'marché':'marche','station':'station','supermarché':'commerce','pied':'secteur','parcours':'parcours','école':'ecole'};
+const TDE={marche:'marché',commerce:'supermarché',station:'station',parcours:'parcours',ecole:'école'},DLT={diff_marche:'marché',diff_metro:'station',diff_supermarche:'supermarché',diff_parcours:'parcours',diff_pied:'pied',diff_ecole:'école'};
 const diffsDe=nom=>ACTIONS.filter(a=>a.type.startsWith('diff')&&a.statut==='faite'&&a.etapes[0]&&a.etapes[0].lieu.id===nom).sort((a,b)=>(toD(b.faite_le)-toD(a.faite_le))||(ACTIONS.indexOf(b)-ACTIONS.indexOf(a)));   /* v32 : à la même minute, la plus récente d'abord */
 /* v28 (14/11/2026, JL) : une diff datée plus tard est prévue (statut « à faire », plan) ; elle entre dans le sondage de la
    semaine du GA ; l'heure passée, elle attend « C'est fait » (ou « On n'y va plus ») et ne compte qu'une fois validée */
@@ -14,7 +14,7 @@ const diffEC=a=>TYPES_TR.includes(a.type)&&a.statut==='a_faire'&&!!a.encours&&!!
 const ecDiff=nom=>ACTIONS.find(a=>diffEC(a)&&a.etapes[0].lieu.id===nom);
 function diffFaite(a){const q=a.encours||(a.prevue&&a.prevue.length>10?a.prevue:'')||isoD(new Date());a.statut='faite';a.faite_le=q;a.prevue='';delete a.plan;delete a.encours;if(a.etapes[0])a.etapes[0].le=q;}
 const etapeL=(k,nom)=>({lieu:{t:LT[k]||'marche',id:nom},portes:0,toquees:0,ouvertes:0,st:'',acc:'',boites:0,le:''});
-const nomDiff=(a,nom)=>a.type==='diff_parcours'?nom:`${TYPES_C[a.type]} ${nom.replace(/^Marché /,'')}`;   /* v30 : « Déambulation · Rue … », sans doublon */
+const nomDiff=(a,nom)=>a.type==='diff_parcours'||a.type==='diff_ecole'?nom:`${TYPES_C[a.type]} ${nom.replace(/^Marché /,'')}`;   /* v30 : « Déambulation · Rue … », sans doublon */
 /* bloc de lancement d'une diff, sur la fiche d'un lieu (état gardé tant que la fiche du même lieu est ouverte) */
 let LCH={nom:''};
 const etatL=nom=>{if(LCH.nom!==nom)LCH={nom,tard:false,q:'',ga:gaDefaut()[0]||((gaActifs()[0]||{}).id)||''};return LCH;};
@@ -59,7 +59,18 @@ function validerDiff(id){const a=actPar(id);if(!a||a.statut!=='a_faire')return;c
 let TRI='monde',EXP={},PRC={};
 /* v32 : le moment du tractage = « Quand » (jour et heure), en haut de l'onglet ; il sert aux lieux ouverts, à l'affluence et à « Programmer » */
 const TQ={q:''};
-const mom=()=>{const d=toD(TQ.q||maintenant())||new Date();return {d:d.getDay(),h:d.getHours()};};
+const mom=()=>{const d=toD(TQ.q||maintenant())||new Date();return {d:d.getDay(),h:d.getHours(),mi:d.getMinutes()};};
+/* v33 (22/11/2026, JL : « pas oublier les écoles en plus dans les tractages », « entrée seulement ») : écoles maternelles et
+   élémentaires de la Ville de Paris (d/ecoles.json, src/prep_ecoles.py) ; on y tracte à l'entrée, du lundi au vendredi, de
+   8 h 20 (les enfants peuvent entrer) à 8 h 30 (la classe commence), heures de la Ville de Paris */
+let ECOLES=null;
+const ENT=()=>{const e=(ECOLES&&ECOLES.entree)||['08:20','08:30'],m=s=>+s.slice(0,2)*60+ +s.slice(3,5);return {a:m(e[0]),b:m(e[1]),j:(ECOLES&&ECOLES.jours)||[1,2,3,4,5],t:e.map(s=>(+s.slice(0,2))+' h '+s.slice(3,5))};};
+const entreeE=m=>{const E=ENT(),x=m.h*60+(m.mi||0);return E.j.includes(m.d)&&x>=E.a&&x<=E.b;};
+const entreeTxt=()=>{const E=ENT();return `Entrée de ${E.t[0]} à ${E.t[1]}, du lundi au vendredi`;};
+/* le prochain jour d'école à l'heure de l'entrée (aujourd'hui si elle n'est pas passée) */
+function prochaineEntree(){const E=ENT(),d=new Date(),x=d.getHours()*60+d.getMinutes();if(!(E.j.includes(d.getDay())&&x<=E.a))do{d.setDate(d.getDate()+1);}while(!E.j.includes(d.getDay()));
+ return isoD(d).slice(0,10)+'T'+String(Math.floor(E.a/60)).padStart(2,'0')+':'+String(E.a%60).padStart(2,'0');}
+const sousEcole=s=>[cap(s.nom.replace(/,.*$/,'').replace(/^École /,'école ')),s.dit].filter(Boolean).join(' · ');
 const JAF=d=>(d+6)%7;                                   /* indice des tableaux d'affluence : lundi = 0 */
 const JTYPE=d=>d===0?'dim':d===6?'sam':'sem';
 const JCOURT=['Dim.','Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.'];
@@ -74,7 +85,7 @@ const ouvertM=(s,m)=>seances(s).find(x=>x.d===m.d&&x.h0<m.h+1&&x.h1>m.h);
    priorité moyenne, de 0 à 100, des adresses de sa zone de chalandise, pondérée par leurs inscrits ; ne dépend pas des
    curseurs. Zone de chalandise : le secteur lui-même pour un pied d'immeuble ; sinon un cercle autour du lieu (marché 500 m,
    station 400 m, supermarché 300 m : réglages, pas des mesures) */
-const RCH={ma:500,me:400,su:300};
+const RCH={ma:500,me:400,su:300,ec:300};   /* v33 : école 300 m, réglage comme les autres */
 function dansPoly(x,y,geo){const P=geo.type==='MultiPolygon'?geo.coordinates:[geo.coordinates];let dd=false;
  for(const poly of P){const r=poly[0];let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const [xi,yi]=r[i],[xj,yj]=r[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}if(c){dd=true;break;}}return dd;}
 function prioSect(ll,k,geo){k=k||'su';const key=k+','+ll[0].toFixed(5)+','+ll[1].toFixed(5);if(PRC[key])return PRC[key];
@@ -94,7 +105,7 @@ function prPhrase(ll,k,geo,s){const r=prioLieu(ll,k,geo,s);return r.t?`<div styl
 const nomSup=s=>(s.ens||s.nom)+', '+s.adr;
 
 /* lieux classés pour le moment choisi : v = monde attendu (sert au tri), info = ce qu'on en dit */
-function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
+function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[],ec:[]};
  const fin=(o,ll)=>{o.pr=prioLieu(ll,o.k,o.k==='pi'?o.s.geo:null,o.s).v;return o;};
  if(chips.tMa)D.marches.forEach((s,i)=>{const x=ouvertM(s,m);out.ma.push(fin({k:'ma',i,s,nom:s.nom,v:x?100:0,
    info:x?`<span class="acc">Ouvert jusqu'à ${x.fin}</span>`:`Fermé · ${joursMarche(s)}`},[s.lat,s.lon]));});
@@ -102,6 +113,7 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
    info:!s.af?esc(s.adr):a==null||a===0?'Fermé':`Affluence <span class="acc">${a} %</span>`},[s.lat,s.lon]));});
  if(chips.tMe)D.metro.forEach((s,i)=>{const e=entreesM(s,m),lim=!dansCirco([s.lat,s.lon]);out.me.push(fin({k:'me',i,s,nom:s.nom,v:e,lim,
    info:`${n0(e)} voyageurs entrent dans l'heure`},[s.lat,s.lon]));});
+ if(chips.tEc&&entreeE(m))(D.ecoles||[]).forEach((s,i)=>{out.ec.push(fin({k:'ec',i,s,nom:s.nom.replace(/^École [^,]*, /,''),sub:esc(sousEcole(s)),v:0,info:entreeTxt()},[s.lat,s.lon]));});   /* v33 : à l'entrée seulement */
  if(chips.tPi)(D.pieds||[]).forEach((s,i)=>{const a=affAt(s,m);out.pi.push(fin({k:'pi',i,s,nom:s.nom,v:a==null?-1:a,
    info:`${n0(s.ls)} logements sociaux${a!=null?` · animation <span class="acc">${a} %</span>`:''}`},[s.lat,s.lon]));});
  /* pieds d'immeuble : le monde attendu (indicateur indirect) pondéré par la priorité du secteur */
@@ -117,7 +129,7 @@ function lieuxTract(m){const out={ma:[],su:[],me:[],pi:[]};
 /* v28 : les diffs prévues, la plus proche d'abord, en haut de l'onglet Tractage */
 const diffsPrevues=()=>ACTIONS.filter(a=>diffEC(a)||diffPrevue(a)).sort((x,y)=>(aValider(y)-aValider(x))||String(quandA(x)).localeCompare(String(quandA(y))));   /* v32 : à valider d'abord */
 /* v16 (31/10/2026) : les pieds d'immeuble ont leur onglet ; ils ne sont plus dans le tractage */
-const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"]];
+const SECT=[['ma','Marchés',"marchés"],['su','Magasins',"magasins"],['me','Métro',"stations"],['ec','Écoles',"écoles"]];
 function rowTract(o){const ll=[o.s.lat,o.s.lon];
  const nm=o.k==='su'?nomSup(o.s):o.s.nom,eq=o.k!=='pi'&&eqDe(nm);
  const av=o.k!=='pi'&&aValDe(nm),pv=o.k!=='pi'&&!av&&prevuesDe(nm)[0],df=o.k!=='pi'&&diffsDe(nm)[0];   /* v30 : « Prévu le … », « fait le … » ; v32 : « À valider », « Programmé le … » */
@@ -129,34 +141,38 @@ function momHTML(m){const auj=new Date().getDay();
 /* v18 (01/11/2026, JL : « des mini-onglets à l'intérieur du tractage pour choisir entre métro, magasin, déambulation ») :
    une sorte de lieu à la fois, sur la carte et dans la liste ; les marchés gardent leur onglet */
 let TT=LS.get('ttab','su');
-const TTAB=[['su','Magasins'],['me','Métro'],['ma','Marchés'],['pa','Déambulation']];
-function appliquerTT(){chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';if(TT==='pa')EXP.pc=true;if(D){lieux();noms();majBulles();majMoment();}}
-function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';const m=mom(),L_=lieuxTract(m);
+const TTAB=[['su','Magasins'],['me','Métro'],['ma','Marchés'],['ec','Écoles'],['pa','Déambulation']];
+function appliquerTT(){chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';chips.tEc=TT==='ec';if(TT==='pa')EXP.pc=true;if(D){lieux();noms();majBulles();majMoment();}}
+function vueTractage(){return {id:'base',html:()=>{chips.tSu=TT==='su';chips.tMe=TT==='me';chips.tMa=TT==='ma';chips.tEc=TT==='ec';const m=mom(),L_=lieuxTract(m);
   /* v30 (audit) : toutes les diffs en cours, puis les 3 prévues les plus proches ; le reste, d'une touche, dans le Suivi */
   /* v32 : « Quand » d'abord (jour et heure), puis la sorte de lieu ; seuls les lieux ouverts à ce moment sont listés ;
      2e temps : plus de cartes d'actions ici (Calendrier) */
-  let h=tardHTML(TQ);
-  h+=`<div class="seg tt" role="group" aria-label="Sorte de lieu">${TTAB.map(([k,t])=>`<button data-tt="${k}" aria-pressed="${TT===k}">${t}</button>`).join('')}</div>`;
-  h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;
+  /* v33 (JL : « il faut presque que de la carte ») : replié, « Quand » et la sorte de lieu (en pastilles) ; le chevron montre la liste */
+  let h=tardHTML(TQ,dplH('Voir la liste des lieux'));
+  h+=`<div class="chp tt2 pli" role="group" aria-label="Sorte de lieu">${TTAB.map(([k,t])=>`<button data-tt="${k}" aria-pressed="${TT===k}">${t}</button>`).join('')}</div>`;
+  if(TT!=='ec')h+=`<div class="seg" role="group" aria-label="Tri">${[['monde','Plus de monde'],['prio','Plus prioritaires']].map(([k,t])=>`<button data-tri="${k}" aria-pressed="${TRI===k}">${t}</button>`).join('')}</div>`;   /* v33 : les écoles, par priorité (pas de mesure du monde) */
   if(TT==='pa')h+=parcHTML()||`<div class="empty">Pas de déambulation proposée dans cette circonscription.</div>`;
   let vide=TT!=='pa';
   if(TT!=='pa')SECT.forEach(([k,t,u])=>{const l=L_[k];if(!l.length)return;vide=false;const n=EXP[k]?l.length:Math.min(4,l.length);
    h+=`<div class="tsec"><h2>${t}</h2>${l.length>4?`<button class="more" data-ex="${k}">${EXP[k]?'Moins':`Voir les ${l.length}`}</button>`:''}</div>`+l.slice(0,n).map(rowTract).join('');});
-  if(vide)h+=`<div class="empty">Aucun lieu de cette sorte ouvert à ce moment.</div>`;
+  if(vide&&TT==='ec'&&!entreeE(m))h+=`<div class="empty">${entreeTxt()} (Ville de Paris) : choisissez un de ces moments dans « Quand ».</div><button class="btn line" id="ecGo" style="width:100%">Passer à la prochaine entrée : ${esc(quandP(prochaineEntree()))}</button>`;
+  else if(vide)h+=`<div class="empty">Aucun lieu de cette sorte ouvert à ce moment.</div>`;
   return h;},
  after:()=>{appliquerTT();body.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>{TT=b.dataset.tt;LS.set('ttab',TT);if(TT==='pa')EXP.pc=true;effParc();render(true);});
   lierTard(TQ,()=>{majMoment();render(true);});
+  const eg=$('ecGo');if(eg)eg.onclick=()=>{TQ.q=prochaineEntree();TQ.m=1;majMoment();render(true);};
   body.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>{TRI=b.dataset.tri;render(true);});
   body.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{EXP[b.dataset.ex]=!EXP[b.dataset.ex];render(true);});
   body.querySelectorAll('[data-tl]').forEach(b=>b.onclick=()=>{const [k,i]=b.dataset.tl.split(':');ouvrirLieu(k,+i);});
   body.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>basculerPied(+b.dataset.tp));lierParc();}};}
-function ouvrirLieu(k,i){if(k==='ma')ouvrirMarche(D.marches[i]);else if(k==='su')ouvrirMagasin(D.supers[i]);else if(k==='me')ouvrirStation(D.metro[i]);else ouvrirPied(D.pieds[i]);}
-function diffLieu(k,i){if(k==='ma')detail(vueDiff(D.marches[i].nom,'marché'));else if(k==='su')detail(vueDiff(nomSup(D.supers[i]),'supermarché'));else if(k==='me')detail(vueDiff(D.metro[i].nom,'station'));else detail(vueDiff(D.pieds[i].nom,'pied'));}
+function ouvrirLieu(k,i){if(k==='ec')ouvrirEcole(D.ecoles[i]);else if(k==='ma')ouvrirMarche(D.marches[i]);else if(k==='su')ouvrirMagasin(D.supers[i]);else if(k==='me')ouvrirStation(D.metro[i]);else ouvrirPied(D.pieds[i]);}
+function diffLieu(k,i){if(k==='ec')detail(vueDiff(D.ecoles[i].nom,'école'));else if(k==='ma')detail(vueDiff(D.marches[i].nom,'marché'));else if(k==='su')detail(vueDiff(nomSup(D.supers[i]),'supermarché'));else if(k==='me')detail(vueDiff(D.metro[i].nom,'station'));else detail(vueDiff(D.pieds[i].nom,'pied'));}
 /* sur la carte : les lieux sans monde au moment choisi s'estompent ; autour des stations, un cercle dit les entrées */
 function majMoment(){if(!D)return;const t=mode==='tractage',m=mom();
  const op=(mk,on)=>{const e=mk&&mk.getElement&&mk.getElement();if(e)e.style.opacity=on?'':'.35';};
  D.marches.forEach(s=>op(s._m,!t||!!ouvertM(s,m)));
  (D.supers||[]).forEach(s=>{const a=affAt(s,m);op(s._m,!t||!s.af||(a!=null&&a>0));});
+ (D.ecoles||[]).forEach(s=>op(s._m,!t||entreeE(m)));   /* v33 : hors de l'entrée, les écoles s'estompent */
  (D.pieds||[]).forEach(s=>{const a=affAt(s,m);if(s._g)s._g.setStyle({fillOpacity:t&&a!=null?.05+.25*a/100:.1});});
  majBulles();}
 
@@ -200,6 +216,14 @@ function ouvrirMagasin(s){sel(null);if(det==='peek')setDet('half');voir([s.lat,s
   else h+=`<div class="hint">Affluence inconnue${s.src==='apur2023'?' : magasin absent du relevé Google, repris de la base des commerces de l\'Apur (2023)':''}.</div>`;
   return h+histoHTML(nom);},
   after:()=>{lierEquipe(nom,'commerce');lierHisto(nom,'supermarché');body.querySelectorAll('[data-fj]').forEach(b=>b.onclick=()=>{jd=+b.dataset.fj;render(true);});}});}
+
+/* ---------------- écoles (v33) : la fiche, comme celle d'un magasin ; entrée du lundi au vendredi */
+function ouvrirEcole(s){if(!s)return;sel(null);if(det==='peek')setDet('half');voir([s.lat,s.lon],Math.max(map.getZoom(),16));const nom=s.nom;
+ detail({id:'ecl',html:()=>{let h=headHTML(esc(nom.replace(/^École [^,]*, /,'')),esc(sousEcole(s)),true)+prPhrase([s.lat,s.lon],'ec',null,s);
+  h+=`<div class="hint">${entreeTxt()}. Heures de la Ville de Paris : les enfants peuvent entrer à partir de ${ENT().t[0]}, la classe commence à ${ENT().t[1]}.</div>`;
+  h+=equipeHTML(nom,ENT().j);
+  return h+histoHTML(nom);},
+  after:()=>{lierEquipe(nom,'ecole');lierHisto(nom,'école');}});}
 
 /* ---------------- stations */
 const typeJour=d=>JTYPE(d.getDay());
