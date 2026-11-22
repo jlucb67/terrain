@@ -12,14 +12,18 @@ function back(){if(hist>0){attendu=stack.length;try{history.back();}catch(e){att
 addEventListener('popstate',()=>{if(hist>0)hist--;if(attendu&&stack.length<attendu){attendu=0;return;}attendu=0;depiler();});
 function render(keep){const v=stack[stack.length-1],y=body.scrollTop;if(v.id!=='parc'&&typeof effParc==='function')effParc();body.innerHTML=v.html();body.scrollTop=keep?y:0;
  const b=body.querySelector('.back');if(b)b.onclick=back;
+ const dp=$('dpl');if(dp)dp.onclick=()=>setDet(det==='peek'?'half':'peek');
  const c=$('vCR');if(c)c.onclick=()=>detail(vueActions({}));
  body.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>detail(vueAction(b.dataset.act)));
  body.querySelectorAll('[data-va]').forEach(b=>b.onclick=()=>detail(vueActions({type:b.dataset.va})));
  if(D)majOuverte();
  if(D&&typeof dessinerCons==='function')dessinerCons();
- if(!wide&&det==='peek'){const h=hOf('peek');if(Math.abs(sheet.getBoundingClientRect().height-h)>2)setDet('peek');}
+ const avEnc=app.classList.contains('enc');app.classList.toggle('enc',!!v.enc);
  if(v.after)v.after();
- app.classList.toggle('enc',!!v.enc);if(!wide&&(det==='half'||det==='fit'))setDet(det);}
+ /* v33 : l'encart de Programmer s'ouvre replié (la carte d'abord) quand on y revient d'une fiche ou d'un autre onglet */
+ if(!wide){if(v.enc&&!avEnc&&!app.classList.contains('vis'))setDet('peek');else if(det==='peek'){const h=hOf('peek');if(Math.abs(sheet.getBoundingClientRect().height-h)>2)setDet('peek');}else if(det==='half'||det==='fit')setDet(det);}}
+/* v33 : le chevron de l'encart replié de Programmer (téléphone) : il le déplie ou le replie (lié dans render) */
+const dplH=l=>wide?'':`<button class="dpl" id="dpl" aria-label="${l}">${I.down}</button>`;
 const headHTML=(title,sub,canBack)=>`<div class="head">${canBack?`<button class="ib back" aria-label="Retour">${I.back}</button>`:''}<div class="tt"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`;
 const kpis=a=>`<div class="kpis">${a.map(([v,t])=>`<div class="kpi"><b>${v}</b><span>${t}</span></div>`).join('')}</div>`;
 const zTag=z=>`<span class="ztag" style="--zc:var(--quiet)"><i></i>Zone n°${z}</span>`;
@@ -109,7 +113,7 @@ function ecranParis(){
 let D=null,BZ={},crit={v:2,score:70,ins:6,ni:0},fondL=null,zonesL=null,contourL=null,adrL=null,nomsL=null,bvlL=null,stnL=null,lieuxL={},papL=null,lotL=null,selL=null,AM=[],ZC={},bulles=null;
 let mode='pap',ONG='pap',vueMetroJour='now';
 /* v16 (31/10/2026) : plus de filtres sur le porte-à-porte ; les pieds d'immeuble ont leur onglet (plus dans le tractage) */
-const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:false};
+const chips={prio:false,zones:true,metro:true,faites:true,tMa:true,tSu:true,tMe:true,tPi:false,tEc:false};
 const CHIPS={pap:[],tractage:[]};   /* v18 : le tractage choisit sa sorte de lieu par des onglets dans le panneau (p3_diff.js) */
 /* stockage local par circonscription ; les adresses sont designees par leur libelle, unique et stable */
 let faites={},ACC={},BOI={},SEL=[],ACTIONS=[],ACT_OUV=null,equipe='',nbm=2,regT=0,lot=null,posMoi=null;
@@ -117,7 +121,7 @@ const AID=i=>D.adresses[i][2];
 let BYID={};
 const ptA=i=>[D.adresses[i][1],D.adresses[i][0]];
 const uid=()=>{try{return crypto.randomUUID();}catch(e){return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}};
-const TYPE_DIFF={'marché':'diff_marche','supermarché':'diff_supermarche','station':'diff_metro','pied':'diff_pied','parcours':'diff_parcours'};   /* v29 : la déambulation a son type */
+const TYPE_DIFF={'marché':'diff_marche','supermarché':'diff_supermarche','station':'diff_metro','pied':'diff_pied','parcours':'diff_parcours','école':'diff_ecole'};   /* v33 : l'école */   /* v29 : la déambulation a son type */
 /* listes de reference : lues dans le journal (listes.json), gerees dans la console ; ci-dessous, les exemples de la maquette, avant la premiere connexion */
 const REF0={v:2,campagnes:[{id:'pres',nom:'Présidentielle',debut:'',fin:'',archive:false,defaut:true},{id:'legis',nom:'Législatives',debut:'',fin:'',archive:false,defaut:false},{id:'muni',nom:'Municipales',debut:'',fin:'',archive:false,defaut:false},{id:'thema',nom:'Campagnes thématiques récurrentes',debut:'',fin:'',archive:false,defaut:false}],
  ga:[{id:'g1',nom:'GA exemple A',arr:11,circos:[6],archive:false},{id:'g2',nom:'GA exemple B',arr:20,circos:[6],archive:false},{id:'g3',nom:'GA exemple C',arr:20,circos:[6],archive:false}],
@@ -178,11 +182,15 @@ let MAGS=null,ZPP=null;
 function ajouterStands(){if(!ZPP||!ZPP.circos)return;D.pieds=(ZPP.circos[pad2(D.k)]||[]).map(z=>Object.assign({qpv:[],crit:{},hab:0,ls:0,places:[],af:null,metro:null},z));}
 function ajouterMagasins(){if(D._mag||!MAGS||!MAGS.magasins)return;D._mag=1;const b=D.bounds;D.supers=D.supers||[];
  MAGS.magasins.forEach(s=>{if(s.lat<b[0][0]||s.lat>b[1][0]||s.lon<b[0][1]||s.lon>b[1][1]||!dansCirco([s.lat,s.lon]))return;D.supers.push(Object.assign({},s,{dedans:true}));});}
+/* v33 : les écoles de la circo (d/ecoles.json) */
+function ajouterEcoles(){if(D._ec||!ECOLES||!ECOLES.ecoles)return;D._ec=1;const b=D.bounds;
+ D.ecoles=ECOLES.ecoles.filter(s=>!(s.lat<b[0][0]||s.lat>b[1][0]||s.lon<b[0][1]||s.lon>b[1][1])&&dansCirco([s.lat,s.lon])).map(s=>Object.assign({},s));}
 async function ouvrir(n,ensuite){
  if(!(n>=1&&n<=18)||!peutCirco(n))return;
  body.innerHTML='<div class="load" id="ld">Chargement de la carte…</div>';
  try{if(!D||D.k!==n){D=await chargerJSON(`d/circo_${pad2(n)}.json`,p=>{const l=$('ld');if(l)l.textContent=`Chargement de la carte : ${p} %`;});D.bati=null;
   if(!MAGS)MAGS=await fetch('d/magasins.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterMagasins();
+  if(!ECOLES)ECOLES=await fetch('d/ecoles.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterEcoles();
   if(!CQ)CQ=await fetch('d/cq.json').then(r=>r.ok?r.json():null).catch(()=>null);
   if(!ZPP)ZPP=await fetch('d/pieds_pap.json').then(r=>r.ok?r.json():null).catch(()=>null);ajouterStands();construire();chargerBati(n);chargerParcours(n);}}
  catch(e){console.error('chargement',e&&e.stack||e);body.innerHTML='<div class="load">La carte n\'a pas pu être chargée. Vérifiez la connexion, puis réessayez.</div>';return;}
@@ -261,6 +269,7 @@ function construire(){
  lieuxL={metro:L.layerGroup(D.metro.map(s=>(s._m=mk([s.lat,s.lon],'mk-m','M',14,()=>ouvrirStation(s))))),
   marches:L.layerGroup(D.marches.map(s=>{const m=mk([s.lat,s.lon],'mk-ma',I.basket,20,()=>ouvrirMarche(s),s.nom.replace(/^Marché /,''));s._m=m;return m;})),
   grands:L.layerGroup((D.supers||[]).map(s=>{const m=mk([s.lat,s.lon],'mk-c g',I.cart,20,()=>ouvrirMagasin(s));s._m=m;return m;})),
+  ecoles:L.layerGroup((D.ecoles||[]).map(s=>{const m=mk([s.lat,s.lon],'mk-c g mk-ec',I.ecole,20,()=>ouvrirEcole(s));s._m=m;return m;})),
   pieds:L.layerGroup((D.pieds||[]).map(s=>{const g=L.geoJSON(s.geo,{renderer:rA,style:{color:tok('--pied'),weight:1.6,opacity:.9,dashArray:'4 3',fillColor:tok('--pied'),fillOpacity:.1}}).on('click',()=>ouvrirPied(s));s._g=g;
    const m=mk([s.lat,s.lon],'mk-p',I.pied,18,()=>ouvrirPied(s));s._m=m;return L.layerGroup([g,m]);}))};
  PRC={};
@@ -327,11 +336,11 @@ function filtrer(){if(!D)return;adrL.clearLayers();
 function lieux(){if(!D)return;const z=map.getZoom();
  const t=mode==='tractage';
  const p=mode==='pap'&&ONG==='pap';
- const on={metro:(t&&chips.tMe)||(p&&chips.metro&&z>=14.75),marches:(t&&chips.tMa)||(p&&z>=15.5),grands:t&&chips.tSu,pieds:false};
+ const on={metro:(t&&chips.tMe)||(p&&chips.metro&&z>=14.75),marches:(t&&chips.tMa)||(p&&z>=15.5),grands:t&&chips.tSu,ecoles:t&&chips.tEc,pieds:false};
  Object.entries(lieuxL).forEach(([k,l])=>{if(on[k]&&!map.hasLayer(l))l.addTo(map);if(!on[k]&&map.hasLayer(l))map.removeLayer(l);});colorerLieux();}
 /* v18 (01/11/2026, JL : « ajouter les couleurs de priorité aux magasins et au métro sur la carte ») : chaque magasin et chaque
    station prend la couleur de sa priorité (moyenne des adresses de sa zone de chalandise, prioLieu, p3_diff.js) */
-function colorerLieux(){if(!D||!PC.length)return;[[D.metro,'me'],[D.supers||[],'su']].forEach(([l,k])=>l.forEach(s=>{const e=s._m&&s._m.getElement&&s._m.getElement(),d=e&&e.querySelector('.mk');if(!d)return;
+function colorerLieux(){if(!D||!PC.length)return;[[D.metro,'me'],[D.supers||[],'su'],[D.ecoles||[],'ec']].forEach(([l,k])=>l.forEach(s=>{const e=s._m&&s._m.getElement&&s._m.getElement(),d=e&&e.querySelector('.mk');if(!d)return;
  const c=prioCol(prioLieu([s.lat,s.lon],k,null,s).v);d.style.background=c;d.style.color=encreSur(c);d.style.borderColor='var(--solid)';}));}
 function noms(){nomsL.clearLayers();bvlL.clearLayers();stnL.clearLayers();if(!D)return;const z=map.getZoom(),b=map.getBounds().pad(.1);
  /* v25 (JL : « il y a trop de fois écrit la même rue ») : une rue est écrite une fois par portion d'écran (les longues portions
@@ -360,7 +369,7 @@ function setMode(m,first){if(m==='boitage')m='pap';if(m==='liste')m='suivi';if(m
  dessinerChips();filtrer();lieux();noms();majBulles();effLot();sel(null);
  if(papL){if(m==='pap'){if(!map.hasLayer(papL))papL.addTo(map);}else if(map.hasLayer(papL))map.removeLayer(papL);}majMoment();
  ACT_OUV=null;dessinerParcours();if(typeof majEq==='function')majEq();if(typeof majCouches==='function')majCouches();
- if(!wide)setDet(PAGES.includes(ONG)?'full':'half');
+ if(!wide)setDet(PAGES.includes(ONG)?'full':'peek');   /* v33 : Programmer s'ouvre replié */
  show(vueBase());if(!first&&!PAGES.includes(ONG)){setTimeout(()=>{map.invalidateSize();map.flyToBounds(D.bounds,{...pad(),duration:.4});},60);}}
 /* toucher l'onglet où l'on est ramène à son accueil (v16) */
 $('tabbar').querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{const t=b.dataset.m;if(t!==ongTab(ONG))setMode(t);else if(ONG==='sondage')setMode('cal');else if(stack.length>1||(stack[0]&&stack[0].id!=='base')){effLot();sel(null);viseur(false);show(vueBase());}});
