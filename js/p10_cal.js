@@ -81,20 +81,35 @@ function listeCal(lun,S){if(!S.length)return `<div class="cvide">Aucune action c
    blanc ») : une colonne par jour, les actions du jour empilées dans l'ordre des heures, l'heure écrite sur chaque bloc, sans
    grille d'heures ni vide entre les blocs ; au téléphone, 3 jours à l'écran, on glisse le doigt pour voir les autres, la frise
    s'ouvre sur aujourd'hui ; à l'ordinateur, les 7 jours. */
-function friseHTML(lun,S){const auj=new Date(),col=wide?'minmax(0,1fr)':'calc(100% / 3)';
+/* v33 (22/11/2026, JL : « le swipe dans le calendrier ne doit pas être bloqué à la semaine (indéfini) ») : au téléphone, la
+   frise porte trois semaines (celle d'avant, la semaine affichée, celle d'après) ; quand le jour de gauche passe dans une autre
+   semaine, celle-ci devient la semaine affichée et la frise se redessine autour d'elle, au même jour : on glisse sans fin.
+   Une semaine sans action garde ses colonnes vides. */
+let FZJ=null;   /* le jour à gauche de la frise, gardé quand elle se redessine */
+function friseHTML(lun,S,nj){nj=nj||7;const auj=new Date(),col=wide?'minmax(0,1fr)':'calc(100% / 3)';
  const T=S.map(a=>({a,t:toD(quandCal(a))})).filter(o=>o.t);
- if(!T.length)return `<div class="cvide">Aucune action cette semaine. Programmez-en dans l'onglet Programmer.</div>`;
- let h=`<div class="frz z"><div class="fzs" id="fzs"><div class="fzg" style="grid-template-columns:repeat(7,${col})">`;
- for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);h+=`<span class="fzh${memeJour(d,auj)?' auj':''}">${d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','')}<b>${d.getDate()}</b></span>`;}
- for(let k=0;k<7;k++){const d=new Date(lun);d.setDate(d.getDate()+k);const c=T.filter(o=>memeJour(o.t,d)).sort((p,q)=>p.t-q.t);
-  h+=`<div class="fcol${memeJour(d,auj)?' auj':''}">`+c.map(o=>{const a=o.a,[bg,ink]=TCOUL(a),f=a.statut==='faite',due=!f&&aValider(a);
+ if(!T.length&&nj===7)return `<div class="cvide">Aucune action cette semaine. Programmez-en dans l'onglet Programmer.</div>`;
+ let h=`<div class="frz z"><div class="fzs" id="fzs"><div class="fzg" style="grid-template-columns:repeat(${nj},${col})">`;
+ for(let k=0;k<nj;k++){const d=new Date(lun);d.setDate(d.getDate()+k);h+=`<span class="fzh${memeJour(d,auj)?' auj':''}${k&&d.getDay()===1?' lun':''}">${d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','')}<b>${d.getDate()}</b></span>`;}
+ for(let k=0;k<nj;k++){const d=new Date(lun);d.setDate(d.getDate()+k);const c=T.filter(o=>memeJour(o.t,d)).sort((p,q)=>p.t-q.t);
+  h+=`<div class="fcol${memeJour(d,auj)?' auj':''}${k?d.getDay()===1?' lun':'':' c0'}">`+c.map(o=>{const a=o.a,[bg,ink]=TCOUL(a),f=a.statut==='faite',due=!f&&aValider(a);
    return `<button class="fb${f?' fait':''}${due?' due':''}" data-ca="${a.id}" style="--c:${bg};--ci:${ink}" aria-label="${esc(typeCal(a)+' '+lieuCal(a)+', '+fmtJH(quandCal(a))+(f?', validé':due?', à valider':''))}"><span class="fbh">${hhmm(quandCal(a))}${f?' ✓':due?' !':''}</span>${esc(courtCal(a))}<small>${esc(lieuCal(a))}</small></button>`;}).join('')+`</div>`;}
  return h+`</div></div></div>`;}
-/* la frise s'ouvre sur aujourd'hui (s'il est dans la semaine affichée) */
+/* la frise s'ouvre sur aujourd'hui (s'il est dans la semaine affichée), sinon sur le lundi ; ou sur le jour gardé (FZJ) */
 function caleFrise(lun){const s=$('fzs'),c=s&&s.querySelector('.fcol');if(!c)return;const k=Math.floor((new Date()-lun)/864e5);if(k>0&&k<7)s.scrollLeft=k*c.getBoundingClientRect().width;}
+/* v33 : la frise en bande de trois semaines (téléphone) : on la pose, puis on suit le doigt */
+function bandeFrise(){const s=$('fzs'),c=s&&s.querySelector('.fcol');if(!s||!c)return;const w=c.getBoundingClientRect().width;if(!w)return;
+ const lun=lun0();lun.setDate(lun.getDate()+7*CALW);const deb=new Date(lun);deb.setDate(deb.getDate()-7);
+ let k;if(FZJ){k=Math.round((FZJ-deb)/864e5);FZJ=null;}else{const t=Math.floor((new Date()-lun)/864e5);k=7+(t>0&&t<7?t:0);}
+ s.style.scrollSnapType='none';s.scrollLeft=k*w;requestAnimationFrame(()=>{s.style.scrollSnapType='';});
+ let tm=0;const fini=()=>{const k2=Math.round(s.scrollLeft/w),wk=Math.floor(k2/7)-1;if(!wk)return;
+  const d=new Date(deb);d.setDate(d.getDate()+k2);d.setHours(0,0,0,0);CALW+=wk;FZJ=d;render(true);};
+ s.addEventListener('scroll',()=>{clearTimeout(tm);tm=setTimeout(fini,180);},{passive:true});}
 function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'frise':'liste');
   const lun=lun0();lun.setDate(lun.getDate()+7*CALW);const fin=new Date(lun);fin.setDate(fin.getDate()+7);
   const A=actsCal(),dans=a=>{const d=toD(quandCal(a));return !!d&&d>=lun&&d<fin;},S=A.filter(dans).sort((x,y)=>String(quandCal(x)).localeCompare(String(quandCal(y))));
+  const bande=CALV==='frise'&&!wide,deb=new Date(lun),fin3=new Date(lun);if(bande){deb.setDate(deb.getDate()-7);fin3.setDate(fin3.getDate()+14);}   /* v33 : trois semaines */
+  const S3=bande?A.filter(a=>{const d=toD(quandCal(a));return !!d&&d>=deb&&d<fin3;}):S;
   const G=gaActifs();
   let h=`<div class="calp"><div class="calh"><h1>Calendrier</h1><div class="sgc t2" role="group" aria-label="Affichage">${[['liste','Liste'],['frise','Frise']].map(([k,t])=>`<button data-cvw="${k}" aria-pressed="${CALV===k}">${t}</button>`).join('')}</div></div>`;
   if(G.length>1)h+=`<div class="pour"><label class="chs"><select id="calG" aria-label="Groupe d'action"><option value="">Tous les GA</option>${G.map(g=>`<option value="${g.id}"${g.id===CALG?' selected':''}>${esc(g.nom)}</option>`).join('')}</select>${I.down}</label></div>`;
@@ -103,15 +118,17 @@ function vueCal(){return {id:'base',html:()=>{if(!CALV)CALV=LS.get('calV',wide?'
   h+=`<button class="btnf calsb" id="calSond">Envoyer le programme de la semaine</button>`;
   /* les actions à valider des semaines d'avant, et celles sans date, restent en vue sur la semaine en cours */
   const vieux=CALW===0?A.filter(a=>a.statut==='a_faire'&&aValider(a)&&!dans(a)&&(toD(quandA(a))||fin)<lun).sort((x,y)=>String(quandA(x)).localeCompare(String(quandA(y)))):[];
-  if(vieux.length)h+=`<div class="cday">À valider, des semaines d'avant</div>`+vieux.map(ligneCal).join('');
-  h+=CALV==='frise'?friseHTML(lun,S):listeCal(lun,S);
+  const vx=vieux.length?`<div class="cday">À valider, des semaines d'avant</div>`+vieux.map(ligneCal).join(''):'';
+  if(!bande)h+=vx;
+  h+=CALV==='frise'?friseHTML(deb,S3,bande?21:7):listeCal(lun,S);
+  if(bande)h+=vx;   /* v33 : sous la frise, pour qu'elle ne saute pas quand la semaine change */
   const sd=CALW===0?A.filter(a=>a.statut==='a_faire'&&!quandA(a)):[];
   if(sd.length)h+=`<div class="cday">Sans date</div>`+sd.map(ligneCal).join('');
   h+=`<div class="hint" style="margin-top:12px">${wide?'Cliquez sur':'Touchez'} une action pour la valider, changer son jour ou son heure, ou l'annuler.</div>`+lienCR()+`</div>`;
   return h;},
  after:()=>{majCouches();body.querySelectorAll('[data-cvw]').forEach(b=>b.onclick=()=>{CALV=b.dataset.cvw;LS.set('calV',CALV);render(true);});
   $('cwP').onclick=()=>{CALW--;render(true);};$('cwN').onclick=()=>{CALW++;render(true);};
-  if(CALV==='frise'&&!wide){const l=lun0();l.setDate(l.getDate()+7*CALW);caleFrise(l);}
+  if(CALV==='frise'&&!wide)bandeFrise();
   const g=$('calG');if(g)g.onchange=()=>{CALG=g.value;render(true);};
   /* le sondage s'ouvre sur la semaine affichée (au plus tôt, celle qu'il propose d'habitude), pour le GA choisi */
   $('calSond').onclick=()=>{const l=lun0();l.setDate(l.getDate()+7*CALW);const m=lundiS(new Date()),G=gaActifs();
