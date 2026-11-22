@@ -575,6 +575,7 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .dk .pill{min-width:0}
 .cbad{width:26px;height:26px;border-radius:13px;background:var(--solid);color:var(--accent);border:2px solid var(--accent);display:grid;place-items:center;font:700 12.5px var(--f);box-shadow:0 1px 4px rgba(0,0,0,.25)}
 .cbad.on{background:var(--brand);color:var(--brand-ink);border-color:var(--solid);width:30px;height:30px;margin:-2px}
+.cbad i{width:8px;height:8px;border-radius:4px;background:var(--accent)}.cbad.on i{background:var(--brand-ink)}   /* v33 : sans chiffre */
 .pscale{height:10px;border-radius:5px;margin-top:6px}
 .pscl{display:flex;justify-content:space-between;font:400 11px var(--f);color:var(--quiet);margin-top:3px}
 .psclw{display:flex;justify-content:space-between;font:600 11.5px var(--f);margin-top:2px}.psclw span:first-child{color:var(--quiet)}.psclw span:last-child{color:var(--p4)}
@@ -657,6 +658,14 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .qq.c2{margin:0 0 8px}.qq.c2>span{font-size:12.5px}.qq.c2 .seg{margin-top:4px}.qq.c2 .seg button{height:34px}
 .chp .prl{flex:none;align-self:center;margin:0;font-size:12.5px}
 .seg3{margin:0 0 8px}.seg3 button{height:34px}
+/* v33 : l'encart replié de Programmer (téléphone) ; le chevron déplie ou replie */
+.dpl{flex:none;width:36px;height:36px;border-radius:18px;border:1px solid var(--line2);background:var(--solid);color:var(--ink);display:grid;place-items:center;padding:0;margin:0}
+.dpl svg{width:18px;height:18px;transition:transform .2s}.deplie .dpl svg{transform:rotate(180deg)}
+.tap2 b small,.tap1 b small{display:block;font:400 12.5px var(--f);color:var(--quiet);margin-top:1px}
+.tap2{margin:0 0 6px}.tap2 b{font-size:15px}.tap1.pli{margin:2px 0 8px;gap:10px}
+.tap1.pli .ti{width:32px;height:32px;border-radius:16px}.tap1.pli .ti svg{width:17px;height:17px}.tap1.pli>span:not(.ti){flex:1;min-width:0}.tap1.pli b{font-size:15px}.tap1.pli small{font-size:12.5px}
+.qtd.q1.pli0{margin:0 0 6px}.qtd.q1 .dpl{margin-left:2px}
+.chp.tt2{margin:0 0 8px}.chp.tt2 button{height:34px;font-size:13px;padding:0 13px}.chp.tt2 button[aria-pressed="true"]{background:var(--tint);border-color:var(--accent);color:var(--accent);font-weight:650}
 /* calendrier */
 .calh{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .calh .sgc{width:auto}
@@ -686,10 +695,11 @@ label.fld .kw input{margin-top:0;height:46px;border-radius:12px;background:var(-
 .frz .fzg{display:grid;grid-template-rows:auto 1fr}
 .frz .fzh{scroll-snap-align:start;text-align:center;font:500 11px var(--f);color:var(--quiet);padding:6px 0 5px;border-bottom:1px solid var(--line2);border-left:1px solid var(--line2)}
 .frz .fzh:first-child{border-left:0}
+.frz .fzh.lun{border-left:2px solid var(--line)}   /* v33 : la bande de trois semaines, un trait plus fort chaque lundi */
 .frz .fzh b{display:block;font:650 14px var(--f);color:var(--ink)}
 .frz .fzh.auj{background:var(--tint)}.frz .fzh.auj b{color:var(--accent)}
 .frz .fcol{display:flex;flex-direction:column;gap:6px;padding:6px 5px 8px;border-left:1px solid var(--line2);min-height:60px;min-width:0}
-.frz .fcol:nth-child(8){border-left:0}
+.frz .fcol.c0{border-left:0}.frz .fcol.lun{border-left:2px solid var(--line)}
 .frz .fcol.auj{background-color:var(--tint)}
 .frz .fb{display:block;width:100%;border:0;border-radius:9px;background:var(--c);color:var(--ci);font:700 12.5px/1.25 var(--f);padding:6px 7px 7px;text-align:left;overflow:hidden;box-sizing:border-box}
 .frz .fb .fbh{display:block;font:800 13.5px/1.2 var(--f);margin-bottom:1px}
