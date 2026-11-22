@@ -38,7 +38,7 @@ function lierPortes(a){let tS=0,dit=false;const enr=()=>{clearTimeout(tS);tS=set
 function tauxMoyen(){const l=ACTIONS.filter(a=>(a.type==='pap'||a.type==='diff_pied')&&a.statut==='faite').map(tauxA).filter(v=>v!=null);
  return l.length?{v:Math.round(l.reduce((s,v)=>s+v,0)/l.length),n:l.length}:null;}
 /* récap du tractage (v27) : chaque lieu, son dernier passage (jour, heure, GA) et le nombre de passages */
-const TYPES_TR=['diff_marche','diff_metro','diff_supermarche','diff_parcours'];
+const TYPES_TR=['diff_marche','diff_metro','diff_supermarche','diff_parcours','diff_ecole'];   /* v33 : l'école */
 function recapTractage(){const P={};ACTIONS.forEach(a=>{if(!TYPES_TR.includes(a.type)||a.statut!=='faite'||!a.etapes[0])return;const l=a.etapes[0].lieu,k=l.t+'|'+l.id;
   const o=P[k]=P[k]||{t:l.t,id:l.id,type:a.type,n:0,der:null,sem:0};o.n++;if(cetteSem(a.faite_le))o.sem++;if(!o.der||String(a.faite_le)>String(o.der.faite_le))o.der=a;});
  return Object.values(P).sort((x,y)=>String(y.der.faite_le).localeCompare(String(x.der.faite_le)));}
@@ -75,8 +75,8 @@ const enCours=()=>ACTIONS.filter(a=>a.statut==='a_faire'&&((a.type==='diff_pied'
 const demain10=()=>isoD(new Date(Date.now()+864e5)).slice(0,10)+'T10:00';
 /* v32 (JL : « plus tard / maintenant : enlever maintenant, garder juste le choix de date ; le maintenant, c'est la date déjà mise
    du jour » ; « toujours le même mode de choix d'horaire, où on met la date et l'heure ») : un seul champ « Quand », déjà rempli */
-function tardHTML(o){if(!o.m||!o.q||o.q.length<16)o.q=maintenant();   /* pas encore touché : toujours maintenant (o.m : choisi à la main) */
- return `<div class="qtd q1"><span class="qlab">Quand</span><div class="rw3"><input type="date" id="qtD" value="${o.q.slice(0,10)}" aria-label="Jour"><input type="time" id="qtT" value="${o.q.slice(11,16)}" aria-label="Heure"></div></div>`;}
+function tardHTML(o,plus){if(!o.m||!o.q||o.q.length<16)o.q=maintenant();   /* pas encore touché : toujours maintenant (o.m : choisi à la main) */
+ return `<div class="qtd q1${plus?' pli0':''}"><span class="qlab">Quand</span><div class="rw3"><input type="date" id="qtD" value="${o.q.slice(0,10)}" aria-label="Jour"><input type="time" id="qtT" value="${o.q.slice(11,16)}" aria-label="Heure"></div>${plus||''}</div>`;}
 function lierTard(o,apres){const d=$('qtD'),t=$('qtT');const fait=()=>{if(apres)apres();else render(true);};
  if(d)d.onchange=()=>{if(d.value){o.q=d.value+o.q.slice(10);o.m=1;fait();}};if(t)t.onchange=()=>{if(t.value){o.q=o.q.slice(0,11)+t.value;o.m=1;fait();}};}
 const duGroupe=g=>ACTIONS.filter(a=>a.groupe===g);
@@ -112,13 +112,15 @@ function vueAccueil(){return {id:'base',html:()=>{if(TMODE==='eq')taille=tailleE
      on touche la carte là où l'on veut le PAP ; la cible reste au choix ; les propositions en pastilles */
   /* v32 (JL, 21/11 : « ce n'est pas un encart, ça prend trop de place ») : trois lignes serrées au téléphone : toucher la carte
      (ou viser), la taille du PAP (inscrits, ou personnes et temps) sur une seule ligne, les propositions en pastilles */
-  let h=`<div class="tap2"><span class="ti">${I.target}</span><b>${wide?'Cliquez sur':'Touchez'} la carte pour placer un PAP</b><button class="btn line sm" id="autre">Viser</button></div>`;
+  /* v33 (JL, 22/11 : « il faut presque que de la carte ») : replié, l'encart n'a que cette ligne ; le chevron montre la taille et les propositions */
+  let h=wide?`<div class="tap2 pli"><span class="ti">${I.target}</span><b>Cliquez sur la carte pour placer un PAP</b><button class="btn line sm" id="autre">Viser</button></div>`
+   :`<div class="tap2 pli"><span class="ti">${I.target}</span><b>Touchez la carte<small>pour un PAP de ${n0(taille)} inscrits</small></b><button class="btn line sm" id="autre">Viser</button>${dplH('Taille du PAP et propositions')}</div>`;
   h+=`<div class="tsz c2"><div class="tsw"><span>Taille du PAP, selon</span>${segH('data-tm',[['ins','inscrits'],['eq','temps']],TMODE)}</div>`+
    (TMODE==='eq'?`<div class="est">Environ <b>${n0(EQN*EQH*PORTES_H)} portes</b>, soit ${n0(taille)} inscrits.</div>`:`<div class="stp"><button data-tp="-1" aria-label="25 inscrits de moins">−</button><b>${n0(taille)} inscrits<small>environ ${n0(portesDe(taille))} portes</small></b><button data-tp="1" aria-label="25 inscrits de plus">+</button></div>`)+`</div>`;
   if(TMODE==='eq')h+=`<div class="qq c2"><span>Vous êtes combien ?</span>${segH('data-en',GENS,EQN)}</div><div class="qq c2"><span>Pendant combien de temps ?</span>${segH('data-eh',DUREES,EQH)}</div>`;
   if(!C.length)h+=`<div class="empty">Aucune adresse prioritaire libre pour cette taille. Essayez une autre taille.</div>`;
   else h+=`<div class="chp" aria-label="Ou une proposition${C[0].cq?', une par quartier':''}"><span class="prl">Ou :</span>${C.map((z,k)=>{const pr=prioMoyIds(z.ids);
-   return `<button class="pkc" data-cs="${k}" title="${esc((z.cq?z.cq+' · ':'')+'priorité '+pr+' · '+pl(z.ids.length,'adresse')+' · '+n0(z.ins)+' inscrits')}"><i style="background:${prioCol(pr)}"></i><b>${k+1}</b>${esc(ruesDe(z.ids)[0]||z.rue)}</button>`;}).join('')}</div>`;
+   return `<button class="pkc" data-cs="${k}" title="${esc((z.cq?z.cq+' · ':'')+'priorité '+pr+' · '+pl(z.ids.length,'adresse')+' · '+n0(z.ins)+' inscrits')}"><i style="background:${prioCol(pr)}"></i>${esc(ruesDe(z.ids)[0]||z.rue)}</button>`;}).join('')}</div>`;
   h+=selBar();
   return h;},
  after:()=>{const p=$('vSel');if(p)p.onclick=()=>detail(vueSel());
@@ -253,7 +255,7 @@ const pvPied=s=>ACTIONS.find(a=>a.type==='diff_pied'&&a.statut==='a_faire'&&a.pl
 function infoPied(s){const r=prioLieu([s.lat,s.lon],'pi',s.geo);return {s,v:r.t?r.v:0,fait:passPied(s.nom)[0],ec:ecPied(s),pv:pvPied(s)};}
 function vuePieds(){return {id:'base',html:()=>{const S=(D.pieds||[]).map(infoPied).sort((x,y)=>y.v-x.v);
   /* v32, 2e temps : plus de cartes d'actions ici (Calendrier) ; une zone proposée, ou n'importe où sur la carte */
-  let h=`<div class="tap1"><span class="ti">${I.pied}</span><span><b>${wide?'Cliquez sur':'Touchez'} une zone, ou n'importe où</b><small>l'appli place le stand et fait les équipes autour</small></span></div>`;
+  let h=`<div class="tap1 pli"><span class="ti">${I.pied}</span><span><b>${wide?'Cliquez sur':'Touchez'} une zone, ou n'importe où</b><small>l'appli place le stand et fait les équipes autour</small></span>${dplH('Voir les zones proposées')}</div>`;   /* v33 : replié, cette ligne seule */
   if(!S.length)return h+`<div class="empty">Aucun secteur de pied d'immeuble dans cette circonscription.</div>`;
   h+=S.map((o,k)=>{const c=prioCol(o.v);return `<button class="sect" data-ps="${D.pieds.indexOf(o.s)}"><span class="pv" style="background:${c};color:${encreSur(c)}">${o.v}</span><span><b>${esc(o.s.nom)}</b>`+
    `<small class="s">Stand : ${esc(standTxt(o.s))}</small><small>${n0(o.s.ins)} inscrits prioritaires dans la zone</small>${o.ec?`<span class="tg ec">${aValider(o.ec)?'À valider':'Programmé le '+esc(quandP(quandA(o.ec)))}</span>`:o.pv?`<span class="tg ec">Programmé le ${esc(quandP(o.pv.prevue))}</span>`:o.fait?`<span class="tg">Fait le ${fmtJ(o.fait.faite_le)}</span>`:''}</span></button>`;}).join('');
@@ -376,7 +378,8 @@ function viseur(on){const avant=VIS;VIS=!!on;let x=$('visr');
  else if(avant&&!wide)setDet(VDET||'half');}
 /* v19 : agrandir la carte (téléphone) : la liste descend, la carte prend l'écran ; une 2e touche la remet */
 /* v23 : si la carte agrandie montre du vide autour du fond de la circo, elle se recadre sur la circo */
-$('fBig').onclick=()=>{setDet(det==='peek'?'half':'peek');setTimeout(()=>{map.invalidateSize();recadrerSiVide();},320);};
+/* v33 : l'encart de Programmer est déjà replié ; « Agrandir la carte » ne laisse que sa poignée */
+$('fBig').onclick=()=>{if(!wide&&app.classList.contains('enc'))setDet(det==='bas'?'peek':'bas');else setDet(det==='peek'?'half':'peek');setTimeout(()=>{map.invalidateSize();recadrerSiVide();},320);};
 const fondB=()=>{const b=D.bounds;return L.latLngBounds([b[0][0]-.004,b[0][1]-.004],[b[1][0]+.004,b[1][1]+.004]);};
 function recadrerSiVide(){if(!D)return;if(!fondB().contains(map.getBounds()))map.flyToBounds(D.bounds,{...pad(),duration:.35});}
 /* un point sûr de la circo : l'adresse la plus proche du milieu de son cadre */
