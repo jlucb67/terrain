@@ -21,6 +21,7 @@ const I={
  home:sv('<path d="M5 11l7-6 7 6v8H5z"/><path d="M10 19v-4.5h4V19"/>'),
  cart:sv('<path d="M3.5 5h2l2 9.5h9.5L19 8.5H7"/><circle cx="9" cy="18.5" r="1.2"/><circle cx="16.5" cy="18.5" r="1.2"/>',2.2),
  basket:sv('<path d="M4.5 10h15l-1.8 8.5H6.3z"/><path d="M8.5 10l3.5-5 3.5 5"/>',2.2),
+ ecole:sv('<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.5c3.2 2.4 7.8 2.4 11 0v-4.5"/>',2.1),
  grid:sv('<path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z"/>'),
  tract:sv('<path d="M7 3.5h7l4 4V20.5H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/>'),
  pied:sv('<path d="M4.5 20.5V8l5-3v15.5M9.5 20.5V10.5h6v10M15.5 20.5V13h4v7.5M3 20.5h18"/>',2.2),
@@ -44,11 +45,16 @@ const PEEK=170;
 /* porte-à-porte, accueil : le tiroir bas montre en entier une carte des PAP conseillés */
 const pk=()=>{try{return ONG==='pap'&&stack.length===1&&stack[0].id==='base'?300:PEEK;}catch(e){return PEEK;}};
 const TB=()=>$('tabbar').hidden||wide?0:$('tabbar').offsetHeight;
-function hOf(d){const H=app.clientHeight-TB();if(app.classList.contains('tabs')){if(d==='half'||d==='fit'){const mx=Math.round(H*(app.classList.contains('enc')?.5:.58));
+/* v33 (22/11/2026, JL : « sur tel la partie basse est toujours trop grande, il faut presque que de la carte ») : replié (peek),
+   l'encart de Programmer ne montre que le choix du haut et ses premières lignes, jusqu'à celle marquée « pli » ; le reste en le
+   tirant vers le haut, ou d'une touche sur le chevron */
+function miniH(){const ex=sheet.offsetHeight-body.clientHeight,r=body.getBoundingClientRect();let c=0;
+ for(const e of body.children){const q=e.getBoundingClientRect();c=Math.max(c,q.bottom-r.top+body.scrollTop);if(e.classList.contains('pli'))break;}return Math.max(96,Math.ceil(c+3+ex));}
+function hOf(d){const H=app.clientHeight-TB();if(d==='bas')return 30;if(app.classList.contains('tabs')){if(d==='half'||d==='fit'){const mx=Math.round(H*(app.classList.contains('enc')?.5:.58));
   /* v32 (JL : « un petit encart ») : l'accueil de Programmer prend la hauteur de son contenu, la carte le reste */
   if(app.classList.contains('enc')){const ex=sheet.offsetHeight-body.clientHeight,r=body.getBoundingClientRect();let c=0;for(const e of body.children){const q=e.getBoundingClientRect();c=Math.max(c,q.bottom-r.top+body.scrollTop);}
-   c+=parseFloat(getComputedStyle(body).paddingBottom)||0;return Math.max(150,Math.min(mx,Math.ceil(c+ex)));}return mx;}if(d==='peek')return 112;}return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
-function setDet(d){try{if(app.classList.contains('page'))d='full';}catch(e){}det=d;if(wide){app.style.setProperty('--sh','0px');return;}const h=hOf(d);app.style.setProperty('--sh',h+'px');sheet.style.height=h+'px';}
+   c+=parseFloat(getComputedStyle(body).paddingBottom)||0;return Math.max(150,Math.min(mx,Math.ceil(c+ex)));}return mx;}if(d==='peek')return app.classList.contains('enc')?miniH():112;}return d==='peek'?pk():d==='fit'?(choix?Math.min(Math.round(H*.5),300):150):d==='half'?Math.round(H*.5):H-76;}
+function setDet(d){try{if(app.classList.contains('page'))d='full';}catch(e){}det=d;app.classList.toggle('deplie',d!=='peek');if(d==='peek'&&app.classList.contains('enc'))body.scrollTop=0;if(wide){app.style.setProperty('--sh','0px');return;}const h=hOf(d);app.style.setProperty('--sh',h+'px');sheet.style.height=h+'px';}
 matchMedia('(min-width:900px)').addEventListener('change',e=>{wide=e.matches;sheet.style.height='';setDet(det);});
 addEventListener('resize',()=>setDet(det));
 (()=>{let y0=0,h0=0,t0=0,on=false;
